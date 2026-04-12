@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout website repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: spraxium/website
           token: ${{ secrets.CROSS_REPO_TOKEN }}
