@@ -13,11 +13,12 @@ jobs:
         with:
           repository: spraxium/website
           token: ${{ secrets.CROSS_REPO_TOKEN }}
-          submodules: recursive
+          submodules: true
+          fetch-depth: 0
 
       - name: Update content submodule to latest
         run: |
-          git submodule update --remote content
+          git submodule update --init --recursive
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add content
