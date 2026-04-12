@@ -1,0 +1,163 @@
+---
+title: Denials and Exception Integration
+description: |
+  Understand what happens when a guard denies execution and how the framework handles it.
+  Learn when to return false versus throwing a custom exception from inside a guard.
+order: 4
+category: Guards
+---
+
+## What happens when a guard returns false
+
+When a guard's *canActivate* method returns false, the framework stops the execution pipeline immediately. The handler method never runs, and no further guards in the chain are evaluated. Behind the scenes, the framework wraps the denial into a *GuardDeniedException* and passes it to the exception pipeline. If you have an exception layout mapped to *GuardDeniedException*, the user sees whatever response that layout renders. If you do not have a mapping, the default exception behavior applies.
+
+This means you do not need to write any reply logic inside the guard itself. The guard returns false, the framework creates the exception, and the exception layer handles the user-facing response. This separation keeps guards simple and lets you control the denial UX from one central place in your exception layout configuration instead of scattering reply logic across dozens of guard classes.
+
+The practical benefit is consistency. Every guard denial in your entire bot goes through the same exception pipeline, which means users always see the same style of denial response regardless of which specific guard blocked them. If you decide to change how denials look, you update one layout and every guard denial updates automatically.
+
+## Returning false versus throwing an exception
+
+You have two options inside a guard: return false for a standard denial, or throw a custom exception for a specific scenario. The default approach should be returning false because it is simpler, keeps the guard class minimal, and lets the framework handle the rest through *GuardDeniedException*. Most guards you write will simply return false when the check fails.
+
+```typescript filename="guild-only.guard.ts"
+import { Guard } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+
+@Guard()
+export class GuildOnlyGuard implements SpraxiumGuard {
+  canActivate(ctx: ExecutionContext): boolean {
+    // simple denial: return false, framework creates GuardDeniedException
+    return ctx.getGuildId() !== null;
+  }
+}
+```
+
+However, sometimes a generic "access denied" response is not enough. When you need to tell the user exactly why they were blocked, include domain-specific data in the denial, or render a custom layout for a particular failure scenario, throw a custom exception instead of returning false. The thrown exception bypasses the automatic *GuardDeniedException* wrapping and goes directly through the exception pipeline with its own class identity, code, message, and props.
+
+```typescript filename="moderator.guard.ts"
+import { Guard } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+import { PermissionDeniedException } from '@spraxium/core';
+
+@Guard()
+export class ModeratorGuard implements SpraxiumGuard {
+  canActivate(ctx: ExecutionContext): boolean {
+    const member = ctx.getMember();
+    if (!member || !('roles' in member)) {
+      throw new PermissionDeniedException({
+        reason: 'Could not resolve your server membership.',
+      });
+    }
+
+    const hasRole = member.roles.cache.some((r) => r.name === 'Moderator');
+    if (!hasRole) {
+      throw new PermissionDeniedException({
+        reason: 'You need the Moderator role to use this command.',
+      });
+    }
+
+    return true;
+  }
+}
+```
+
+The choice between the two approaches comes down to how specific the denial response needs to be. If a generic "access denied" layout works for your case, return false. If the user needs to understand the specific reason for the denial, throw a named exception with context data that the layout can use.
+
+## Mapping denial layouts
+
+To control what users see when a guard denies execution, map exception classes to layouts in your *spraxium.config.ts* file. The framework checks the exception class name against the layout mapping and uses the matching layout to render the response. If no specific mapping exists, the default layout applies.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { DefaultLayout } from './layouts/default.layout';
+import { AccessDeniedLayout } from './layouts/access-denied.layout';
+import { PermissionDeniedLayout } from './layouts/permission-denied.layout';
+
+export default defineConfig({
+  exceptions: {
+    logUnhandled: true,
+    layouts: {
+      default: DefaultLayout,
+      GuardDeniedException: AccessDeniedLayout,
+      PermissionDeniedException: PermissionDeniedLayout,
+    },
+  },
+});
+```
+
+With this configuration, every guard that returns false triggers the *AccessDeniedLayout*. Every guard that throws *PermissionDeniedException* triggers the *PermissionDeniedLayout*. This layered approach means you can have a generic denial layout for most guards while reserving specific layouts for guards that throw domain-specific exceptions.
+
+The layout receives the exception instance, which gives you access to the *code*, *message*, and *props* fields. Your layout can use these to render a detailed response that tells the user what happened and what they can do about it, all without the guard itself knowing anything about the response format.
+
+## Practical example: a guard that throws with context
+
+Here is a complete example of a guard that checks premium subscription status and throws a custom exception with details the layout can use. This pattern is common in bots that have tiered access where some features are restricted to paying users.
+
+<CodeTabs>
+  <Tab label="Guard" language="typescript">
+```typescript filename="premium.guard.ts"
+import { Guard, GuardOption } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+import { SpraxiumException } from '@spraxium/core';
+
+class PremiumRequiredException extends SpraxiumException {
+  constructor(props: { requiredTier: string; currentTier: string }) {
+    super({
+      code: 'PREMIUM_REQUIRED',
+      message: 'This feature requires the {{requiredTier}} plan.',
+      props,
+    });
+  }
+}
+
+@Guard()
+export class PremiumGuard implements SpraxiumGuard {
+  @GuardOption({ required: true })
+  requiredTier!: string;
+
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const userId = ctx.getUserId();
+    const currentTier = await this.lookupTier(userId);
+
+    if (!this.meetsRequirement(currentTier, this.requiredTier)) {
+      throw new PremiumRequiredException({
+        requiredTier: this.requiredTier,
+        currentTier: currentTier ?? 'free',
+      });
+    }
+
+    return true;
+  }
+
+  private async lookupTier(userId: string): Promise<string | null> {
+    // replace with actual database or API lookup
+    return null;
+  }
+
+  private meetsRequirement(current: string | null, required: string): boolean {
+    const tierOrder = ['free', 'basic', 'pro', 'enterprise'];
+    return tierOrder.indexOf(current ?? 'free') >= tierOrder.indexOf(required);
+  }
+}
+```
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="analytics.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { PremiumGuard } from '../guards/premium.guard';
+
+@UseGuards(withOptions(PremiumGuard, { requiredTier: 'pro' }))
+export class AnalyticsHandler {
+  async handle() {
+    // only pro-tier users reach this handler
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+The guard checks the user's subscription tier asynchronously, and if the requirement is not met, it throws *PremiumRequiredException* with both the required and current tiers. The exception layout can then render a response like "This feature requires the Pro plan. You are currently on the Free plan." without the guard containing any response formatting logic.
+
+<Callout tone="warning" title="Keep guard logic focused">
+  Even when throwing exceptions, a guard should only check access conditions. Do not put business logic like creating records, sending external notifications, or updating state inside a guard's canActivate method.
+</Callout>

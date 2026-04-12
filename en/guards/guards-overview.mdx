@@ -1,0 +1,127 @@
+---
+title: Guard Fundamentals
+description: |
+  Guards decide whether a command or listener can execute before the handler runs.
+  Learn the guard model, the execution pipeline, and the context available to every guard.
+order: 1
+category: Guards
+---
+
+## What a guard is
+
+A guard is a class that answers one question before any command or listener runs: should this execution continue? If the guard says yes, the handler proceeds normally. If the guard says no, the framework stops execution immediately and the handler method never runs. This is the core concept behind guards in Spraxium, and everything else in this category builds on top of this simple allow-or-deny decision.
+
+In practice, this means you do not need to write permission checks, role validations, or rate limit logic inside every handler method. Instead, you write that logic once in a guard class and attach it wherever it applies. The guard runs automatically before the handler, and the handler only deals with business logic because the authorization boundary already happened. This keeps your command handlers clean and your access policy centralized in dedicated, reusable classes.
+
+Guards also integrate with the exception layer. When a guard denies execution, the framework can render a user-facing response through exception layouts without the handler ever needing to know about it. This separation is what makes guards a proper architectural boundary instead of just a utility function you call manually at the top of every handler.
+
+## The SpraxiumGuard interface
+
+Every guard implements the *SpraxiumGuard* interface, which requires a single method called *canActivate*. This method receives the current *ExecutionContext* and must return a boolean or a promise that resolves to a boolean. If the method returns true, execution continues to the next guard or to the handler. If it returns false, execution stops and the framework treats it as a denial.
+
+```typescript filename="guild-only.guard.ts"
+import { Guard } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+
+@Guard()
+export class GuildOnlyGuard implements SpraxiumGuard {
+  canActivate(ctx: ExecutionContext): boolean {
+    return ctx.getGuildId() !== null;
+  }
+}
+```
+
+The *canActivate* method supports both synchronous and asynchronous returns. If your guard needs to check a database, call an external API, or perform any async operation to decide whether execution should continue, you can return a *Promise* and the framework will await the result before making its decision. This flexibility means that guards work equally well for instant checks like verifying guild context and for heavier checks like querying a subscription database or an external permissions service.
+
+## The ExecutionContext
+
+The *ExecutionContext* is the object passed to every guard's *canActivate* method. It wraps either a Discord interaction or a message and provides a unified API so your guard does not need to care whether the command was triggered through a slash command or a prefix command. Every method on the context extracts a specific piece of information about who triggered the execution and where it happened.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Method</TableCell>
+      <TableCell header>Return type</TableCell>
+      <TableCell header>What it gives you</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*getUserId()*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>The Discord snowflake ID of the user who triggered the command</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getUser()*</TableCell>
+      <TableCell>User</TableCell>
+      <TableCell>The full Discord.js User object of the triggering user</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getGuildId()*</TableCell>
+      <TableCell>string or null</TableCell>
+      <TableCell>The guild snowflake ID, or null when the command runs in a DM</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getChannelId()*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>The channel snowflake ID where the command was triggered</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getCommandName()*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>The name of the command or event that triggered execution</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getMember()*</TableCell>
+      <TableCell>GuildMember or null</TableCell>
+      <TableCell>The resolved guild member, or null in DMs or when not cached</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getMemberPermissions()*</TableCell>
+      <TableCell>PermissionsBitField or null</TableCell>
+      <TableCell>The resolved Discord permissions for the member, or null in DMs</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getInteraction()*</TableCell>
+      <TableCell>BaseInteraction or Message</TableCell>
+      <TableCell>The raw Discord.js interaction or message backing this context</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*isSlashCommand()*</TableCell>
+      <TableCell>boolean</TableCell>
+      <TableCell>True when the handler was triggered through a slash interaction</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*isPrefixCommand()*</TableCell>
+      <TableCell>boolean</TableCell>
+      <TableCell>True when the handler was triggered through a prefix text message</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+You might wonder why both *getUserId* and *getUser* exist when one seems redundant. The reason is performance: if your guard only needs to compare the user ID against a list of owner IDs, calling *getUserId* avoids resolving the full User object. If your guard needs more information like the account creation date or avatar URL, *getUser* gives you the complete object. Use whichever one fits the specific check your guard needs to perform.
+
+## The execution pipeline
+
+Guards do not run in a random order. Spraxium evaluates them in three layers, always in the same sequence: global guards first, then class-level guards, then method-level guards. If all guards across all three layers return true, the handler method executes. If any single guard returns false or throws an exception at any point in the chain, execution stops immediately and every remaining guard is skipped entirely.
+
+<Steps>
+  <Step title="Global guards run first">
+    These are registered during application bootstrap with *useGlobalGuards* on the *SpraxiumApplication* instance. They apply to every command and every guarded listener in the entire application, which makes them the right place for broad rules like blocking bot accounts, restricting access during maintenance, or applying a global rate limit.
+  </Step>
+  <Step title="Class-level guards run second">
+    These are attached with *UseGuards* on the handler or listener class. They apply to every method inside that class, which is useful when all commands in a module share the same access requirement. A typical example is attaching a role guard on the class so every subcommand under a moderation handler requires the Moderator role.
+  </Step>
+  <Step title="Method-level guards run last">
+    These are attached with *UseGuards* directly on a specific method. They apply only to that one method, which lets you add stricter requirements for sensitive operations like banning users or resetting data without affecting the rest of the class methods.
+  </Step>
+  <Step title="Handler executes">
+    Only after every guard in every layer has returned true does the framework call the actual handler method. If your code reaches the handler, you can be confident that all configured access policies have already been satisfied for the current execution context.
+  </Step>
+</Steps>
+
+This pipeline uses short-circuit evaluation. The moment any guard denies execution, the framework stops evaluating and moves straight to denial handling. This is important for performance because you should place low-cost checks before expensive ones whenever possible. For example, a simple guild-only check that reads a property should come before a database lookup that verifies premium subscription status.
+
+<Callout tone="info" title="Guard versus business logic">
+  A guard answers "can this run?" and nothing else. The handler answers "what should happen?". Keep these responsibilities separate so guards stay small, reusable, and easy to test independently.
+</Callout>

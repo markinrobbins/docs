@@ -1,0 +1,128 @@
+---
+title: Guard Registration and Scope
+description: |
+  Create custom guards with the Guard decorator and apply them through UseGuards.
+  Understand how global, class, and method scopes combine to form a complete access policy.
+order: 2
+category: Guards
+---
+
+## Creating a guard with @Guard
+
+To create a guard, you write a class decorated with *@Guard()* that implements the *SpraxiumGuard* interface. The decorator marks the class as a guard in the framework's metadata system, and the interface enforces the *canActivate* method that the pipeline calls at runtime. This is the same pattern for every guard you will ever write, whether it checks a simple property or queries an external service.
+
+```typescript filename="guild-only.guard.ts"
+import { Guard } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+
+@Guard()
+export class GuildOnlyGuard implements SpraxiumGuard {
+  canActivate(ctx: ExecutionContext): boolean {
+    return ctx.getGuildId() !== null;
+  }
+}
+```
+
+The guard above checks whether the command was triggered inside a guild. If *getGuildId* returns null, the user is in a DM and the guard denies execution. Notice that the guard does not send any reply or log anything when it denies. That is intentional: the guard's only job is the allow-or-deny decision, and the framework handles the rest through the exception pipeline.
+
+Keep each guard focused on a single responsibility. A guard that checks both role membership and channel type is harder to reuse than two separate guards, one for the role and one for the channel. Smaller guards compose better and are easier to test because each one has exactly one reason to fail.
+
+## Applying guards with @UseGuards
+
+The *@UseGuards* decorator attaches guards to a class or a specific method. When placed on a class, every method in that class runs through those guards. When placed on a method, only that specific method gets the extra guards. You can use both at the same time, and the class-level guards always run before the method-level ones.
+
+You can also stack multiple guards in a single *@UseGuards* call. They will be evaluated in the order you list them, which means you control the evaluation sequence explicitly. Place cheap checks before expensive ones so the pipeline can short-circuit early without running unnecessary work. When you need method-level guards on top of class-level guards, the class guards still run first. The method guards add an extra layer of restriction that only applies to that specific method, which is useful when a command module has a general access requirement but one particular subcommand needs additional permissions.
+
+<CodeTabs>
+  <Tab label="Class Scope" language="typescript">
+```typescript filename="moderation.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { RoleGuard } from '@spraxium/core';
+
+@UseGuards(withOptions(RoleGuard, { roles: ['Moderator'] }))
+export class ModerationHandler {
+  async handle() {
+    // every method in this class requires the Moderator role
+  }
+}
+```
+  </Tab>
+  <Tab label="Stacked Guards" language="typescript">
+```typescript filename="admin.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { GuildOnly, PermissionGuard, RoleGuard } from '@spraxium/core';
+
+@UseGuards(
+  GuildOnly,
+  withOptions(RoleGuard, { roles: ['Admin'] }),
+  withOptions(PermissionGuard, { permissions: ['BanMembers'] }),
+)
+export class AdminHandler {
+  async handle() {
+    // guild check runs first, then role, then permission
+  }
+}
+```
+  </Tab>
+  <Tab label="Class + Method" language="typescript">
+```typescript filename="settings.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { GuildOnly, PermissionGuard } from '@spraxium/core';
+
+@UseGuards(GuildOnly)
+export class SettingsHandler {
+  async viewSettings() {
+    // only requires guild context from the class guard
+  }
+
+  @UseGuards(withOptions(PermissionGuard, { permissions: ['ManageGuild'] }))
+  async editSettings() {
+    // requires guild context AND ManageGuild permission
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Global guards with useGlobalGuards
+
+Global guards run before every class-level and method-level guard in the entire application. You register them during bootstrap on the *SpraxiumApplication* instance using the *useGlobalGuards* method. This is the right place for rules that apply everywhere, like blocking bot accounts, restricting the bot to specific owner IDs during development, or applying a global maintenance mode.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { NoBotGuard, OwnerOnly } from '@spraxium/core';
+
+const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN! });
+
+app.useGlobalGuards(NoBotGuard);
+app.useGlobalGuards(OwnerOnly, { ownerIds: ['123456789', '987654321'] });
+
+await app.listen();
+```
+
+The method accepts a guard class as the first argument and an optional options object as the second argument. If the guard requires options like *OwnerOnly* needing an array of owner IDs, you pass them directly as the second parameter. If the guard has no options like *NoBotGuard*, you pass just the class.
+
+Be intentional about what goes into global scope. A guard that only matters for moderation commands does not belong in global registration because it would run on every command including non-moderation ones. Move feature-specific guards to class or method scope, and reserve global scope for truly universal rules.
+
+## Understanding the combined pipeline
+
+When global, class, and method guards are all present, they form a single ordered pipeline that executes as one continuous chain. The framework does not separate them into independent checks. It processes them sequentially: all global guards first, then all class guards, then all method guards. If any guard anywhere in the chain denies, everything after it is skipped.
+
+```typescript filename="example-pipeline.ts"
+// Global: NoBotGuard -> OwnerOnly
+// Class:  RoleGuard({ roles: ['Moderator'] })
+// Method: PermissionGuard({ permissions: ['BanMembers'] })
+
+// Runtime order:
+// 1. NoBotGuard.canActivate(ctx)
+// 2. OwnerOnly.canActivate(ctx)
+// 3. RoleGuard.canActivate(ctx)
+// 4. PermissionGuard.canActivate(ctx)
+// 5. handler executes
+```
+
+This predictable ordering means your team can always reason about which guards run and in what order by looking at three places: the bootstrap file for global guards, the class decorator for class guards, and the method decorator for method guards. There are no hidden ordering surprises or conditional evaluation paths.
+
+<Callout tone="warning" title="Avoid duplicating policy across scopes">
+  If a guard already runs at global scope, do not attach the same guard again at class or method scope. Duplicate guards waste runtime cycles and create confusion about where the policy is actually enforced.
+</Callout>

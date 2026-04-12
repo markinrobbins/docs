@@ -1,0 +1,128 @@
+---
+title: Registro e Escopo de Guards
+description: |
+  Crie guards customizados com o decorator Guard e aplique com UseGuards.
+  Entenda como escopos global, classe e metodo se combinam pra formar uma politica de acesso completa.
+order: 2
+category: Guards
+---
+
+## Criando um guard com @Guard
+
+Pra criar um guard, voce escreve uma classe decorada com *@Guard()* que implementa a interface *SpraxiumGuard*. O decorator marca a classe como guard no sistema de metadata do framework, e a interface exige o metodo *canActivate* que o pipeline chama em runtime. Esse e o mesmo padrao pra qualquer guard que voce vai escrever, seja checando uma propriedade simples ou consultando um servico externo.
+
+```typescript filename="guild-only.guard.ts"
+import { Guard } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+
+@Guard()
+export class GuildOnlyGuard implements SpraxiumGuard {
+  canActivate(ctx: ExecutionContext): boolean {
+    return ctx.getGuildId() !== null;
+  }
+}
+```
+
+O guard acima checa se o comando foi acionado dentro de uma guild. Se *getGuildId* retorna null, o usuario esta em DM e o guard nega a execucao. Note que o guard nao envia nenhuma resposta nem loga nada quando nega. Isso e intencional: o unico trabalho do guard e a decisao de permitir ou negar, e o framework cuida do resto atraves do pipeline de exceptions.
+
+Mantenha cada guard focado em uma unica responsabilidade. Um guard que checa tanto membership de role quanto tipo de canal e mais dificil de reutilizar do que dois guards separados, um pra role e outro pro canal. Guards menores compoe melhor e sao mais faceis de testar porque cada um tem exatamente um motivo pra falhar.
+
+## Aplicando guards com @UseGuards
+
+O decorator *@UseGuards* aplica guards a uma classe ou metodo especifico. Quando colocado na classe, todo metodo daquela classe passa por aqueles guards. Quando colocado num metodo, apenas aquele metodo especifico recebe os guards extras. Voce pode usar ambos ao mesmo tempo, e os guards de classe sempre rodam antes dos de metodo.
+
+Voce tambem pode empilhar multiplos guards em uma unica chamada de *@UseGuards*. Eles serao avaliados na ordem em que voce lista, o que significa que voce controla a sequencia de avaliacao explicitamente. Coloque checagens baratas antes das caras pra que o pipeline possa fazer short-circuit cedo sem rodar trabalho desnecessario. Quando voce precisa de guards de metodo alem dos guards de classe, os guards de classe ainda rodam primeiro. Os guards de metodo adicionam uma camada extra de restricao que so se aplica aquele metodo especifico, o que e util quando um modulo de comandos tem um requisito geral de acesso mas um subcommand particular precisa de permissoes adicionais.
+
+<CodeTabs>
+  <Tab label="Escopo de Classe" language="typescript">
+```typescript filename="moderation.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { RoleGuard } from '@spraxium/core';
+
+@UseGuards(withOptions(RoleGuard, { roles: ['Moderator'] }))
+export class ModerationHandler {
+  async handle() {
+    // todo metodo nessa classe exige a role Moderator
+  }
+}
+```
+  </Tab>
+  <Tab label="Guards Empilhados" language="typescript">
+```typescript filename="admin.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { GuildOnly, PermissionGuard, RoleGuard } from '@spraxium/core';
+
+@UseGuards(
+  GuildOnly,
+  withOptions(RoleGuard, { roles: ['Admin'] }),
+  withOptions(PermissionGuard, { permissions: ['BanMembers'] }),
+)
+export class AdminHandler {
+  async handle() {
+    // checagem de guild roda primeiro, depois role, depois permissao
+  }
+}
+```
+  </Tab>
+  <Tab label="Classe + Metodo" language="typescript">
+```typescript filename="settings.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { GuildOnly, PermissionGuard } from '@spraxium/core';
+
+@UseGuards(GuildOnly)
+export class SettingsHandler {
+  async viewSettings() {
+    // so precisa de contexto de guild do guard de classe
+  }
+
+  @UseGuards(withOptions(PermissionGuard, { permissions: ['ManageGuild'] }))
+  async editSettings() {
+    // precisa de contexto de guild E permissao ManageGuild
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Guards globais com useGlobalGuards
+
+Guards globais rodam antes de todo guard de classe e de metodo na aplicacao inteira. Voce os registra durante o bootstrap na instancia *SpraxiumApplication* usando o metodo *useGlobalGuards*. Esse e o lugar certo pra regras que se aplicam em todo lugar, como bloquear contas de bot, restringir o bot a IDs especificos de owner durante desenvolvimento, ou aplicar um modo de manutencao global.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { NoBotGuard, OwnerOnly } from '@spraxium/core';
+
+const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN! });
+
+app.useGlobalGuards(NoBotGuard);
+app.useGlobalGuards(OwnerOnly, { ownerIds: ['123456789', '987654321'] });
+
+await app.listen();
+```
+
+O metodo aceita uma classe guard como primeiro argumento e um objeto de opcoes opcional como segundo. Se o guard precisa de opcoes como *OwnerOnly* precisando de um array de owner IDs, voce passa diretamente como segundo parametro. Se o guard nao tem opcoes como *NoBotGuard*, voce passa apenas a classe.
+
+Seja intencional sobre o que vai no escopo global. Um guard que so importa pra comandos de moderacao nao pertence ao registro global porque rodaria em todo comando incluindo os de nao-moderacao. Mova guards especificos de feature pra escopo de classe ou metodo, e reserve o escopo global pra regras verdadeiramente universais.
+
+## Entendendo o pipeline combinado
+
+Quando guards globais, de classe e de metodo estao todos presentes, eles formam um unico pipeline ordenado que executa como uma cadeia continua. O framework nao os separa em checagens independentes. Ele processa sequencialmente: todos os guards globais primeiro, depois todos os de classe, depois todos os de metodo. Se qualquer guard em qualquer ponto da cadeia nega, tudo depois dele e pulado.
+
+```typescript filename="example-pipeline.ts"
+// Global: NoBotGuard -> OwnerOnly
+// Classe: RoleGuard({ roles: ['Moderator'] })
+// Metodo: PermissionGuard({ permissions: ['BanMembers'] })
+
+// Ordem no runtime:
+// 1. NoBotGuard.canActivate(ctx)
+// 2. OwnerOnly.canActivate(ctx)
+// 3. RoleGuard.canActivate(ctx)
+// 4. PermissionGuard.canActivate(ctx)
+// 5. handler executa
+```
+
+Essa ordenacao previsivel significa que sua equipe sempre pode entender quais guards rodam e em que ordem olhando tres lugares: o arquivo de bootstrap pros guards globais, o decorator de classe pros guards de classe, e o decorator de metodo pros guards de metodo. Nao existem surpresas escondidas de ordenacao ou caminhos condicionais de avaliacao.
+
+<Callout tone="warning" title="Evite duplicar politica entre escopos">
+  Se um guard ja roda no escopo global, nao aplique o mesmo guard novamente no escopo de classe ou metodo. Guards duplicados desperdicam ciclos de runtime e criam confusao sobre onde a politica esta realmente sendo aplicada.
+</Callout>

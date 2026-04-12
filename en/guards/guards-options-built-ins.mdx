@@ -1,0 +1,259 @@
+---
+title: Options and Built-in Guards
+description: |
+  Make guards configurable with GuardOption and the withOptions helper for typed parameters.
+  Explore all ten built-in guards available in the core package and how to use each one.
+order: 3
+category: Guards
+---
+
+## Making guards configurable with @GuardOption
+
+Some guards need parameters to work. A role guard needs to know which roles to check, a cooldown guard needs to know the time window, and a permission guard needs to know which permissions to require. Instead of hardcoding these values inside the guard class, you declare configurable properties with the *@GuardOption* decorator and pass values when you attach the guard.
+
+The *@GuardOption* decorator accepts a configuration object with two optional fields. The *required* field makes the option mandatory, meaning the framework throws a configuration error at runtime if the option is not provided. The *default* field sets a fallback value that applies when no value is passed explicitly. If neither *required* nor *default* is set, the option is simply optional and will be undefined if not provided.
+
+```typescript filename="min-roles.guard.ts"
+import { Guard, GuardOption } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+
+@Guard()
+export class MinRolesGuard implements SpraxiumGuard {
+  @GuardOption({ default: 1 })
+  minRoles!: number;
+
+  canActivate(ctx: ExecutionContext): boolean {
+    const member = ctx.getMember();
+    if (!member || !('roles' in member)) return false;
+    return member.roles.cache.size >= this.minRoles;
+  }
+}
+```
+
+In the example above, the *minRoles* property has a default of 1, so if you attach this guard without specifying a value, it will require at least one role. If you want a different threshold, you pass it through *withOptions* when attaching the guard.
+
+## The withOptions helper
+
+The *withOptions* function is how you pass typed options to a guard when attaching it with *@UseGuards*. It takes the guard class as the first argument and an options object as the second. The TypeScript type system infers the shape of the options from the guard's *@GuardOption* properties, so you get autocompletion and type errors if you pass the wrong shape.
+
+```typescript filename="moderation.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { PermissionGuard, RoleGuard } from '@spraxium/core';
+import { MinRolesGuard } from '../guards/min-roles.guard';
+
+@UseGuards(
+  withOptions(RoleGuard, { roles: ['Moderator'] }),
+  withOptions(PermissionGuard, { permissions: ['BanMembers'] }),
+  withOptions(MinRolesGuard, { minRoles: 3 }),
+)
+export class ModerationHandler {
+  async handle() {
+    // all three guards must pass before this runs
+  }
+}
+```
+
+If you do not need to pass options because the guard has no required options or its defaults are sufficient, you can pass the guard class directly without *withOptions*. Both styles work in the same *@UseGuards* call, so you can mix guards that need options with guards that do not.
+
+```typescript filename="mixed-guards.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { GuildOnly, RoleGuard } from '@spraxium/core';
+
+@UseGuards(GuildOnly, withOptions(RoleGuard, { roles: ['Admin'] }))
+export class MixedHandler {
+  async handle() {
+    // GuildOnly needs no options, RoleGuard needs roles
+  }
+}
+```
+
+## Built-in guards
+
+Spraxium ships ten built-in guards in the core package that cover the most common Discord access patterns. Each guard is already decorated with *@Guard()* and ready to use with *@UseGuards* or *useGlobalGuards*. The table below shows every built-in guard, what it checks, and what options it expects.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Guard</TableCell>
+      <TableCell header>What it checks</TableCell>
+      <TableCell header>Options</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*GuildOnly*</TableCell>
+      <TableCell>Denies if the command runs in a DM</TableCell>
+      <TableCell>None</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*DMOnly*</TableCell>
+      <TableCell>Denies if the command runs inside a guild</TableCell>
+      <TableCell>None</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*OwnerOnly*</TableCell>
+      <TableCell>Denies if the user ID is not in the configured owner list</TableCell>
+      <TableCell>*ownerIds*: string[] (required)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PermissionGuard*</TableCell>
+      <TableCell>Denies if the member lacks any of the required Discord permissions</TableCell>
+      <TableCell>*permissions*: PermissionsString[] (required)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*RoleGuard*</TableCell>
+      <TableCell>Denies if the member has none of the specified roles by name or ID</TableCell>
+      <TableCell>*roles*: string[] (required)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*CooldownGuard*</TableCell>
+      <TableCell>Denies if the user triggered the same command within the cooldown window</TableCell>
+      <TableCell>*cooldown*: number in milliseconds (required)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*NoBotGuard*</TableCell>
+      <TableCell>Denies if the triggering user is a bot account</TableCell>
+      <TableCell>None</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*NSFWGuard*</TableCell>
+      <TableCell>Denies if the channel is not marked as NSFW</TableCell>
+      <TableCell>None</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*ThreadOnlyGuard*</TableCell>
+      <TableCell>Denies if the channel is not a thread</TableCell>
+      <TableCell>None</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*VoiceChannelGuard*</TableCell>
+      <TableCell>Denies if the member is not connected to a voice channel</TableCell>
+      <TableCell>None</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Using built-in guards
+
+Built-in guards without options can be passed directly to *@UseGuards* or *useGlobalGuards*. Guards with required options must use *withOptions* or the second parameter of *useGlobalGuards*. Here are practical examples that show the most common patterns.
+
+<CodeTabs>
+  <Tab label="Global Registration" language="typescript">
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { NoBotGuard, OwnerOnly, CooldownGuard } from '@spraxium/core';
+
+const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN! });
+
+app.useGlobalGuards(NoBotGuard);
+app.useGlobalGuards(OwnerOnly, { ownerIds: ['123456789'] });
+app.useGlobalGuards(CooldownGuard, { cooldown: 3000 });
+
+await app.listen();
+```
+  </Tab>
+  <Tab label="Class & Method" language="typescript">
+```typescript filename="moderation.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { GuildOnly, PermissionGuard, RoleGuard } from '@spraxium/core';
+
+@UseGuards(
+  GuildOnly,
+  withOptions(RoleGuard, { roles: ['Moderator', 'Admin'] }),
+)
+export class ModerationHandler {
+  @UseGuards(withOptions(PermissionGuard, { permissions: ['BanMembers'] }))
+  async handleBan() {
+    // guild + role check on class, permission check on this method only
+  }
+
+  async handleWarn() {
+    // only guild + role check from the class guard
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+The *RoleGuard* checks if the member has at least one of the listed roles. You can pass role names like "Moderator" or role snowflake IDs like "1234567890". The *PermissionGuard* checks if the member has all of the listed permissions, using Discord.js permission strings like "BanMembers", "ManageGuild", or "Administrator".
+
+## Creating a custom guard with options
+
+When the built-in guards do not cover your use case, you create a custom guard that declares configurable properties through *@GuardOption*. The guard class defines what parameters it needs, and every place that uses it provides the concrete values through *withOptions*. This pattern is how built-in guards like *RoleGuard* and *CooldownGuard* work internally, and you follow the exact same approach for your own guards.
+
+<Steps>
+  <Step title="Define the guard class with @Guard">
+    Start with a class decorated with *@Guard()* that implements *SpraxiumGuard*. The *canActivate* method contains the check logic, and any configurable parameter gets the *@GuardOption* decorator on its property. Mark options as *required* when the guard cannot function without them, or set a *default* when a sensible fallback exists. The framework reads these decorators at instantiation time and populates the values before *canActivate* ever runs.
+  </Step>
+  <Step title="Pass options with withOptions at every usage site">
+    When attaching the guard with *@UseGuards*, wrap it in *withOptions* and pass the concrete values your guard expects. TypeScript infers the option shape from the *@GuardOption* properties, so you get autocompletion and compile-time errors if you pass the wrong type. If you forget a *required* option, the framework throws a clear configuration error during bootstrap.
+  </Step>
+  <Step title="Reuse the same guard with different values">
+    The power of configurable guards is that one class serves many scenarios. A *MinAccountAgeGuard* with *minDays: 7* on a general command and *minDays: 90* on a giveaway command uses the same class with different thresholds. You do not need separate guard classes for each threshold.
+  </Step>
+</Steps>
+
+Here is a complete example of a custom guard that checks minimum account age and supports multiple configurable options. The guard has one required option and one optional option with a default value.
+
+<CodeTabs>
+  <Tab label="Guard" language="typescript">
+```typescript filename="min-account-age.guard.ts"
+import { Guard, GuardOption } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+
+@Guard()
+export class MinAccountAgeGuard implements SpraxiumGuard {
+  @GuardOption({ required: true })
+  minDays!: number;
+
+  @GuardOption({ default: false })
+  allowBots!: boolean;
+
+  canActivate(ctx: ExecutionContext): boolean {
+    const user = ctx.getUser();
+    if (user.bot && !this.allowBots) return false;
+
+    const createdAt = user.createdAt.getTime();
+    const ageInDays = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
+    return ageInDays >= this.minDays;
+  }
+}
+```
+  </Tab>
+  <Tab label="Usage" language="typescript">
+```typescript filename="giveaway.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { GuildOnly } from '@spraxium/core';
+import { MinAccountAgeGuard } from '../guards/min-account-age.guard';
+
+@UseGuards(
+  GuildOnly,
+  withOptions(MinAccountAgeGuard, { minDays: 30 }),
+)
+export class GiveawayHandler {
+  async handle() {
+    // only human accounts older than 30 days can participate
+  }
+}
+```
+  </Tab>
+  <Tab label="Different Thresholds" language="typescript">
+```typescript filename="verification.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { MinAccountAgeGuard } from '../guards/min-account-age.guard';
+
+@UseGuards(withOptions(MinAccountAgeGuard, { minDays: 7, allowBots: true }))
+export class VerificationHandler {
+  async handle() {
+    // only 7 days required here, bots allowed
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+Notice the guard has two options: *minDays* is required because the guard cannot work without knowing the threshold, and *allowBots* has a default of false because most usage sites want to block bots. The third tab shows how the same guard class accepts completely different configuration at another usage site without any code duplication.
+
+<Callout tone="info" title="Start with built-ins">
+  Before creating a custom guard, check if one of the ten built-in guards already covers your use case. Custom guards are powerful but unnecessary when a built-in already does exactly what you need.
+</Callout>
