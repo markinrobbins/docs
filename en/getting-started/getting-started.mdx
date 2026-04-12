@@ -1,0 +1,116 @@
+---
+title: Start
+description: |
+  Architecture-first introduction to building a Spraxium bot from zero to a running module graph.
+  Covers prerequisites, project scaffolding, folder structure, bootstrap flow, and the core architectural rules.
+order: 1
+category: Getting Started
+---
+
+## What is Spraxium
+
+Spraxium is a TypeScript framework that sits on top of Discord.js and provides the architecture layer that Discord.js intentionally leaves out. Discord.js handles the low-level gateway communication, covering WebSocket connections, REST calls, raw events, and data models. Spraxium takes over from there and gives you modules, dependency injection, a guard pipeline, lifecycle hooks, and a deterministic boot sequence that ensures your bot starts the same way every time.
+
+The practical result is a codebase that stays organized as your bot grows from a handful of commands to a full-featured production system. Instead of a single file full of scattered event listeners and duplicated logic, each feature lives in its own module with clear boundaries and explicit dependencies. The DI container wires everything together automatically, so you declare what each class needs and the framework resolves and injects it without manual instantiation or hidden coupling between modules.
+
+## Prerequisites
+
+Before scaffolding your first project, make sure you have the following tools and accounts ready. Each one is required for the framework to function correctly, and missing any of them will block your progress before the bot can even start.
+
+- **Node.js 20 or higher.** Spraxium targets the current LTS releases. You can verify your installed version by running `node -v` in your terminal, and both LTS 20 and LTS 22 are fully supported.
+- **A Discord bot token.** Create a new application at [discord.com/developers/applications](https://discord.com/developers/applications), add a Bot to it, and copy the token. This token is what allows your bot to authenticate with the Discord gateway.
+- **TypeScript project.** The CLI scaffold automatically sets up *tsconfig.json* with *experimentalDecorators* and *emitDecoratorMetadata* enabled, which are required for the decorator-based dependency injection system that Spraxium relies on.
+
+## Scaffold the project
+
+The fastest way to start is through the official create command, which generates a ready-to-run project with the correct folder structure, TypeScript configuration, and all default dependencies pre-installed. The CLI will ask which template to use, which package manager you prefer, and whether to initialize a Git repository. The defaults work well for most bots, so you can press Enter through the prompts on a first project without needing to customize anything.
+
+<CodeTabs>
+  <Tab label="npm" language="bash">
+```bash
+npx spraxium@latest new my-bot
+```
+  </Tab>
+  <Tab label="pnpm" language="bash">
+```bash
+pnpm create spraxium@latest my-bot
+```
+  </Tab>
+  <Tab label="bun" language="bash">
+```bash
+bunx spraxium@latest new my-bot
+```
+  </Tab>
+</CodeTabs>
+
+## Starter structure
+
+The scaffolded project follows a convention that Spraxium enforces throughout your entire bot lifecycle. Every file has a specific architectural role, and understanding this layout early makes it much easier to add features, debug issues, and onboard other developers into the project later on.
+
+<FolderStructure title="Minimal structure">
+  <Folder name="src" open>
+    <File name="main.ts" comment="Bootstrap and application startup" />
+    <File name="app.env.ts" comment="Typed environment variable schema" />
+    <File name="app.module.ts" comment="Root module that composes features" />
+    <Folder name="modules" open>
+      <Folder name="default" open>
+        <File name="default.module.ts" comment="First feature module" />
+      </Folder>
+    </Folder>
+  </Folder>
+  <File name="spraxium.config.ts" />
+  <File name=".env" />
+</FolderStructure>
+
+The separation here is intentional and architectural. The file *main.ts* owns the startup flow and nothing else, acting as the single entry point that validates environment variables and boots the framework. The file *app.env.ts* defines a typed schema for environment variables so they are validated at startup before the bot connects to Discord, catching missing tokens or malformed URLs immediately. The file *app.module.ts* serves as the composition root that imports feature modules but holds no business logic itself, keeping the top-level module clean and readable no matter how large the bot grows. Each feature module under the *modules* folder is responsible for exactly one domain, making it straightforward to locate, test, or remove any piece of behavior without affecting the rest of the codebase.
+
+## Bootstrap
+
+The entry point file *main.ts* is responsible for validating environment variables, creating the application instance, loading the module graph, and starting the Discord connection. This is the only file that interacts directly with the framework factory, and its structure should remain minimal and predictable throughout the life of the project.
+
+```typescript filename="src/main.ts"
+import { IntentPreset, SpraxiumFactory } from '@spraxium/core';
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from './app.env';
+import { AppModule } from './app.module';
+
+async function main(): Promise<void> {
+  const env = EnvValidator.validate(AppEnv);
+  const app = await SpraxiumFactory.create({ token: env.token });
+
+  app.useModule(AppModule);
+  app.intents(IntentPreset.Standard);
+
+  await app.listen();
+}
+
+main();
+```
+
+The `EnvValidator.validate` call reads your *.env* file, validates each field against the schema defined in *AppEnv*, and throws a descriptive error at startup if anything is missing or malformed rather than letting the bot crash mid-operation when a user triggers the relevant feature. After validation, `SpraxiumFactory.create` creates the application instance, `useModule` loads the entire module graph starting from the root module, and `app.listen()` kicks off the full boot sequence including DI resolution, provider instantiation, listener binding, and finally the Discord login.
+
+## Root module
+
+The root module is your architectural entry point and the single place where all feature modules come together. It imports feature modules but does not own any providers or listeners directly, keeping the file small and readable regardless of how many features the bot has. As the bot grows, you simply add more feature module imports here without touching *main.ts* or changing how the DI container resolves dependencies.
+
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import { DefaultModule } from './modules/default/default.module';
+
+@Module({
+  imports: [DefaultModule],
+})
+export class AppModule {}
+```
+
+## Core architectural rules
+
+Spraxium enforces a set of conventions that pay off immediately in code organization, testability, and operational predictability. These rules are not suggestions but foundational principles that the framework relies on to deliver its guarantees around dependency resolution, boot safety, and module isolation.
+
+- **One module per feature domain.** Each domain in your bot, whether it handles moderation, commands, events, or external integrations, gets its own dedicated module folder with its own service, listener, and module files. Cross-feature dependencies go through explicit imports and exports rather than shared global state, which makes it easy to understand exactly what each module depends on.
+- **Dependency injection for everything.** You should never instantiate services manually with the *new* keyword. Instead, declare dependencies as constructor parameters and let the DI container resolve them automatically. This keeps coupling explicit, makes testing straightforward with mock injection, and ensures the framework controls the lifecycle of every service.
+- **Startup validation before Discord.** The entire DI graph is resolved and all providers are instantiated before the Discord login happens. If any service has invalid configuration or a missing dependency, the error surfaces at boot time with a clear message rather than appearing after deployment when a user triggers the affected command.
+
+## Next step
+
+Continue with [Environment](/guide/environment).
