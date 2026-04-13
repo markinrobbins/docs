@@ -1,0 +1,110 @@
+---
+title: "Visão Geral dos Prefix Commands"
+description: |
+  Prefix commands permitem que usuários acionem ações do bot através de mensagens de texto com um prefixo configurável.
+  Aprenda o modelo de comandos, como eles se conectam a handlers e como registrá-los em módulos.
+order: 1
+category: Prefix Commands
+---
+
+## O que é um prefix command
+
+Um prefix command é um par de classes que reage a uma mensagem de texto começando com um caractere configurável como `!` ou `?`. Quando um usuário envia `!roll 20`, o framework detecta o prefixo, extrai o nome do comando, faz parse dos argumentos, executa guards e despacha a mensagem para o handler correto. Este é o modelo tradicional de comandos de bots Discord que antecede os slash commands, e continua útil para workflows rápidos de operação, ferramentas internas de moderação e bots onde os usuários já conhecem os atalhos.
+
+A diferença chave entre prefix commands e slash commands é o que os aciona. Slash commands são acionados pelo sistema de interações nativo do Discord com autocomplete e validação. Prefix commands são acionados por mensagens de texto brutas, o que significa que o framework precisa lidar com parsing, coerção de argumentos e reporte de erros por conta própria. Alguns bots precisam de ambos, e o Spraxium permite registrar prefix e slash commands no mesmo módulo sem conflitos.
+
+Prefix commands no Spraxium não são um legado esquecido. São classes completas gerenciadas pelo container de injeção de dependências, registradas em módulos e conectadas ao client do Discord automaticamente durante o bootstrap. Isso significa que seus handlers podem receber serviços injetados, participar do pipeline de guards, se beneficiar de rastreamento de cooldown e usar o mesmo tratamento de exceções dos slash commands.
+
+## Um exemplo básico de comando
+
+Aqui estão duas classes que mostram o padrão de duas classes. A primeira é uma definição de comando que declara o nome, aliases e schema de argumentos através de decorators *@PrefixArg*. A segunda é um handler que recebe os argumentos parseados e o *Message* bruto via *@Ctx*. Juntas, elas cobrem a estrutura mínima que você precisa para criar um prefix command funcional.
+
+<CodeTabs>
+  <Tab label="Comando" language="typescript">
+```typescript filename="src/modules/fun/commands/ping.command.ts"
+import { PrefixCommand } from '@spraxium/common';
+
+@PrefixCommand({
+  name: 'ping',
+  aliases: ['p'],
+  description: 'Check bot latency.',
+  category: 'Fun',
+  usage: '!ping',
+  cooldown: 3,
+})
+export class PingCommand {
+  build() {}
+}
+```
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/modules/fun/handlers/ping.handler.ts"
+import { Ctx, PrefixCommandHandler } from '@spraxium/common';
+import type { Message } from 'discord.js';
+import { PingCommand } from '../commands/ping.command';
+
+@PrefixCommandHandler(PingCommand)
+export class PingHandler {
+  async handle(@Ctx() message: Message): Promise<void> {
+    const latency = Date.now() - message.createdTimestamp;
+    await message.reply(`Pong! Latency: ${latency}ms`);
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+Note que a classe de comando é puramente declarativa: ela descreve como o comando se chama, quais aliases aceita e qual cooldown impõe. A classe handler contém a lógica de execução e recebe dependências através de decorators. Para comandos com argumentos, você adiciona decorators *@PrefixArg* no método *build* do comando e decorators *@PrefixArg* correspondentes nos parâmetros do método *handle* do handler. A próxima página cobre schemas de argumentos em detalhes.
+
+## Registrando comandos em um módulo
+
+Prefix commands não se ativam apenas por existirem no seu código fonte. Você precisa registrar a classe de comando no array *commands* do módulo e a classe handler no array *handlers* para que o framework saiba sobre eles e possa conectá-los durante o bootstrap. Sem ambos os registros, seu comando será invisível para o parser ou não terá handler para despacho.
+
+```typescript filename="src/modules/fun/fun.module.ts"
+import { Module } from '@spraxium/common';
+import { PingCommand } from './commands/ping.command';
+import { PingHandler } from './handlers/ping.handler';
+
+@Module({
+  commands: [PingCommand],
+  handlers: [PingHandler],
+})
+export class FunModule {}
+```
+
+O módulo em si deve ser importado pelo seu módulo raiz ou outro módulo na cadeia de imports. O framework processa módulos durante o bootstrap, resolve os arrays de commands e handlers, instancia cada classe através do container de DI e então os conecta ao prefix dispatcher. Se um handler depende de um serviço, esse serviço deve estar disponível no escopo de providers do módulo ou exportado de um módulo importado, assim como qualquer outra dependência injetável.
+
+## Como o bootstrap conecta prefix commands
+
+O processo de bootstrap trata prefix commands em uma sequência específica que importa para entender quando seu comando fica ativo. Primeiro, o framework lê os arrays *commands* e *handlers* de cada módulo. Segundo, instancia cada classe pelo container de DI, resolvendo dependências de construtor. Terceiro, o *PrefixRegistry* indexa todos os nomes de comando, aliases, rotas de subcomandos e schemas de argumentos para busca rápida. Quarto, o *PrefixBinder* conecta um único listener *messageCreate* ao client do Discord. Por fim, quando uma mensagem chega, o *PrefixInvoker* executa o pipeline completo: detecção de prefixo, tokenização, verificação de cooldown, avaliação de guards, parsing de argumentos e despacho do handler.
+
+<FolderStructure title="Layout típico de módulo prefix">
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="fun" open>
+        <Folder name="commands" open>
+          <File name="ping.command.ts" />
+          <File name="roll.command.ts" />
+        </Folder>
+        <Folder name="handlers" open>
+          <File name="ping.handler.ts" />
+          <File name="roll.handler.ts" />
+        </Folder>
+        <Folder name="guards" open>
+          <File name="cooldown.guard.ts" />
+        </Folder>
+        <File name="fun.module.ts" />
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+Essa estrutura mantém definições de comando e handlers em pastas dedicadas e o arquivo de módulo na raiz do domínio. Conforme seu bot cresce, você pode adicionar mais arquivos de comando e handler sem mudar a estrutura de pastas. Cada comando tem exatamente um handler (ou um handler por subcomando), e o arquivo de módulo é o único lugar que declara quais comandos estão ativos.
+
+<Callout tone="info" title="Duas classes por comando">
+  Cada prefix command requer uma classe de comando e uma classe handler registradas no mesmo módulo. A classe de comando declara estrutura e metadados. A classe handler contém lógica de execução. Se você esquecer de registrar qualquer uma delas, o comando não vai funcionar e o framework não vai produzir erro no boot.
+</Callout>
+
+## Próxima página
+
+Continue com [Comandos e Handlers](/prefix-commands-definition).

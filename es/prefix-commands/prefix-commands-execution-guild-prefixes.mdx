@@ -1,0 +1,234 @@
+---
+title: "Ejecución y Prefijos por Servidor"
+description: |
+  La resolución de prefijos sigue una jerarquía que prioriza sobrescrituras por servidor antes del valor global.
+  Aprende PrefixConfig, API de PrefixGuildManager y patrones de actualización en runtime usando services.
+order: 4
+category: Prefix Commands
+---
+
+## Precedencia de resolución de prefijos
+
+Cuando una *Message* entra al pipeline, el parser evalúa fuentes de prefijo en un orden fijo. Esa precedencia evita ambigüedad y permite personalizar servidores sin romper el comportamiento global. La primera coincidencia válida gana y el resto de opciones se omite.
+
+Este diseño permite que cada comunidad adopte su propia convención sin afectar a otras. Un servidor puede usar `?` mientras otro usa `!`, y ambos siguen el mismo runtime interno. El prefijo global queda como fallback coherente para servidores sin sobrescritura.
+
+<Steps>
+  <Step title="Sobrescritura por servidor">
+    El parser consulta *PrefixGuildManager.getGuildPrefix* con el ID del servidor actual. Si encuentra una entrada, prueba cada prefijo registrado en orden hasta encontrar match. Cuando hay coincidencia, el flujo continúa con tokenización sin evaluar fuentes posteriores.
+  </Step>
+  <Step title="Fallback global">
+    Si no hay sobrescritura o la coincidencia falla, el parser valida el campo *prefix* de *PrefixConfig*. Este valor puede ser string único o array de strings según tu política de entrada. Si hay match, se resuelve el comando con el mismo pipeline de guards, args y handler.
+  </Step>
+  <Step title="Prefijo por mención">
+    Si *mentionPrefix* está activo, el parser acepta también una mención al bot como prefijo universal. Este fallback ayuda cuando los usuarios no recuerdan el prefijo configurado en su servidor. El soporte de mención reduce fricción operativa en bots con muchas comunidades.
+  </Step>
+</Steps>
+
+## Referencia de PrefixConfig
+
+*PrefixConfig* define política global del subsistema y punto de hidratación inicial. Debe permanecer enfocado en bootstrap y no en lógica de dominio de runtime. La lectura y escritura de prefijos por servidor debe quedar encapsulada en services de aplicación.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Predeterminado</TableCell>
+      <TableCell header>Descripción</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*prefix*</TableCell>
+      <TableCell>`string | string[]`</TableCell>
+      <TableCell>`'!'`</TableCell>
+      <TableCell>Prefijo global o lista de prefijos globales</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*guildPrefixProvider*</TableCell>
+      <TableCell>`PrefixGuildProvider`</TableCell>
+      <TableCell>`undefined`</TableCell>
+      <TableCell>Provider async para carga inicial por servidor</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*caseSensitive*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>`false`</TableCell>
+      <TableCell>Activa coincidencia sensible a mayúsculas</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*mentionPrefix*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>`true`</TableCell>
+      <TableCell>Permite mención al bot como prefijo alternativo</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*defaultCooldown*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>`0`</TableCell>
+      <TableCell>Cooldown global para comandos sin override</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*replyOnNotFound*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>`false`</TableCell>
+      <TableCell>Responde automáticamente cuando no existe comando</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+```typescript filename="config/prefix.config.ts"
+import { definePrefix } from '@spraxium/core';
+import { loadGuildPrefixes } from './prefix/guild-prefix.provider';
+
+export default definePrefix({
+  prefix: '!',
+  caseSensitive: false,
+  mentionPrefix: true,
+  defaultCooldown: 3,
+  guildPrefixProvider: loadGuildPrefixes,
+});
+```
+
+<Callout type="info">
+  El archivo de config debe declarar solo política global e hidratación inicial del subsistema. La lectura, escritura, auditoría y sincronización por servidor deben vivir en services que inyectan *PrefixDispatcher*. La página *API de Prefijos vía Services* explica este patrón con más profundidad y escenarios de producción.
+</Callout>
+
+## API de PrefixGuildManager
+
+*PrefixGuildManager* mantiene sobrescrituras de prefijo en memoria para cada servidor activo. El framework lo hidrata durante bootstrap con *guildPrefixProvider* y luego permite mutaciones en runtime sin reiniciar el proceso. Esta API habilita comandos administrativos, paneles y tareas de sincronización con efecto inmediato.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Método</TableCell>
+      <TableCell header>Retorna</TableCell>
+      <TableCell header>Descripción</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*getGuildPrefix(guildId)*</TableCell>
+      <TableCell>`string[] | undefined`</TableCell>
+      <TableCell>Retorna prefijos activos de un servidor</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getGuildEntry(guildId)*</TableCell>
+      <TableCell>`PrefixGuildEntry | undefined`</TableCell>
+      <TableCell>Retorna entrada completa con metadata</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*hasGuildPrefix(guildId)*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Indica si el servidor tiene sobrescritura</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getAllGuildIds()*</TableCell>
+      <TableCell>`string[]`</TableCell>
+      <TableCell>Lista todos los servidores con configuración personalizada</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*setGuildPrefix(guildId, prefix, metadata?)*</TableCell>
+      <TableCell>`void`</TableCell>
+      <TableCell>Crea o reemplaza prefijo de un servidor</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*updateGuildPrefix(guildId, prefix, metadata?)*</TableCell>
+      <TableCell>`void`</TableCell>
+      <TableCell>Actualiza prefijo y metadata con merge parcial</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*removeGuildPrefix(guildId)*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Elimina sobrescritura de prefijo por servidor</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*clear()*</TableCell>
+      <TableCell>`void`</TableCell>
+      <TableCell>Limpia todas las sobrescrituras en memoria</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*loadFromProvider(provider)*</TableCell>
+      <TableCell>`Promise<void>`</TableCell>
+      <TableCell>Recarga entradas desde un provider asíncrono</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Ejemplo de actualización en runtime
+
+Un patrón estable es usar command, service y handler con responsabilidades separadas. El service concentra decisiones de dominio y coordinación de persistencia con memoria. El handler valida contexto y delega la mutación para mantener el flujo limpio.
+
+<CodeTabs>
+  <Tab label="Command" language="typescript">
+```typescript filename="src/modules/admin/commands/set-prefix.command.ts"
+import { PrefixArg, PrefixCommand } from '@spraxium/common';
+
+@PrefixCommand({ name: 'set-prefix', cooldown: 10 })
+export class SetPrefixCommand {
+  @PrefixArg.String('newPrefix', { minLength: 1, maxLength: 5 })
+  build() {}
+}
+```
+  </Tab>
+  <Tab label="Service" language="typescript">
+```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
+import { Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+
+@Injectable()
+export class GuildPrefixService {
+  constructor(private readonly dispatcher: PrefixDispatcher) {}
+
+  setGuildPrefix(guildId: string, prefix: string, actorId: string): void {
+    this.dispatcher.guildPrefixes.setGuildPrefix(guildId, prefix, {
+      updatedBy: actorId,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+}
+```
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/modules/admin/handlers/set-prefix.handler.ts"
+import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
+import type { Message } from 'discord.js';
+import { SetPrefixCommand } from '../commands/set-prefix.command';
+import { GuildPrefixService } from '../../prefix/services/guild-prefix.service';
+
+@PrefixCommandHandler(SetPrefixCommand)
+export class SetPrefixHandler {
+  constructor(private readonly guildPrefixService: GuildPrefixService) {}
+
+  async handle(
+    @Ctx() message: Message,
+    @PrefixArg('newPrefix') newPrefix: string,
+  ): Promise<void> {
+    const guildId = message.guildId;
+    if (!guildId) {
+      await message.reply('Este comando solo se puede usar dentro de un servidor.');
+      return;
+    }
+
+    this.guildPrefixService.setGuildPrefix(guildId, newPrefix, message.author.id);
+    await message.reply(`Prefijo actualizado a \`${newPrefix}\` para este servidor.`);
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Sistema de cooldown
+
+*PrefixCooldownManager* aplica límites por usuario y comando para reducir spam y proteger handlers sensibles. El valor puede venir de *defaultCooldown* global o de la propiedad *cooldown* en cada *@PrefixCommand*. Si ambos existen, el valor por comando tiene prioridad para ese caso.
+
+Los cooldowns viven en memoria y se limpian automáticamente al expirar o al reiniciar el proceso. Este comportamiento es suficiente para la mayoría de bots comunitarios con operación estándar. Si necesitas persistencia entre reinicios, debes complementar con almacenamiento externo y recarga controlada.
+
+<Callout type="info">
+  Usa cooldown global como política base de producto. Usa cooldown por comando en operaciones de moderación, economía o administración. Mantener esta jerarquía evita duplicación y mejora legibilidad del catálogo de comandos.
+</Callout>
+
+## Siguiente página
+
+Continúa con [API de Prefijos vía Services](/prefix-commands-service-api).

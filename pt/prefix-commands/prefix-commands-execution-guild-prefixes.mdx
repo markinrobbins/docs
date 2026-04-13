@@ -1,0 +1,227 @@
+---
+title: "Execução e Prefixos por Servidor"
+description: |
+  A resolução de prefixo segue uma hierarquia de precedência que começa com sobrescritas de servidor.
+  Aprenda a configurar prefixos globais e por servidor, cooldowns e o pipeline de resolução.
+order: 4
+category: Prefix Commands
+---
+
+## Precedência na resolução de prefixo
+
+Quando o framework recebe uma mensagem, o *PrefixParser* verifica se o texto começa com um prefixo reconhecido. A resolução segue uma ordem estrita de precedência: prefixos específicos de servidor são verificados primeiro, depois o prefixo global e, por fim, a menção do bot se habilitada. A primeira correspondência vence e as opções restantes são ignoradas.
+
+Esse modelo de precedência significa que uma sobrescrita de servidor sempre tem prioridade sobre o padrão global. Se um servidor registrou `?` como seu prefixo e o config global usa `!`, mensagens começando com `?` são capturadas naquele servidor enquanto `!` é ignorado. Se não existir sobrescrita de servidor, o parser recorre ao prefixo global. O prefixo de menção (ex: `@Bot roll 6`) é sempre verificado por último como um fallback universal.
+
+A ordem de resolução é importante para bots que atendem múltiplas comunidades com convenções diferentes. Um servidor focado em moderação pode preferir `.` como prefixo porque é discreto e silencioso, enquanto um servidor de jogos pode escolher `>>` pela visibilidade. O sistema de prefixos por servidor permite que cada comunidade defina sua própria convenção sem afetar as demais.
+
+<Steps>
+  <Step title="Verifica sobrescritas de servidor">
+    O parser chama *PrefixGuildManager.getGuildPrefix* com o ID do servidor da mensagem recebida. Se o servidor tem um ou mais prefixos registrados, o parser testa a mensagem contra cada um em ordem. O primeiro prefixo correspondente é usado e o parser prossegue diretamente para a tokenização. Prefixos de servidor podem ser uma string única ou um array de strings.
+  </Step>
+  <Step title="Verifica prefixo global">
+    Se nenhuma sobrescrita de servidor combinar (ou a mensagem for de DM), o parser testa a mensagem contra o prefixo global definido no *PrefixConfig*. O prefixo global também suporta arrays, então você pode definir múltiplos prefixos globais como `['!', '?']`. Se a mensagem começar com qualquer um dos prefixos globais, a primeira correspondência é usada.
+  </Step>
+  <Step title="Verifica prefixo de menção">
+    Se *mentionPrefix* estiver habilitado (o padrão), o parser verifica se a mensagem começa com uma menção do bot como `<@BOT_ID>`. Isso funciona como um prefixo universal que sempre opera independente da configuração de servidor ou global. O prefixo de menção é útil quando usuários esquecem o prefixo configurado e precisam de um fallback confiável.
+  </Step>
+</Steps>
+
+## Referência do PrefixConfig
+
+A interface *PrefixConfig* controla o comportamento global do subsistema de prefix. Você a passa para *definePrefix* no arquivo de configuração. Todo campo exceto *prefix* é opcional e possui um valor padrão adequado.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Padrão</TableCell>
+      <TableCell header>Descrição</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*prefix*</TableCell>
+      <TableCell>`string | string[]`</TableCell>
+      <TableCell>`'!'`</TableCell>
+      <TableCell>Prefixo global ou array de prefixos</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*guildPrefixProvider*</TableCell>
+      <TableCell>`PrefixGuildProvider`</TableCell>
+      <TableCell>`undefined`</TableCell>
+      <TableCell>Função async que carrega prefixos de servidor na inicialização</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*caseSensitive*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>`false`</TableCell>
+      <TableCell>Se a correspondência de prefixo diferencia maiúsculas</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*mentionPrefix*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>`true`</TableCell>
+      <TableCell>Permitir menção do bot como prefixo universal</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*defaultCooldown*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>`0`</TableCell>
+      <TableCell>Cooldown padrão em segundos para todos os comandos</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*replyOnNotFound*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>`false`</TableCell>
+      <TableCell>Responder automaticamente quando comando não for encontrado</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+```typescript filename="config/prefix.config.ts"
+import { definePrefix } from '@spraxium/core';
+import { loadGuildPrefixes } from './prefix/guild-prefix.provider';
+
+export default definePrefix({
+  prefix: '!',
+  caseSensitive: false,
+  mentionPrefix: true,
+  defaultCooldown: 3,
+  replyOnNotFound: true,
+  guildPrefixProvider: loadGuildPrefixes,
+});
+```
+
+<Callout type="info">
+  O arquivo de config deve declarar somente política global e hidratação inicial do subsistema de prefix. Lógica de leitura, escrita, auditoria e sincronização de prefixos por servidor deve ficar em services que injetam *PrefixDispatcher*. A página *API de Prefixos via Services* mostra esse padrão completo em cenários de produção.
+</Callout>
+
+## Gerenciando prefixos de servidor em runtime
+
+O *PrefixGuildManager* é acessível através do *PrefixDispatcher* e fornece uma API completa para leitura, escrita e remoção de sobrescritas de prefixo por servidor. Alterações entram em vigor imediatamente para a próxima mensagem recebida sem necessidade de reiniciar. Isso permite construir comandos de administração ou integrações de dashboard que atualizam prefixos dinamicamente.
+
+Cada entrada de servidor armazena o ID do servidor, um ou mais prefixos e um registro de metadados opcional. O campo de metadados não é utilizado pelo framework em si, mas oferece um lugar para armazenar contexto como quem alterou o prefixo e quando. Isso é útil para logs de auditoria em bots de moderação.
+
+O método *loadFromProvider* é chamado automaticamente na inicialização se você definir um *guildPrefixProvider* no config. Você também pode chamá-lo manualmente para recarregar prefixos de servidor do banco de dados a qualquer momento, por exemplo após uma importação em massa ou migração.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Método</TableCell>
+      <TableCell header>Retorno</TableCell>
+      <TableCell header>Descrição</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*getGuildPrefix(guildId)*</TableCell>
+      <TableCell>`string[] | undefined`</TableCell>
+      <TableCell>Retorna o array de prefixos do servidor ou `undefined`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getGuildEntry(guildId)*</TableCell>
+      <TableCell>`PrefixGuildEntry | undefined`</TableCell>
+      <TableCell>Retorna a entrada completa com metadados</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*hasGuildPrefix(guildId)*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Verifica se um servidor possui sobrescrita</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getAllGuildIds()*</TableCell>
+      <TableCell>`string[]`</TableCell>
+      <TableCell>Lista todos os IDs de servidores com sobrescritas</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*setGuildPrefix(guildId, prefix, metadata?)*</TableCell>
+      <TableCell>`void`</TableCell>
+      <TableCell>Cria uma nova entrada de prefixo de servidor</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*updateGuildPrefix(guildId, prefix, metadata?)*</TableCell>
+      <TableCell>`void`</TableCell>
+      <TableCell>Atualiza uma entrada de prefixo existente</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*removeGuildPrefix(guildId)*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Remove o prefixo de servidor e retorna sucesso</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*clear()*</TableCell>
+      <TableCell>`void`</TableCell>
+      <TableCell>Remove todas as sobrescritas de prefixo</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*loadFromProvider(provider)*</TableCell>
+      <TableCell>`Promise<void>`</TableCell>
+      <TableCell>Carrega entradas de uma função provider async</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Exemplo de mutação de prefixo em runtime
+
+Um padrão comum é construir um comando administrativo que permite que donos de servidor alterem seu prefixo através de um comando por mensagem. O handler injeta o *PrefixDispatcher* para acessar o manager *guildPrefixes* e persiste a alteração no banco de dados. A atualização em runtime entra em vigor imediatamente para mensagens subsequentes.
+
+<CodeTabs>
+  <Tab label="Comando" language="typescript">
+```typescript filename="src/modules/admin/commands/set-prefix.command.ts"
+import { PrefixArg, PrefixCommand } from '@spraxium/common';
+
+@PrefixCommand({ name: 'set-prefix' })
+export class SetPrefixCommand {
+  @PrefixArg.String('newPrefix', { minLength: 1, maxLength: 5 })
+  build() {}
+}
+```
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/modules/admin/handlers/set-prefix.handler.ts"
+import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+import type { Message } from 'discord.js';
+import { SetPrefixCommand } from '../commands/set-prefix.command';
+
+@PrefixCommandHandler(SetPrefixCommand)
+export class SetPrefixHandler {
+  constructor(private readonly dispatcher: PrefixDispatcher) {}
+
+  async handle(
+    @Ctx() message: Message,
+    @PrefixArg('newPrefix') newPrefix: string,
+  ): Promise<void> {
+    const guildId = message.guildId;
+    if (!guildId) {
+      await message.reply('Este comando só pode ser usado em um servidor.');
+      return;
+    }
+
+    this.dispatcher.guildPrefixes.setGuildPrefix(guildId, newPrefix, {
+      setBy: message.author.id,
+      setAt: new Date().toISOString(),
+    });
+
+    await message.reply(`Prefixo atualizado para \`${newPrefix}\` neste servidor.`);
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Sistema de cooldown
+
+O *PrefixCooldownManager* aplica cooldowns por usuário e por comando. Quando um comando define um valor *cooldown* no decorator *@PrefixCommand* (ou usa o *defaultCooldown* global do config), o manager rastreia o timestamp da última execução para cada par usuário-comando. Se um usuário tentar executar um comando antes do cooldown expirar, o framework bloqueia a execução e pode opcionalmente responder com o tempo restante.
+
+Cooldowns são armazenados em memória e resetam quando o bot reinicia. O método *check* retorna os segundos restantes (zero se o cooldown expirou), o método *set* registra uma nova entrada de cooldown e o método *clear* remove todos os cooldowns rastreados. Para a maioria dos bots, o campo *cooldown* no decorator e o *defaultCooldown* global lidam com tudo automaticamente sem chamadas diretas à API.
+
+<Callout type="info">
+  O campo *cooldown* por comando no *@PrefixCommand* sobrescreve o *defaultCooldown* global. Se um comando define `cooldown: 5` e o padrão global é `3`, aquele comando usa um cooldown de 5 segundos.
+</Callout>
+
+## Próxima página
+
+Continue com [API de Prefixos via Services](/guide/prefix-commands-service-api).

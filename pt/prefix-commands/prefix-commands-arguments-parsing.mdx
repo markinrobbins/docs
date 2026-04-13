@@ -1,0 +1,229 @@
+---
+title: Argumentos e Parsing
+description: |
+  O prefix parser tokeniza mensagens e converte argumentos em 14 tipos de saída tipados.
+  Aprenda cada tipo de @PrefixArg, opções de validação e como o pipeline de parsing funciona.
+order: 3
+category: Prefix Commands
+---
+
+## Como a entrada se torna argv
+
+Após a detecção do prefixo, o parser remove o prefixo correspondido e tokeniza o texto restante. O primeiro token se torna o nome do comando e tudo após ele se torna o array argv. A tokenização suporta strings entre aspas duplas, então `"hello world"` é tratado como um único token em vez de dois. Isso permite que usuários passem argumentos com múltiplas palavras sem escapamento.
+
+O tokenizador divide por espaços em branco por padrão. Quando encontra uma aspas dupla de abertura, coleta todos os caracteres até a aspas de fechamento e os emite como um único token. Se a aspas de fechamento estiver ausente, o restante da entrada se torna o token atual. Esse comportamento é intencional e previne desalinhamento silencioso de argumentos.
+
+Para comandos com subcomandos, o primeiro token argv é verificado contra nomes de subcomandos registrados antes do parsing de argumentos começar. Se combinar com um subcomando, o framework desloca o array argv e usa o schema de argumentos específico do subcomando em vez do schema raiz. Isso significa que o parser resolve o roteamento antes de resolver os argumentos.
+
+## Decorators de método @PrefixArg
+
+O namespace *@PrefixArg* fornece 14 decorators de método tipados que você empilha em um método *build* (para comandos simples) ou em métodos *@PrefixSubcommand* (para comandos com subcomandos). Cada decorator declara um argumento posicional com seu nome, tipo e regras de validação opcionais. Os decorators são empilhados de cima para baixo para determinar a ordem posicional.
+
+<CodeTabs>
+  <Tab label="Comando simples" language="typescript">
+```typescript filename="src/modules/fun/commands/roll.command.ts"
+import { PrefixArg, PrefixCommand } from '@spraxium/common';
+
+@PrefixCommand({ name: 'roll', cooldown: 3 })
+export class RollCommand {
+  @PrefixArg.Integer('sides', { required: false, min: 2, max: 1000 })
+  @PrefixArg.Integer('count', { required: false, min: 1, max: 25 })
+  build() {}
+}
+```
+  </Tab>
+  <Tab label="Subcomando" language="typescript">
+```typescript filename="src/modules/moderation/commands/mod.command.ts"
+import { PrefixArg, PrefixCommand, PrefixSubcommand } from '@spraxium/common';
+
+@PrefixCommand({ name: 'mod' })
+export class ModCommand {
+  @PrefixSubcommand({ name: 'ban', description: 'Banir um usuário' })
+  @PrefixArg.User('target')
+  @PrefixArg.Rest('reason', { required: false })
+  ban() {}
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Tipos de argumento suportados
+
+O framework fornece 14 tipos de argumento que cobrem os padrões de entrada mais comuns em bots Discord. Cada tipo possui seu próprio parser que converte o token de texto bruto em uma saída tipada. Se a conversão falhar, o parser lança uma *ArgumentException* com uma mensagem de erro descritiva.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Exemplo de entrada</TableCell>
+      <TableCell header>Tipo de saída</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*PrefixArg.String*</TableCell>
+      <TableCell>`hello`</TableCell>
+      <TableCell>`string`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.Integer*</TableCell>
+      <TableCell>`42`</TableCell>
+      <TableCell>`number`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.Number*</TableCell>
+      <TableCell>`3.14`</TableCell>
+      <TableCell>`number`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.Boolean*</TableCell>
+      <TableCell>`true`, `yes`, `1`</TableCell>
+      <TableCell>`boolean`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.User*</TableCell>
+      <TableCell>`<@123>` ou snowflake</TableCell>
+      <TableCell>ID (`string`)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.Channel*</TableCell>
+      <TableCell>`<#456>` ou snowflake</TableCell>
+      <TableCell>ID (`string`)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.Role*</TableCell>
+      <TableCell>`<@&789>` ou snowflake</TableCell>
+      <TableCell>ID (`string`)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.Member*</TableCell>
+      <TableCell>`<@123>` ou snowflake</TableCell>
+      <TableCell>ID (`string`)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.Snowflake*</TableCell>
+      <TableCell>ID de 17-20 dígitos</TableCell>
+      <TableCell>`string`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.Url*</TableCell>
+      <TableCell>`https://example.com`</TableCell>
+      <TableCell>`string`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.Duration*</TableCell>
+      <TableCell>`5m`, `1h30m`, `2d`</TableCell>
+      <TableCell>milissegundos (`number`)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.Color*</TableCell>
+      <TableCell>`#FF0000` ou `FF0000`</TableCell>
+      <TableCell>inteiro (`number`)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.Emoji*</TableCell>
+      <TableCell>Emoji customizado ou unicode</TableCell>
+      <TableCell>Objeto `ParsedEmoji`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*PrefixArg.Rest*</TableCell>
+      <TableCell>Todos os tokens restantes</TableCell>
+      <TableCell>`string` concatenada</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Opções de validação
+
+Todo decorator *@PrefixArg* aceita um objeto de configuração opcional com regras de validação. Essas regras são aplicadas durante a fase de parsing antes que o handler receba o valor. Se qualquer validação falhar, o parser lança uma *ArgumentException* que inclui o nome do argumento, a restrição esperada e a entrada recebida.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Opção</TableCell>
+      <TableCell header>Aplica-se a</TableCell>
+      <TableCell header>Comportamento</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`required`</TableCell>
+      <TableCell>Todos os tipos</TableCell>
+      <TableCell>Lança erro se o argumento estiver ausente (padrão: `true`)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`min` / `max`</TableCell>
+      <TableCell>*Integer*, *Number*</TableCell>
+      <TableCell>Verificação de limites numéricos após coerção</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`minLength` / `maxLength`</TableCell>
+      <TableCell>*String*, *Rest*</TableCell>
+      <TableCell>Limites de comprimento em caracteres</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`choices`</TableCell>
+      <TableCell>Todos os tipos</TableCell>
+      <TableCell>Entrada deve corresponder a um dos valores permitidos</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`validation.pattern`</TableCell>
+      <TableCell>Todos os tipos</TableCell>
+      <TableCell>Regex que a entrada bruta deve combinar antes da coerção</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`validation.validate`</TableCell>
+      <TableCell>Todos os tipos</TableCell>
+      <TableCell>Função customizada retornando `true` ou uma string de erro</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Ordem do pipeline de validação
+
+O argument parser aplica validações em uma ordem específica para cada argumento. Compreender essa ordem ajuda você a projetar schemas que produzem mensagens de erro claras, porque a primeira verificação que falha é o que o usuário vê. O pipeline é interrompido na primeira falha, então verificações posteriores só executam se todas as anteriores passarem.
+
+<Steps>
+  <Step title="Verificação de presença">
+    Se o argumento é obrigatório e o token bruto está ausente ou vazio, o parser lança uma *ArgumentException* imediatamente. Argumentos opcionais com tokens ausentes recebem `undefined` e pulam todas as verificações restantes. Esta é a primeira barreira que impede valores vazios de alcançar os parsers específicos de tipo.
+  </Step>
+  <Step title="Validação customizada">
+    Se um regex *validation.pattern* estiver definido, a entrada bruta deve combiná-lo. Se uma função *validation.validate* estiver definida, ela recebe a entrada bruta e deve retornar `true` ou uma string de erro. Ambas as verificações executam sobre o texto bruto antes de qualquer coerção de tipo, permitindo validar restrições de formato independentemente do parsing de tipo.
+  </Step>
+  <Step title="Verificação de choices">
+    Se um array *choices* estiver definido, a entrada bruta deve corresponder exatamente a um dos valores permitidos. Isso funciona como uma restrição de enum e é útil para valores de argumento que devem vir de um conjunto fixo como nomes de status, tipos de ação ou seleções de modo.
+  </Step>
+  <Step title="Coerção de tipo e limites">
+    O parser converte o token bruto no tipo alvo usando o parser específico do tipo. Para tipos numéricos, verificações de limites (*min*, *max*) executam após a coerção bem-sucedida. Para tipos string, verificações de comprimento (*minLength*, *maxLength*) são aplicadas. Se a coerção ou os limites falharem, o parser lança uma *ArgumentException*.
+  </Step>
+</Steps>
+
+## Decorator de parâmetro @PrefixArg
+
+Na classe de handler, a função *@PrefixArg* (sem o namespace) é um decorator de parâmetro que injeta um valor de argumento parseado pelo nome. O nome deve corresponder a um argumento declarado no schema do comando. O decorator *@Ctx* injeta o objeto *Message* bruto. Juntos, eles permitem que o handler receba parâmetros completamente tipados sem parsing manual.
+
+```typescript filename="src/modules/fun/handlers/roll.handler.ts"
+import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
+import type { Message } from 'discord.js';
+import { RollCommand } from '../commands/roll.command';
+
+@PrefixCommandHandler(RollCommand)
+export class RollHandler {
+  async handle(
+    @Ctx() message: Message,
+    @PrefixArg('sides') sides: number | undefined,
+    @PrefixArg('count') count: number | undefined,
+  ): Promise<void> {
+    const faces = sides ?? 6;
+    const rolls = count ?? 1;
+    const results = Array.from({ length: rolls }, () =>
+      Math.floor(Math.random() * faces) + 1,
+    );
+    await message.reply(`Rolled ${rolls}d${faces}: [${results.join(', ')}]`);
+  }
+}
+```
+
+## Próxima página
+
+Continue com [Execução e Prefixos por Servidor](/guide/prefix-commands-execution-guild-prefixes).

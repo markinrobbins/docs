@@ -1,0 +1,182 @@
+---
+title: Comportamento em Runtime
+description: |
+  O subsistema de prefix fornece exception layouts, introspecção do dispatcher e integração com guards.
+  Aprenda a lidar com falhas graciosamente, inspecionar comandos registrados e proteger handlers com guards.
+order: 6
+category: Prefix Commands
+---
+
+## Caminhos de falha
+
+Quando um prefix command falha em qualquer estágio, o framework produz uma exceção específica que você pode interceptar e formatar. Compreender a taxonomia de falhas ajuda você a projetar respostas de erro amigáveis ao invés de deixar erros brutos vazarem no chat. Cada tipo de falha mapeia para uma classe de exceção distinta com seu próprio hook de layout.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Falha</TableCell>
+      <TableCell header>Exceção</TableCell>
+      <TableCell header>Quando dispara</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Comando desconhecido</TableCell>
+      <TableCell>*CommandNotFoundException*</TableCell>
+      <TableCell>Prefixo correspondido mas nome do comando não está no registry</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Argumento ausente</TableCell>
+      <TableCell>*ArgumentException*</TableCell>
+      <TableCell>Um argumento obrigatório não foi fornecido</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Argumento inválido</TableCell>
+      <TableCell>*ArgumentException*</TableCell>
+      <TableCell>Coerção de tipo ou validação falhou</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Negação de guard</TableCell>
+      <TableCell>Custom ou *ForbiddenException*</TableCell>
+      <TableCell>Um guard retornou `false` ou lançou exceção</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Cooldown ativo</TableCell>
+      <TableCell>Bloqueado silenciosamente</TableCell>
+      <TableCell>Usuário executou comando antes do cooldown expirar</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Exception layouts
+
+Exception layouts permitem definir respostas customizadas para tipos específicos de exceção. Ao invés de escrever blocos try-catch em cada handler, você registra um layout uma vez e o framework o aplica automaticamente sempre que aquele tipo de exceção é lançado durante a execução de prefix commands. Isso mantém seus handlers limpos e a formatação de erros consistente em todo o bot.
+
+Um layout recebe a *Message* original e a exceção lançada, permitindo construir embeds de erro ricos com contexto sobre o que deu errado. O helper *defineExceptionLayout* cria uma factory de layout que o framework descobre através do registro do módulo.
+
+<CodeTabs>
+  <Tab label="Layout de argumento" language="typescript">
+```typescript filename="src/modules/prefix/layouts/argument-exception.layout.ts"
+import { defineExceptionLayout } from '@spraxium/core';
+import { ArgumentException } from '@spraxium/common';
+
+export const ArgumentExceptionLayout = defineExceptionLayout(
+  ArgumentException,
+  async (message, exception) => {
+    await message.reply({
+      content: `Argumento inválido: **${exception.argName}** - ${exception.message}`,
+    });
+  },
+);
+```
+  </Tab>
+  <Tab label="Layout de não encontrado" language="typescript">
+```typescript filename="src/modules/prefix/layouts/not-found.layout.ts"
+import { defineExceptionLayout } from '@spraxium/core';
+import { CommandNotFoundException } from '@spraxium/common';
+
+export const CommandNotFoundLayout = defineExceptionLayout(
+  CommandNotFoundException,
+  async (message, exception) => {
+    await message.reply({
+      content: `Comando \`${exception.commandName}\` não encontrado. Use \`!help\` para ver os comandos disponíveis.`,
+    });
+  },
+);
+```
+  </Tab>
+</CodeTabs>
+
+Registre layouts no seu módulo junto com comandos e handlers. O framework os descobre durante a inicialização do módulo e os aplica aos tipos de exceção corretos automaticamente.
+
+```typescript filename="src/modules/prefix/prefix.module.ts"
+import { Module } from '@spraxium/common';
+import { RollCommand } from './commands/roll.command';
+import { RollHandler } from './handlers/roll.handler';
+import { ArgumentExceptionLayout } from './layouts/argument-exception.layout';
+import { CommandNotFoundLayout } from './layouts/not-found.layout';
+
+@Module({
+  commands: [RollCommand],
+  handlers: [RollHandler],
+  layouts: [ArgumentExceptionLayout, CommandNotFoundLayout],
+})
+export class PrefixModule {}
+```
+
+## Introspecção do dispatcher
+
+O *PrefixDispatcher* expõe métodos para inspecionar a árvore de comandos registrados em runtime. O método *getCommandInfo* retorna um array de objetos *PrefixCommandInfo* com nomes de comandos, descrições, listas de subcomandos e schemas de argumentos. Esta é a base para construir comandos de help dinâmicos.
+
+O dispatcher também expõe *getResolved* para as ligações comando-handler completamente resolvidas, *size* para o número total de entradas registradas, *commandCount* para comandos top-level distintos e *guildPrefixes* para o manager de prefixos de servidor. Esses métodos de introspecção são úteis para dashboards administrativos, health checks e ferramentas de depuração.
+
+```typescript filename="src/modules/prefix/handlers/help.handler.ts"
+import { Ctx, PrefixCommandHandler } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+import type { Message } from 'discord.js';
+import { HelpCommand } from '../commands/help.command';
+
+@PrefixCommandHandler(HelpCommand)
+export class HelpHandler {
+  constructor(private readonly dispatcher: PrefixDispatcher) {}
+
+  async handle(@Ctx() message: Message): Promise<void> {
+    const commands = this.dispatcher.getCommandInfo();
+    const lines = commands.map((cmd) => {
+      const subs = cmd.subcommands?.map((s) => s.name).join(', ');
+      return subs
+        ? `**${cmd.name}** - subcomandos: ${subs}`
+        : `**${cmd.name}**`;
+    });
+    await message.reply(lines.join('\n') || 'Nenhum comando registrado.');
+  }
+}
+```
+
+## Guards com prefix commands
+
+Prefix commands suportam o mesmo sistema de guards usado por slash commands e listeners. Decore uma classe de handler com *@UseGuards* para anexar um ou mais guards que executam antes do handler. Se qualquer guard retornar `false` ou lançar exceção, o handler é ignorado. Guards são úteis para verificações de permissão, restrições de cargo e filtragem de tipo de canal.
+
+Guards recebem o contexto de execução, que para prefix commands inclui o objeto *Message* original. Você pode usar as mesmas classes de guard em prefix commands, slash commands e listeners sem modificação. Esse é um dos benefícios da arquitetura unificada de guards.
+
+<CodeTabs>
+  <Tab label="Guard" language="typescript">
+```typescript filename="src/modules/moderation/guards/moderator.guard.ts"
+import { CanActivate, ExecutionContext } from '@spraxium/common';
+
+export class ModeratorGuard implements CanActivate {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const message = context.getMessage();
+    const member = message.member;
+    if (!member) return false;
+    return member.permissions.has('ModerateMembers');
+  }
+}
+```
+  </Tab>
+  <Tab label="Handler com guard" language="typescript">
+```typescript filename="src/modules/moderation/handlers/ban.handler.ts"
+import { Ctx, PrefixArg, PrefixCommandHandler, UseGuards } from '@spraxium/common';
+import type { Message } from 'discord.js';
+import { ModeratorGuard } from '../guards/moderator.guard';
+import { ModCommand } from '../commands/mod.command';
+
+@UseGuards(ModeratorGuard)
+@PrefixCommandHandler(ModCommand, { subcommand: 'ban' })
+export class BanHandler {
+  async handle(
+    @Ctx() message: Message,
+    @PrefixArg('target') targetId: string,
+    @PrefixArg('reason') reason: string | undefined,
+  ): Promise<void> {
+    await message.guild?.members.ban(targetId, { reason: reason ?? 'Sem motivo informado' });
+    await message.reply(`<@${targetId}> foi banido.`);
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Próximo estudo
+
+Continue com [Visão Geral de Slash Commands](/guide/slash-commands-overview).

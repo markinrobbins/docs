@@ -1,0 +1,265 @@
+---
+title: API de Prefijos vía Services
+description: |
+  Gestiona prefijos por servidor en runtime inyectando PrefixDispatcher en services y lifecycle hooks.
+  Aprende cada método de la API con ejemplos aislados de lectura, escritura, eliminación y recarga.
+order: 5
+category: Prefix Commands
+---
+
+## Por qué mantener la lógica de runtime en services
+
+*PrefixConfig* gestiona política global e hidratación en el boot, pero las reglas de dominio para leer, escribir y auditar prefijos por servidor pertenecen a services dedicados. Mezclar lógica de runtime en el config crea un cuello de botella de mantenimiento que se vuelve más difícil de testear conforme el sistema crece. La separación también facilita cambiar backends de almacenamiento o agregar trazabilidad sin tocar la capa de configuración.
+
+El punto de entrada para todas las operaciones de prefijo en runtime es *PrefixDispatcher*, que expone *guildPrefixes* como instancia de *PrefixGuildManager*. Inyectar *PrefixDispatcher* en un service da control total sobre el estado por servidor sin dependencia directa de los internos del config. Todo lo que sigue opera sobre ese único punto de inyección.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Capa</TableCell>
+      <TableCell header>Responsabilidad</TableCell>
+      <TableCell header>Evitar</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*PrefixConfig*</TableCell>
+      <TableCell>Política global, flags y provider de boot</TableCell>
+      <TableCell>Queries, autorización y mutaciones de runtime</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*Service*</TableCell>
+      <TableCell>CRUD por servidor, persistencia coordinada y auditoría</TableCell>
+      <TableCell>Reimplementar bootstrap o comportamiento del parser</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*Repositorio*</TableCell>
+      <TableCell>Lectura y escritura de estado en storage</TableCell>
+      <TableCell>Lógica de respuesta Discord u orquestación de handlers</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## getGuildPrefix
+
+*getGuildPrefix* retorna el array de strings de prefijo activos para un servidor, o `undefined` si no existe sobrescritura. Es el método de lectura principal que se usa al mostrar el prefijo actual al usuario o construir un embed de ayuda. Como el resultado proviene del estado en memoria, la llamada es síncrona y no tiene costo de I/O.
+
+Usa este método en métodos de service de solo lectura y constructores de embeds, no directamente en handlers. Encapsular la lectura en un método de service permite añadir lógica de fallback, wrappers de caché o telemetría sin cambiar los puntos de llamada. El patrón de abajo retorna un array vacío en lugar de `undefined` para simplificar a los consumidores.
+
+```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
+import { Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+
+@Injectable()
+export class GuildPrefixService {
+  constructor(private readonly dispatcher: PrefixDispatcher) {}
+
+  getForGuild(guildId: string): string[] {
+    return this.dispatcher.guildPrefixes.getGuildPrefix(guildId) ?? [];
+  }
+}
+```
+
+## hasGuildPrefix
+
+*hasGuildPrefix* retorna un `boolean` que indica si un servidor tiene una sobrescritura de prefijo activa en memoria. Úsalo cuando solo necesites bifurcar por existencia, sin inspeccionar el valor del prefijo. Es más eficiente que llamar *getGuildPrefix* y verificar `undefined` porque la intención queda explícita y puede optimizarse de forma independiente.
+
+Un caso de uso frecuente es en guards que deben aplicar comportamiento distinto para servidores con prefijo personalizado versus servidores que usan el valor global por defecto. El guard puede inyectar el service, llamar *hasGuildPrefix* y hacer short-circuit según el resultado. Evita usar este método como atajo para saltarse operaciones normales de CRUD.
+
+```typescript filename="src/modules/prefix/guards/custom-prefix.guard.ts"
+import { CanActivate, ExecutionContext, Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+
+@Injectable()
+export class CustomPrefixGuard implements CanActivate {
+  constructor(private readonly dispatcher: PrefixDispatcher) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const guildId = context.getMessage().guildId;
+    if (!guildId) return false;
+    return this.dispatcher.guildPrefixes.hasGuildPrefix(guildId);
+  }
+}
+```
+
+## setGuildPrefix
+
+*setGuildPrefix* crea o reemplaza completamente la sobrescritura de prefijo de un servidor. El tercer argumento acepta un objeto de metadata opcional para guardar campos de auditoría como el ID del actor y la marca de tiempo. Llámalo cuando un usuario o administrador actualice el prefijo a través de un comando o endpoint de API.
+
+Siempre persiste el nuevo valor en la base de datos antes de llamar a *setGuildPrefix* en memoria. Si la escritura en base de datos falla después de la mutación en memoria, el estado en memoria diverge del estado durable y la sincronización se pierde hasta el próximo reload. El patrón persist-first que se muestra abajo mantiene ambas capas consistentes ante fallos parciales.
+
+```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
+import { Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+import { GuildPrefixRepository } from '../repositories/guild-prefix.repository';
+
+@Injectable()
+export class GuildPrefixService {
+  constructor(
+    private readonly dispatcher: PrefixDispatcher,
+    private readonly repository: GuildPrefixRepository,
+  ) {}
+
+  async setForGuild(guildId: string, prefix: string, actorId: string): Promise<void> {
+    await this.repository.upsert(guildId, [prefix], actorId);
+
+    this.dispatcher.guildPrefixes.setGuildPrefix(guildId, prefix, {
+      updatedBy: actorId,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+}
+```
+
+## updateGuildPrefix
+
+*updateGuildPrefix* aplica un merge parcial sobre la entrada existente en lugar de una sustitución completa. Úsalo cuando quieras cambiar solo el valor del prefijo manteniendo los campos de metadata intactos, o cuando quieras actualizar metadata sin modificar el prefijo. Se comporta igual que *setGuildPrefix* si no existe ninguna entrada para el servidor.
+
+Este método es útil en escenarios como un panel de administración que envía actualizaciones por campo en lugar de reenviar todo el registro. Si tu capa de almacenamiento también soporta actualizaciones parciales, combina ambas llamadas para mantener la base de datos y el estado en memoria consistentes con la misma semántica.
+
+```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
+import { Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+import { GuildPrefixRepository } from '../repositories/guild-prefix.repository';
+
+@Injectable()
+export class GuildPrefixService {
+  constructor(
+    private readonly dispatcher: PrefixDispatcher,
+    private readonly repository: GuildPrefixRepository,
+  ) {}
+
+  async updateForGuild(guildId: string, prefix: string, actorId: string): Promise<void> {
+    await this.repository.patch(guildId, { prefixes: [prefix], updatedBy: actorId });
+
+    this.dispatcher.guildPrefixes.updateGuildPrefix(guildId, prefix, {
+      updatedBy: actorId,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+}
+```
+
+## removeGuildPrefix
+
+*removeGuildPrefix* elimina la sobrescritura en memoria de un servidor y retorna `true` si existía una entrada o `false` si el servidor no tenía prefijo personalizado. Tras la eliminación, el parser vuelve al prefijo global definido en *PrefixConfig* para ese servidor. Úsalo cuando un administrador restablezca el servidor al comportamiento por defecto.
+
+Sigue el patrón persist-first aquí también: elimina de la base de datos antes de llamar a *removeGuildPrefix* en memoria. Esto garantiza que un reinicio del proceso no rehidrate la entrada eliminada desde el provider. El ejemplo de abajo retorna un boolean al llamador para que el handler pueda confirmar si la eliminación realmente ocurrió.
+
+```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
+import { Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+import { GuildPrefixRepository } from '../repositories/guild-prefix.repository';
+
+@Injectable()
+export class GuildPrefixService {
+  constructor(
+    private readonly dispatcher: PrefixDispatcher,
+    private readonly repository: GuildPrefixRepository,
+  ) {}
+
+  async removeForGuild(guildId: string): Promise<boolean> {
+    await this.repository.remove(guildId);
+    return this.dispatcher.guildPrefixes.removeGuildPrefix(guildId);
+  }
+}
+```
+
+## getAllGuildIds
+
+*getAllGuildIds* retorna un array con todos los IDs de servidor que actualmente tienen una sobrescritura de prefijo en memoria. Úsalo en dashboards administrativos, jobs de sincronización o endpoints de diagnóstico que necesiten enumerar o iterar sobre servidores configurados. El resultado refleja el estado en memoria en tiempo real, por lo que puede diferir de la base de datos durante un reload parcialmente completado.
+
+Un patrón frecuente es llamar a *getAllGuildIds* en un job programado que cruza memoria con registros de la base de datos y repara cualquier desfase. También puedes usarlo para construir una lista paginada para una API de gestión sin realizar escaneos amplios en la base. Mantén la llamada dentro de la capa de service para que los consumidores no dependan directamente del dispatcher.
+
+```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
+import { Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+
+@Injectable()
+export class GuildPrefixService {
+  constructor(private readonly dispatcher: PrefixDispatcher) {}
+
+  listarServidoresConfigurados(): string[] {
+    return this.dispatcher.guildPrefixes.getAllGuildIds();
+  }
+}
+```
+
+## loadFromProvider: lifecycle hook onReady
+
+*loadFromProvider* acepta una función provider asíncrona, la espera y reemplaza todas las entradas de prefijo por servidor en memoria con el resultado. Como ejecuta I/O en lote y está estrechamente ligado a la disponibilidad de datos, pertenece a un lifecycle hook y no a un método de service genérico. Colocarlo en un service requeriría que el llamador supiera cuándo invocarlo o arriesgaría múltiples recargas completas concurrentes.
+
+El hook *onReady* de *SpraxiumOnReady* se ejecuta una vez después de que el cliente Discord hace login y está listo, que es exactamente el momento en que los datos iniciales deben cargarse en memoria. Implementa el hook en una clase de service dedicada, inyecta *PrefixDispatcher* junto con el repositorio y llama a *loadFromProvider* allí. También puedes llamar a *loadFromProvider* desde un job programado cuando necesites una re-sincronización controlada tras cambios masivos en la base de datos.
+
+```typescript filename="src/modules/prefix/prefix-prefetch.service.ts"
+import { Injectable } from '@spraxium/common';
+import type { SpraxiumOnReady } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+import type { Client } from 'discord.js';
+import { GuildPrefixRepository } from './repositories/guild-prefix.repository';
+
+@Injectable()
+export class PrefixPrefetchService implements SpraxiumOnReady {
+  constructor(
+    private readonly dispatcher: PrefixDispatcher,
+    private readonly repository: GuildPrefixRepository,
+  ) {}
+
+  async onReady(_client: Client<true>): Promise<void> {
+    await this.dispatcher.guildPrefixes.loadFromProvider(async () => {
+      const rows = await this.repository.findAll();
+      return rows.map((row) => ({
+        guildId: row.guildId,
+        prefix: row.prefixes,
+        metadata: {
+          updatedBy: row.updatedBy,
+          updatedAt: row.updatedAt,
+        },
+      }));
+    });
+  }
+}
+```
+
+<Callout type="info">
+  Registra *PrefixPrefetchService* en un módulo para que *SpraxiumOnReady* sea invocado automáticamente. El framework llama a *onReady* en todo injectable que lo implemente, por lo que no se requiere configuración adicional más allá de la declaración en el módulo.
+</Callout>
+
+## Checklist de producción
+
+Una implementación robusta debe mantener en sincronía el estado en memoria y el estado persistido ante cualquier fallo intermedio. También necesita contexto de auditoría suficiente para soporte y flujos de moderación. Esta lista te ayuda a validar esas garantías antes de publicar.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Item</TableCell>
+      <TableCell header>Objetivo</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Persistir antes de mutar memoria</TableCell>
+      <TableCell>Evitar divergencia entre estado activo y estado durable</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Encapsular writes del dispatcher en un service</TableCell>
+      <TableCell>Centralizar reglas y simplificar el testing</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Registrar metadata de auditoría en cada escritura</TableCell>
+      <TableCell>Rastrear quién cambió el prefijo y cuándo</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Usar onReady para la carga inicial</TableCell>
+      <TableCell>Garantizar que los datos estén disponibles antes de que los comandos se ejecuten</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Programar rutinas de recarga seguras</TableCell>
+      <TableCell>Reconciliar el estado del runtime tras migraciones o importaciones masivas</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Siguiente página
+
+Continúa con [Runtime](/prefix-commands-runtime-testing).

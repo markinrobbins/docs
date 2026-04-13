@@ -1,0 +1,197 @@
+---
+title: Comandos e Handlers
+description: |
+  O decorator @PrefixCommand define a estrutura enquanto @PrefixCommandHandler contém a lógica de execução.
+  Aprenda comandos simples, árvores de subcomandos e registro de módulos para prefix commands.
+order: 2
+category: Prefix Commands
+---
+
+## Separando estrutura de execução
+
+No Spraxium, prefix commands utilizam um padrão de duas classes. O decorator *@PrefixCommand* marca uma classe como definição de comando que descreve o nome, aliases, schema de argumentos e metadados. O decorator *@PrefixCommandHandler* marca uma classe separada que contém o método *handle* com a lógica de execução real. Essa separação mantém o contrato do comando estável enquanto permite que você evolua o comportamento do handler independentemente.
+
+A classe de comando atua como um container de metadados. Ela declara como o comando se chama, quais argumentos espera e como aparece na saída de help. A classe de handler é onde você injeta serviços, interage com o Discord e produz respostas. Essa divisão também habilita múltiplos handlers para o mesmo comando através do mecanismo de roteamento de subcomandos, onde cada subcomando recebe seu próprio handler dedicado.
+
+Ambas as classes devem ser registradas no mesmo módulo. Classes de comando vão no array *commands* e classes de handler vão no array *handlers*. Se apenas comandos forem registrados, nada executa porque não há handler para chamar. Se apenas handlers forem registrados, não há schema de comando para o registry indexar, então o parser não consegue resolver o nome do comando.
+
+## Um comando simples
+
+O prefix command mais simples precisa de uma classe de comando com um schema de argumentos e uma classe de handler com um método *handle*. A classe de comando usa decorators de método *@PrefixArg* em um método *build* para declarar argumentos posicionais. A classe de handler usa decorators de parâmetro *@PrefixArg* no método *handle* para receber os valores parseados.
+
+<CodeTabs>
+  <Tab label="Comando" language="typescript">
+```typescript filename="src/modules/fun/commands/roll.command.ts"
+import { PrefixArg, PrefixCommand } from '@spraxium/common';
+
+@PrefixCommand({
+  name: 'roll',
+  aliases: ['r', 'dice'],
+  description: 'Rola um ou mais dados.',
+  category: 'Diversão',
+  usage: '!roll [lados] [quantidade]',
+  cooldown: 3,
+})
+export class RollCommand {
+  @PrefixArg.Integer('sides', { required: false, min: 2, max: 1000 })
+  @PrefixArg.Integer('count', { required: false, min: 1, max: 25 })
+  build() {}
+}
+```
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/modules/fun/handlers/roll.handler.ts"
+import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
+import type { Message } from 'discord.js';
+import { RollCommand } from '../commands/roll.command';
+
+@PrefixCommandHandler(RollCommand)
+export class RollHandler {
+  async handle(
+    @Ctx() message: Message,
+    @PrefixArg('sides') sides: number | undefined,
+    @PrefixArg('count') count: number | undefined,
+  ): Promise<void> {
+    const faces = sides ?? 6;
+    const rolls = count ?? 1;
+    const results = Array.from({ length: rolls }, () =>
+      Math.floor(Math.random() * faces) + 1,
+    );
+    const total = results.reduce((a, b) => a + b, 0);
+    await message.reply(`Rolled ${rolls}d${faces}: [${results.join(', ')}] = ${total}`);
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+Os decorators de método *@PrefixArg* na classe de comando definem o schema de argumentos. Eles são empilhados de cima para baixo para determinar a ordem posicional: o primeiro decorator se torna a posição 0, o segundo a posição 1, e assim por diante. No handler, decorators de parâmetro *@PrefixArg('nome')* injetam o valor parseado pelo nome. O decorator *@Ctx* injeta o objeto *Message* bruto.
+
+## Roteamento de subcomandos
+
+Para famílias de comandos como `!mod warn`, `!mod kick` e `!mod ban`, use *@PrefixSubcommand* para definir cada rota na classe de comando e conectar cada rota a um handler dedicado via *@PrefixCommandHandler* com a opção *subcommand*. O primeiro token argv após o nome do comando é comparado com os nomes de subcomandos registrados, e o framework roteia automaticamente.
+
+<CodeTabs>
+  <Tab label="Comando" language="typescript">
+```typescript filename="src/modules/moderation/commands/mod.command.ts"
+import { PrefixArg, PrefixCommand, PrefixSubcommand } from '@spraxium/common';
+
+@PrefixCommand({
+  name: 'mod',
+  aliases: ['m'],
+  description: 'Comandos de moderação.',
+  category: 'Moderação',
+  usage: '!mod <warn|kick|ban> <usuario> [motivo]',
+})
+export class ModCommand {
+  @PrefixSubcommand({ name: 'warn', description: 'Avisar um usuário' })
+  @PrefixArg.User('target')
+  @PrefixArg.Rest('reason', { required: false })
+  warn() {}
+
+  @PrefixSubcommand({ name: 'kick', description: 'Expulsar um usuário' })
+  @PrefixArg.User('target')
+  @PrefixArg.Rest('reason', { required: false })
+  kick() {}
+
+  @PrefixSubcommand({ name: 'ban', description: 'Banir um usuário' })
+  @PrefixArg.User('target')
+  @PrefixArg.Rest('reason', { required: false })
+  ban() {}
+}
+```
+  </Tab>
+  <Tab label="Handler Warn" language="typescript">
+```typescript filename="src/modules/moderation/handlers/mod-warn.handler.ts"
+import { Ctx, PrefixArg, PrefixCommandHandler, UseGuards } from '@spraxium/common';
+import type { Message } from 'discord.js';
+import { ModCommand } from '../commands/mod.command';
+import { ModeratorGuard } from '../guards/moderator.guard';
+
+@UseGuards(ModeratorGuard)
+@PrefixCommandHandler(ModCommand, { subcommand: 'warn' })
+export class ModWarnHandler {
+  async handle(
+    @Ctx() message: Message,
+    @PrefixArg('target') userId: string,
+    @PrefixArg('reason') reason: string | undefined,
+  ): Promise<void> {
+    const text = reason ?? 'Nenhum motivo informado';
+    await message.reply(`Aviso para <@${userId}>. Motivo: ${text}`);
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+Cada método de subcomando na classe de comando define seu próprio schema de argumentos. O subcomando *warn* espera uma menção de usuário seguida de texto rest opcional, enquanto *kick* e *ban* seguem o mesmo formato. Cada subcomando recebe sua própria classe de handler, o que significa que você pode aplicar guards diferentes, injetar serviços distintos e tratar erros independentemente por subcomando.
+
+## Configuração do @PrefixCommand
+
+O decorator *@PrefixCommand* aceita um objeto de configuração que controla como o comando aparece na saída de help, como é acionado e quais limites operacionais possui. Todos os campos exceto *name* são opcionais, mas fornecer *description*, *usage* e *category* melhora significativamente a saída de qualquer implementação de comando help.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Finalidade</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`name`</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>Nome primário de acionamento (obrigatório)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`aliases`</TableCell>
+      <TableCell>`string[]`</TableCell>
+      <TableCell>Nomes alternativos de acionamento</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`description`</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>Texto curto de ajuda para o comando</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`usage`</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>Formato de invocação esperado</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`category`</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>Label de agrupamento no help</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`cooldown`</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>Cooldown por comando em segundos</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Registro no módulo
+
+Tanto classes de comando quanto de handler devem ser registradas em um módulo para que o framework as descubra durante o bootstrap. A classe de comando vai no array *commands* e a classe de handler vai no array *handlers*. O framework processa ambos os arrays durante o carregamento do módulo, registra os metadados do comando no *PrefixRegistry* e conecta as instâncias de handler através do container de DI.
+
+```typescript filename="src/modules/moderation/moderation.module.ts"
+import { Module } from '@spraxium/common';
+import { ModCommand } from './commands/mod.command';
+import { RollCommand } from '../fun/commands/roll.command';
+import { ModWarnHandler } from './handlers/mod-warn.handler';
+import { ModKickHandler } from './handlers/mod-kick.handler';
+import { ModBanHandler } from './handlers/mod-ban.handler';
+import { RollHandler } from '../fun/handlers/roll.handler';
+
+@Module({
+  commands: [ModCommand, RollCommand],
+  handlers: [ModWarnHandler, ModKickHandler, ModBanHandler, RollHandler],
+})
+export class ModerationModule {}
+```
+
+## Próxima página
+
+Continue com [Argumentos e Parsing](/guide/prefix-commands-arguments-parsing).
