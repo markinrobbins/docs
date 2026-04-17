@@ -1,0 +1,103 @@
+---
+title: CLI Database
+description: |
+  Como o spraxium database gera um módulo de integração com banco de dados completo em segundos.
+  Escolha seu ORM e engine pelo assistente interativo e comece a escrever queries imediatamente.
+order: 5
+category: CLI
+---
+
+## O que faz
+
+`spraxium database` (alias `spraxium db`) gera um módulo de banco de dados completamente configurado dentro do seu projeto. O comando conduz um assistente interativo onde você escolhe o ORM e o engine, cria os arquivos do módulo, injeta as variáveis de ambiente necessárias, instala os pacotes e, opcionalmente, registra o módulo no seu *AppModule*. Ao final do assistente, o projeto já está pronto para executar queries sem nenhuma configuração manual.
+
+O comando aceita um argumento opcional para pular a primeira etapa de seleção. Quando você já sabe o que quer, `spraxium database prisma` vai direto para a escolha do engine.
+
+## Quando usar
+
+Use este comando no início de um projeto ou ao adicionar acesso a banco de dados em uma aplicação Spraxium existente. Ele equivale a instalar pacotes manualmente, escrever o boilerplate de conexão e registrar o módulo , tudo em um único fluxo interativo. Execute-o uma vez por integração de banco de dados; para alterações de schema ou migrações, use as ferramentas do ORM diretamente após a configuração inicial.
+
+## ORMs suportados
+
+<DropdownGroup>
+  <Dropdown title="Prisma , schema-first com client gerado automaticamente">
+    Prisma é a melhor escolha quando você quer um client de queries fortemente tipado gerado a partir de um arquivo de schema declarativo. Suporta PostgreSQL, MySQL e SQLite. Após o assistente rodar, defina seus modelos em `prisma/schema.prisma` e execute `npx prisma migrate dev` para aplicar as alterações. Prisma é ideal para equipes que preferem workflows onde o schema é a fonte de verdade, histórico de migrações legível e tipagem completa da camada de banco até a aplicação.
+  </Dropdown>
+  <Dropdown title="Drizzle , ORM TypeScript leve e nativo para SQL">
+    Drizzle é indicado para projetos que valorizam bundle pequeno, controle direto do SQL e schema definido em TypeScript em vez de um arquivo separado. Suporta PostgreSQL, MySQL e SQLite. O *DatabaseService* gerado expõe um método `.getDb()` que retorna o query builder do Drizzle, pronto para uso. Escolha Drizzle quando quiser abstrações mínimas com inferência total de tipos e preferir definir tabelas como objetos TypeScript ao invés da sintaxe `.prisma`.
+  </Dropdown>
+  <Dropdown title="TypeORM , baseado em decorators com Active Record ou Data Mapper">
+    TypeORM é a escolha consolidada para equipes vindas de NestJS ou Spring que já estão acostumadas com decorators de classe como *@Entity*, *@Column* e *@Repository*. Suporta PostgreSQL, MySQL e SQLite. Use TypeORM quando a equipe preferir classes de entidade como fonte de verdade e quiser um padrão familiar para migrações e gerenciamento de relacionamentos.
+  </Dropdown>
+  <Dropdown title="Mongoose , modelo de documentos para MongoDB">
+    Mongoose é a escolha certa quando seus dados são orientados a documentos e o MongoDB é seu banco de dados. Tem um único alvo de banco, então o assistente pula a etapa de seleção de engine. O módulo gerado inclui uma definição de schema e um service que encapsula o model do Mongoose. Escolha Mongoose para aplicações que precisam de schemas flexíveis, documentos embutidos ou operadores de query específicos do MongoDB.
+  </Dropdown>
+  <Dropdown title="Mikro-ORM , ORM versátil com padrão Unit of Work">
+    Mikro-ORM é uma escolha forte para casos de uso avançados que se beneficiam do padrão Unit of Work e Identity Map. Suporta PostgreSQL, MySQL, SQLite e MongoDB. É bem adequado para domínios complexos com grafos de relacionamento profundos, onde rastreamento controlado de mudanças ao longo de um ciclo de request importa mais do que simplicidade de configuração.
+  </Dropdown>
+</DropdownGroup>
+
+## O que o assistente faz
+
+<Steps>
+  <Step title="Seleção do ORM">
+    Se você não passou um ORM como argumento do CLI, o assistente apresenta uma lista interativa dos cinco ORMs suportados com uma descrição curta de cada. Navegue com as setas e pressione Enter para confirmar.
+  </Step>
+  <Step title="Seleção do engine de banco de dados">
+    Para ORMs que suportam múltiplos engines (Prisma, Drizzle, TypeORM, Mikro-ORM), o assistente pergunta qual engine utilizar. Mongoose pula esta etapa pois tem como alvo exclusivamente o MongoDB.
+  </Step>
+  <Step title="Nome do módulo">
+    O assistente pede um nome de módulo com `database` como padrão. O nome é convertido para kebab-case na pasta e PascalCase nos nomes de classe. Um nome como `user-db` gera um `UserDbModule` e o diretório `src/modules/user-db/`.
+  </Step>
+  <Step title="Criação dos arquivos">
+    O CLI baixa o template para a combinação de ORM e engine escolhida e escreve o módulo, service, schema e arquivos de configuração em `src/modules/{nome}/`. Um arquivo de configuração na raiz do projeto (como `drizzle.config.ts` ou `prisma/schema.prisma`) também é criado se o ORM exigir.
+  </Step>
+  <Step title="Injeção das variáveis de ambiente">
+    As variáveis de ambiente necessárias (`DATABASE_URL`, `DATABASE_PATH`, etc.) são adicionadas automaticamente ao seu `app.env.ts` caso ainda não estejam presentes. Nenhuma edição manual é necessária.
+  </Step>
+  <Step title="Instalação de pacotes">
+    O assistente pergunta se você quer instalar os pacotes imediatamente. Ao confirmar, o gerenciador de pacotes detectado adiciona as dependências de runtime (como o client do ORM e o driver do banco) e as dependências de desenvolvimento (ferramentas de CLI, definições de tipo). Comandos pós-instalação como `npx prisma generate` também são executados automaticamente.
+  </Step>
+  <Step title="Registro no AppModule">
+    Se um `app.module.ts` for encontrado no seu diretório `src/`, o assistente oferece adicionar o módulo gerado ao array *imports* automaticamente. Isso conecta o módulo ao container DI para que você possa injetar o *DatabaseService* em qualquer lugar da aplicação.
+  </Step>
+</Steps>
+
+## Estrutura de arquivos gerada
+
+Os arquivos exatos variam por ORM, mas o layout segue a mesma convenção para todas as combinações.
+
+<FolderStructure>
+  <Folder name="src/modules/database/">
+    <File name="database.module.ts" description="Classe do módulo com decorator @Module e exportações de providers" />
+    <File name="database.service.ts" description="Service injetável que expõe o client do ORM ou query builder" />
+    <File name="database.schema.ts" description="Definição de schema ou entidade (presente para Drizzle, Mongoose, Mikro-ORM)" />
+  </Folder>
+</FolderStructure>
+
+<Callout tone="info" title="Arquivos de configuração na raiz também são criados">
+  Alguns ORMs exigem um arquivo de configuração na raiz do projeto. O Prisma gera um diretório `prisma/` com `schema.prisma`. O Drizzle gera `drizzle.config.ts`. Esses arquivos são criados junto com os arquivos do módulo e devem ser commitados no controle de versão.
+</Callout>
+
+## Após o assistente
+
+Após o comando finalizar, você pode injetar o *DatabaseService* em qualquer handler, guard ou service dentro do mesmo escopo de módulo. O service é exportado pelo módulo de banco de dados, então importar o *DatabaseModule* em qualquer outro módulo dá acesso a ele pelo container DI.
+
+```typescript filename="src/modules/hello/hello.service.ts"
+import { Injectable } from '@spraxium/common';
+import { DatabaseService } from '../database/database.service';
+
+@Injectable()
+export class HelloService {
+  constructor(private readonly db: DatabaseService) {}
+
+  async getCount(): Promise<number> {
+    // Use o client do ORM retornado pelo service
+    return this.db.getDb().select().from(table).then((rows) => rows.length);
+  }
+}
+```
+
+## Próxima página
+
+Continue com [CLI Info](/guide/cli-info).

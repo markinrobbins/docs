@@ -1,0 +1,83 @@
+---
+title: Creating a Project
+description: |
+  The spraxium new command scaffolds a complete Spraxium project from a template.
+  Learn how the interactive wizard works, which templates are available, and what gets installed.
+order: 2
+category: CLI
+---
+
+## What it does
+
+*spraxium new* creates a new project directory from scratch. It runs an interactive wizard that collects a project name, template choice, optional extra packages, and a Git preference. When the wizard completes, the CLI scaffolds the directory, installs all dependencies, and optionally initializes a Git repository. You end up with a working project ready for *spraxium dev*.
+
+Run the command from any directory outside your existing project. You can also pass the project name directly as an argument to skip the first prompt.
+
+```bash filename="terminal"
+spraxium new
+spraxium new my-bot
+# alias:
+spraxium n my-bot
+```
+
+## Available templates
+
+Three templates are available. Each one represents a different starting configuration, and the wizard lets you pick between them before scaffolding.
+
+<DropdownGroup>
+<Dropdown title="default">
+  A minimal Discord bot that only includes the core packages. After choosing this template the wizard shows a checkbox list of optional modules, letting you opt into exactly what you need. Use this when you want full control over what enters your project from the beginning.
+</Dropdown>
+
+<Dropdown title="slash-bot">
+  A Discord bot with a ready-to-use `/ping` slash command already wired up. The command, its handler, and the module registration are pre-generated so you can run *spraxium dev* immediately and see the response. Use this as a starting point when slash commands are your primary interaction model.
+</Dropdown>
+
+<Dropdown title="http-bot">
+  A Discord bot bundled with a lightweight REST API powered by *@spraxium/http*. The HTTP module is already registered alongside the bot. Use this when your bot needs to expose endpoints alongside Discord interactions.
+</Dropdown>
+</DropdownGroup>
+
+## Optional packages
+
+When you choose the *default* template the wizard shows a checkbox prompt where you can select any combination of the following extra packages. Non-default templates use a fixed set.
+
+<DropdownGroup>
+<Dropdown title="@spraxium/components">
+  Adds the *ComponentsModule* for building interactive Discord UI components such as buttons, select menus, and modals with decorators.
+</Dropdown>
+
+<Dropdown title="@spraxium/http">
+  Adds the *HttpModule* for creating RESTful endpoints alongside your Discord bot in the same process.
+</Dropdown>
+
+<Dropdown title="@spraxium/schedule">
+  Adds the *ScheduleModule* for cron tasks, one-shot timeouts, and interval-based jobs using decorator-based scheduling.
+</Dropdown>
+
+<Dropdown title="@spraxium/i18n">
+  Adds the *I18nModule* for multi-language support with locale files and injectable translation services.
+</Dropdown>
+
+<Dropdown title="@spraxium/signal">
+  Adds the *@spraxium/signal* server-side event bus. Use this when the bot needs to broadcast typed events to connected clients.
+</Dropdown>
+
+<Dropdown title="@spraxium/signal-client">
+  Adds the *@spraxium/signal-client* for subscribing to events from a Signal server. Use this alongside *@spraxium/signal* or in standalone microservices.
+</Dropdown>
+</DropdownGroup>
+
+## What the wizard installs
+
+The CLI always installs a fixed set of core packages regardless of template: *@spraxium/common*, *@spraxium/core*, *@spraxium/env*, and *discord.js*. Developer dependencies include *@spraxium/cli*, *typescript*, *@types/node*, and *tsdown*.
+
+Any extra packages you select are added to the same install pass. The installer detects whether you are inside a monorepo and resolves local workspace references where appropriate. If no package manager is detected, the CLI defaults to pnpm.
+
+<Callout tone="warning" title="Directory must not exist">
+  If a directory with the project name already exists in the current path, the command stops immediately without writing any files. Rename or remove the conflicting directory before running the wizard again.
+</Callout>
+
+## Next page
+
+Continue with [Generating Files](/guide/cli-generate).

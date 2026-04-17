@@ -1,0 +1,83 @@
+---
+title: Criando um Projeto
+description: |
+  O comando spraxium new cria um projeto Spraxium completo a partir de um template.
+  Saiba como o assistente interativo funciona, quais templates existem e o que é instalado.
+order: 2
+category: CLI
+---
+
+## O que ele faz
+
+O *spraxium new* cria um novo diretório de projeto do zero. Ele executa um assistente interativo que coleta o nome do projeto, a escolha do template, pacotes extras opcionais e uma preferência de Git. Quando o assistente termina, a CLI cria o diretório, instala todas as dependências e, opcionalmente, inicializa um repositório Git. Você termina com um projeto funcional pronto para *spraxium dev*.
+
+Execute o comando a partir de qualquer diretório fora do seu projeto existente. Você também pode passar o nome do projeto diretamente como argumento para pular o primeiro prompt.
+
+```bash filename="terminal"
+spraxium new
+spraxium new meu-bot
+# alias:
+spraxium n meu-bot
+```
+
+## Templates disponíveis
+
+Três templates estão disponíveis. Cada um representa uma configuração de início diferente, e o assistente permite escolher entre eles antes de criar o projeto.
+
+<DropdownGroup>
+<Dropdown title="default">
+  Um bot Discord minimalista que inclui apenas os pacotes principais. Após escolher este template, o assistente exibe uma lista de módulos opcionais, permitindo selecionar exatamente o que você precisa. Use quando quiser controle total sobre o que entra no projeto desde o início.
+</Dropdown>
+
+<Dropdown title="slash-bot">
+  Um bot Discord com um comando de barra `/ping` já configurado e pronto para uso. O comando, seu handler e o registro do módulo já estão gerados, de modo que você pode executar *spraxium dev* imediatamente e ver a resposta. Use como ponto de partida quando slash commands são seu modelo de interação principal.
+</Dropdown>
+
+<Dropdown title="http-bot">
+  Um bot Discord combinado com uma API REST leve baseada em *@spraxium/http*. O módulo HTTP já está registrado junto ao bot. Use quando seu bot precisar expor endpoints além das interações com o Discord.
+</Dropdown>
+</DropdownGroup>
+
+## Pacotes opcionais
+
+Ao escolher o template *default*, o assistente mostra um prompt de caixas de seleção onde você pode escolher qualquer combinação dos pacotes extras a seguir. Templates que não são default utilizam um conjunto fixo de pacotes.
+
+<DropdownGroup>
+<Dropdown title="@spraxium/components">
+  Adiciona o *ComponentsModule* para criar componentes de UI interativos do Discord, como botões, menus de seleção e modais com decoradores.
+</Dropdown>
+
+<Dropdown title="@spraxium/http">
+  Adiciona o *HttpModule* para criar endpoints RESTful junto ao seu bot Discord no mesmo processo.
+</Dropdown>
+
+<Dropdown title="@spraxium/schedule">
+  Adiciona o *ScheduleModule* para tarefas cron, timeouts únicos e jobs baseados em intervalos com agendamento por decoradores.
+</Dropdown>
+
+<Dropdown title="@spraxium/i18n">
+  Adiciona o *I18nModule* para suporte a múltiplos idiomas com arquivos de locale e serviços de tradução injetáveis.
+</Dropdown>
+
+<Dropdown title="@spraxium/signal">
+  Adiciona o barramento de eventos server-side *@spraxium/signal*. Use quando o bot precisar transmitir eventos tipados para clientes conectados.
+</Dropdown>
+
+<Dropdown title="@spraxium/signal-client">
+  Adiciona o *@spraxium/signal-client* para assinar eventos de um servidor Signal. Use junto com *@spraxium/signal* ou em microsserviços independentes.
+</Dropdown>
+</DropdownGroup>
+
+## O que o assistente instala
+
+A CLI sempre instala um conjunto fixo de pacotes principais, independente do template: *@spraxium/common*, *@spraxium/core*, *@spraxium/env* e *discord.js*. As dependências de desenvolvimento incluem *@spraxium/cli*, *typescript*, *@types/node* e *tsdown*.
+
+Os pacotes extras selecionados são adicionados na mesma etapa de instalação. O instalador detecta se você está dentro de um monorepo e resolve referências locais de workspace quando apropriado. Se nenhum gerenciador de pacotes for detectado, a CLI usa pnpm por padrão.
+
+<Callout tone="warning" title="O diretório não deve existir">
+  Se já existir um diretório com o nome do projeto no caminho atual, o comando para imediatamente sem escrever nenhum arquivo. Renomeie ou remova o diretório conflitante antes de executar o assistente novamente.
+</Callout>
+
+## Próxima página
+
+Continue com [Gerando Arquivos](/guide/cli-generate).

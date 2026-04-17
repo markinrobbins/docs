@@ -1,0 +1,143 @@
+---
+title: Visão Geral da CLI
+description: |
+  A CLI do Spraxium oferece sete comandos que cobrem todo o ciclo de vida do desenvolvimento.
+  Saiba quando usar cada comando e como eles se conectam do scaffolding à produção.
+order: 1
+category: CLI
+---
+
+## Comandos disponíveis
+
+A CLI tem sete comandos. Cada um cobre uma fase distinta do ciclo de vida do projeto, do scaffolding de um novo projeto até a execução do artefato compilado em produção.
+
+<DropdownGroup>
+<Dropdown title="spraxium new">
+  Cria um novo projeto Spraxium a partir de um template. O assistente interativo solicita o nome do projeto, a escolha de template, pacotes extras opcionais e se deseja inicializar um repositório Git. Execute uma vez por projeto, fora de qualquer workspace Spraxium existente.
+</Dropdown>
+
+<Dropdown title="spraxium dev">
+  Inicia o servidor de desenvolvimento usando o loader SWC para ciclos de compilação rápidos. Observa os arquivos fonte e reinicia automaticamente a cada save. O comportamento do watcher, o entrypoint e o delay de debounce são configuráveis em *spraxium.config.ts*.
+</Dropdown>
+
+<Dropdown title="spraxium generate">
+  Cria um arquivo alinhado ao framework a partir de um dos dezenove schematics disponíveis: módulos, services, tasks, listeners, slash commands, prefix commands, guards, embeds, buttons, modais e outros. Registra automaticamente os arquivos gerados no array correto do módulo quando aplicável.
+</Dropdown>
+
+<Dropdown title="spraxium build">
+  Executa *tsc --noEmit* para validação de tipos e depois empacota com *tsdown* para produção. Retorna código de saída não-zero em caso de falha, sendo ideal como gate de CI. A saída do build vai para `.spraxium/dist`.
+</Dropdown>
+
+<Dropdown title="spraxium start">
+  Executa o artefato compilado gerado por *spraxium build*. Define *NODE_ENV* como `production` automaticamente e repassa o stdio diretamente para o terminal. Requer um build concluído antes da execução.
+</Dropdown>
+
+<Dropdown title="spraxium database">
+  Gera um módulo completo de integração com ORM através de um assistente interativo. Suporta Prisma, Drizzle, TypeORM, Mongoose e MikroORM. Instala as dependências e registra o módulo automaticamente.
+</Dropdown>
+
+<Dropdown title="spraxium info">
+  Imprime um relatório de diagnóstico com a versão da CLI, versão do Node, sistema operacional, gerenciador de pacotes e todas as versões de pacotes *@spraxium/* encontradas. Aceita a flag *--json* para saída legível por máquinas. Útil para relatos de bugs e artefatos de CI.
+</Dropdown>
+</DropdownGroup>
+
+## Fluxo recomendado no dia a dia
+
+<Steps>
+  <Step title="Crie com new">
+    Execute *spraxium new* uma vez para criar o projeto. Escolha o template e os módulos opcionais durante o assistente interativo.
+  </Step>
+  <Step title="Gere com generate">
+    Use *spraxium generate* para adicionar módulos, services, listeners ou comandos. A CLI coloca os arquivos na pasta correta e os registra automaticamente.
+  </Step>
+  <Step title="Itere com dev">
+    Execute *spraxium dev* durante a implementação. Os arquivos recarregam automaticamente a cada save para que você veja os resultados imediatamente.
+  </Step>
+  <Step title="Valide com build">
+    Execute *spraxium build* antes de todo push para ambiente compartilhado. Erros de tipo e falhas de bundle aparecem aqui, não em produção.
+  </Step>
+  <Step title="Publique com start">
+    Execute *spraxium start* em staging e produção após um build bem-sucedido. O comando lê a saída compilada diretamente.
+  </Step>
+</Steps>
+
+## Próxima página
+
+Continue com [Criando um Projeto](/guide/cli-new).
+
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Comando</TableCell>
+      <TableCell header>Objetivo</TableCell>
+      <TableCell header>Onde usar</TableCell>
+      <TableCell header>Perfil</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell><code>spraxium dev</code></TableCell>
+      <TableCell>Executar projeto com hot reload</TableCell>
+      <TableCell>Máquina local de desenvolvimento</TableCell>
+      <TableCell>Dev backend e app engineer</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell><code>spraxium generate</code></TableCell>
+      <TableCell>Gerar arquivos base (schematics)</TableCell>
+      <TableCell>Dentro de um projeto Spraxium existente</TableCell>
+      <TableCell>Time de feature e plataforma</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell><code>spraxium build</code></TableCell>
+      <TableCell>Validar tipos e empacotar para produção</TableCell>
+      <TableCell>Local, CI e pipeline de release</TableCell>
+      <TableCell>Dev, QA e CI maintainer</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell><code>spraxium start</code></TableCell>
+      <TableCell>Subir build compilada em modo produção</TableCell>
+      <TableCell>Staging, container e produção</TableCell>
+      <TableCell>DevOps e runtime operator</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell><code>spraxium info</code></TableCell>
+      <TableCell>Coletar diagnóstico de ambiente e versões</TableCell>
+      <TableCell>Debug local, issues e suporte</TableCell>
+      <TableCell>Qualquer pessoa do time</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Fluxo recomendado no dia a dia
+
+<Steps>
+  <Step title="1) Modele com generate">
+    Crie módulo, service, task ou listener com estrutura e convenções corretas.
+  </Step>
+  <Step title="2) Desenvolva com dev">
+    Rode em hot reload para iterar rápido no comportamento do bot.
+  </Step>
+  <Step title="3) Valide com build">
+    Faça type-check e bundle antes de subir para ambiente compartilhado.
+  </Step>
+  <Step title="4) Execute com start">
+    Rode o artefato compilado com <code>NODE_ENV=production</code>.
+  </Step>
+  <Step title="5) Diagnostique com info">
+    Em bugs, anexe o relatório no issue para acelerar triagem.
+  </Step>
+</Steps>
+
+## Como ler esta categoria
+
+Cada página a seguir cobre um comando em profundidade com:
+
+- funcionamento interno;
+- casos de uso por ambiente;
+- para qual tipo de usuário faz mais sentido;
+- exemplos práticos e checklist de uso.
+
+## Próxima página
+
+Continue com [CLI Dev](/guide/cli-dev).

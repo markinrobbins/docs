@@ -1,0 +1,103 @@
+---
+title: CLI Database
+description: |
+  Cómo spraxium database genera un módulo de integración con base de datos completo en segundos.
+  Elige tu ORM y motor a través del asistente interactivo y empieza a escribir queries de inmediato.
+order: 5
+category: CLI
+---
+
+## Qué hace
+
+`spraxium database` (alias `spraxium db`) genera un módulo de base de datos completamente configurado dentro de tu proyecto. El comando guía un asistente interactivo donde eliges el ORM y el motor, crea los archivos del módulo, inyecta las variables de entorno necesarias, instala los paquetes y, opcionalmente, registra el módulo en tu *AppModule*. Al finalizar el asistente, el proyecto ya está listo para ejecutar queries sin ninguna configuración manual.
+
+El comando acepta un argumento opcional para saltar el primer paso de selección. Cuando ya sabes lo que quieres, `spraxium database prisma` va directo a la elección del motor.
+
+## Cuándo usarlo
+
+Usa este comando al inicio de un proyecto o cuando agregar acceso a base de datos en una aplicación Spraxium existente. Equivale a instalar paquetes manualmente, escribir el boilerplate de conexión y registrar el módulo, todo en un único flujo interactivo. Ejecútalo una vez por integración de base de datos; para cambios de schema o migraciones, usa las herramientas del ORM directamente después de la configuración inicial.
+
+## ORMs compatibles
+
+<DropdownGroup>
+  <Dropdown title="Prisma , schema-first con client generado automáticamente">
+    Prisma es la mejor opción cuando quieres un client de queries fuertemente tipado generado a partir de un archivo de schema declarativo. Es compatible con PostgreSQL, MySQL y SQLite. Después de que corra el asistente, define tus modelos en `prisma/schema.prisma` y ejecuta `npx prisma migrate dev` para aplicar los cambios. Prisma es ideal para equipos que prefieren flujos de trabajo donde el schema es la fuente de verdad, con historial de migraciones legible y tipado completo desde la capa de base de datos hasta la aplicación.
+  </Dropdown>
+  <Dropdown title="Drizzle , ORM TypeScript ligero y nativo para SQL">
+    Drizzle es recomendable para proyectos que valoran un bundle pequeño, control directo del SQL y el schema definido en TypeScript en lugar de un archivo separado. Es compatible con PostgreSQL, MySQL y SQLite. El *DatabaseService* generado expone un método `.getDb()` que retorna el query builder de Drizzle, listo para usar. Elige Drizzle cuando quieras abstracciones mínimas con inferencia total de tipos y prefieras definir tablas como objetos TypeScript en lugar de la sintaxis `.prisma`.
+  </Dropdown>
+  <Dropdown title="TypeORM , basado en decorators con Active Record o Data Mapper">
+    TypeORM es la opción consolidada para equipos que vienen de NestJS o Spring y ya están acostumbrados a decorators de clase como *@Entity*, *@Column* y *@Repository*. Es compatible con PostgreSQL, MySQL y SQLite. Usa TypeORM cuando el equipo prefiera clases de entidad como fuente de verdad y quiera un patrón familiar para migraciones y gestión de relaciones.
+  </Dropdown>
+  <Dropdown title="Mongoose , modelo de documentos para MongoDB">
+    Mongoose es la opción correcta cuando tus datos son orientados a documentos y MongoDB es tu base de datos. Tiene un único motor objetivo, por lo que el asistente omite el paso de selección de motor. El módulo generado incluye una definición de schema y un service que encapsula el model de Mongoose. Elige Mongoose para aplicaciones que necesitan schemas flexibles, documentos embebidos u operadores de query específicos de MongoDB.
+  </Dropdown>
+  <Dropdown title="Mikro-ORM , ORM versátil con patrón Unit of Work">
+    Mikro-ORM es una opción sólida para casos de uso avanzados que se benefician del patrón Unit of Work e Identity Map. Es compatible con PostgreSQL, MySQL, SQLite y MongoDB. Es especialmente adecuado para dominios complejos con grafos de relaciones profundos, donde el seguimiento controlado de cambios a lo largo de un ciclo de request importa más que la simplicidad de configuración.
+  </Dropdown>
+</DropdownGroup>
+
+## Qué hace el asistente
+
+<Steps>
+  <Step title="Selección del ORM">
+    Si no pasaste un ORM como argumento del CLI, el asistente presenta una lista interactiva de los cinco ORMs compatibles con una descripción breve de cada uno. Navega con las flechas y presiona Enter para confirmar.
+  </Step>
+  <Step title="Selección del motor de base de datos">
+    Para los ORMs que soportan múltiples motores (Prisma, Drizzle, TypeORM, Mikro-ORM), el asistente pregunta qué motor usar. Mongoose omite este paso porque tiene como objetivo exclusivamente MongoDB.
+  </Step>
+  <Step title="Nombre del módulo">
+    El asistente solicita un nombre de módulo con `database` como valor por defecto. El nombre se convierte a kebab-case en la carpeta y a PascalCase en los nombres de clase. Un nombre como `user-db` genera un `UserDbModule` y el directorio `src/modules/user-db/`.
+  </Step>
+  <Step title="Creación de archivos">
+    El CLI descarga la plantilla para la combinación de ORM y motor elegida y escribe el módulo, service, schema y archivos de configuración en `src/modules/{nombre}/`. Un archivo de configuración en la raíz del proyecto (como `drizzle.config.ts` o `prisma/schema.prisma`) también se crea si el ORM lo requiere.
+  </Step>
+  <Step title="Inyección de variables de entorno">
+    Las variables de entorno necesarias (`DATABASE_URL`, `DATABASE_PATH`, etc.) se agregan automáticamente a tu `app.env.ts` si aún no están presentes. No se requiere ninguna edición manual.
+  </Step>
+  <Step title="Instalación de paquetes">
+    El asistente pregunta si quieres instalar los paquetes de inmediato. Al confirmar, el gestor de paquetes detectado agrega las dependencias de runtime (como el client del ORM y el driver de base de datos) y las dependencias de desarrollo (herramientas CLI, definiciones de tipos). Los comandos post-instalación como `npx prisma generate` también se ejecutan automáticamente.
+  </Step>
+  <Step title="Registro en el AppModule">
+    Si se encuentra un `app.module.ts` en tu directorio `src/`, el asistente ofrece agregar el módulo generado al array *imports* automáticamente. Esto conecta el módulo al contenedor DI para que puedas inyectar el *DatabaseService* en cualquier parte de la aplicación.
+  </Step>
+</Steps>
+
+## Estructura de archivos generada
+
+Los archivos exactos varían por ORM, pero el layout sigue la misma convención para todas las combinaciones.
+
+<FolderStructure>
+  <Folder name="src/modules/database/">
+    <File name="database.module.ts" description="Clase del módulo con decorator @Module y exportaciones de providers" />
+    <File name="database.service.ts" description="Service inyectable que expone el client del ORM o query builder" />
+    <File name="database.schema.ts" description="Definición de schema o entidad (presente para Drizzle, Mongoose, Mikro-ORM)" />
+  </Folder>
+</FolderStructure>
+
+<Callout tone="info" title="También se crean archivos de configuración en la raíz">
+  Algunos ORMs requieren un archivo de configuración en la raíz del proyecto. Prisma genera un directorio `prisma/` con `schema.prisma`. Drizzle genera `drizzle.config.ts`. Estos archivos se crean junto con los archivos del módulo y deben incluirse en el control de versiones.
+</Callout>
+
+## Después del asistente
+
+Una vez que finalice el comando, puedes inyectar el *DatabaseService* en cualquier handler, guard o service dentro del mismo ámbito de módulo. El service es exportado por el módulo de base de datos, por lo que importar el *DatabaseModule* en cualquier otro módulo brinda acceso a él a través del contenedor DI.
+
+```typescript filename="src/modules/hello/hello.service.ts"
+import { Injectable } from '@spraxium/common';
+import { DatabaseService } from '../database/database.service';
+
+@Injectable()
+export class HelloService {
+  constructor(private readonly db: DatabaseService) {}
+
+  async getCount(): Promise<number> {
+    // Usa el client del ORM retornado por el service
+    return this.db.getDb().select().from(table).then((rows) => rows.length);
+  }
+}
+```
+
+## Siguiente página
+
+Continúa con [CLI Info](/guide/cli-info).

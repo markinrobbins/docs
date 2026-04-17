@@ -1,0 +1,53 @@
+---
+title: CLI Info
+description: |
+  Detailed guide for the diagnostic command spraxium info.
+  Learn when to use human-readable output or JSON in troubleshooting workflows.
+order: 6
+category: CLI
+---
+
+## When to use
+
+Use `spraxium info` to collect environment context before opening issues or investigating bugs.
+
+```bash filename="terminal"
+spraxium info
+spraxium info --json
+```
+
+## What the report includes
+
+The command builds a report with the CLI version, detected project name, Node version, operating system, and runtime path. It also captures the preferred package manager and the detected versions of npm, pnpm, yarn, and bun. Finally it scans the project and workspace for all installed `@spraxium/*` packages and lists each version.
+
+## Output modes
+
+<DropdownGroup>
+<Dropdown title="Human-readable (spraxium info)">
+  Prints a formatted summary directly in the terminal. Use this for quick visual inspection before opening an issue or during a debugging session where you need a fast overview of the environment.
+</Dropdown>
+
+<Dropdown title="JSON (spraxium info --json)">
+  Outputs the full report as `JSON.stringify(report, null, 2)`. Use this in automation scripts, CI pipelines that persist the report as a build artifact, or when you need to parse specific fields programmatically.
+</Dropdown>
+</DropdownGroup>
+
+## Where and who should use it
+
+- Internal support: request minimum context from reporters.
+- Public bug reports: attach diagnostics in issue templates.
+- CI debugging: persist report as build artifact.
+
+## Quick issue template
+
+```text
+Problem summary:
+Reproduction steps:
+Expected result:
+Actual result:
+Output from `spraxium info --json`:
+```
+
+## Next study
+
+Continue with [Configuration: Core Fields](/guide/config-core-fields).

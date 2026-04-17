@@ -1,0 +1,212 @@
+---
+title: Ciclo de Desarrollo
+description: |
+  Cómo spraxium dev, build y start trabajan juntos en el ciclo de desarrollo.
+  Entiende hot reload, verificación de tipos, bundling e inicio en producción en un solo lugar.
+order: 4
+category: CLI
+---
+
+## Visión general
+
+Tres comandos cubren el ciclo de desarrollo completo en Spraxium: *spraxium dev* para iteración local, *spraxium build* para generar un artefacto de producción, y *spraxium start* para ejecutar ese artefacto. Esta página cubre los tres para que no tengas que saltar entre páginas para entender cómo se conectan.
+
+## spraxium dev
+
+*spraxium dev* inicia un servidor de desarrollo con monitoreo de archivos que reinicia la aplicación automáticamente cuando cambian los archivos fuente. Utiliza SWC para cargar TypeScript sin un paso de compilación separado, manteniendo los tiempos de reinicio cortos incluso en proyectos grandes. El watcher actúa según los patrones glob `include` y `exclude` de tu configuración y aplica un debounce configurable para agrupar guardados rápidos en un solo reinicio.
+
+```bash filename="terminal"
+spraxium dev
+```
+
+### Configuración de dev
+
+```typescript filename="spraxium.config.ts"
+export default {
+  dev: {
+    entrypoint: 'src/main.ts',
+    include: ['src/**'],
+    exclude: ['src/**/*.spec.ts'],
+    debounce: 300,
+  },
+};
+```
+
+<DropdownGroup>
+<Dropdown title="entrypoint">
+  El archivo desde el que arranca el proceso de dev. Por defecto usa `src/main.ts` si existe, luego `main.ts`. Sobreescríbelo cuando tu archivo de bootstrap esté fuera de la ubicación estándar.
+</Dropdown>
+
+<Dropdown title="include">
+  Patrones glob para archivos que pueden disparar un reinicio. Reducir esta lista evita reinicios innecesarios de archivos que no deberían afectar el comportamiento en ejecución.
+</Dropdown>
+
+<Dropdown title="exclude">
+  Los archivos que coincidan aquí son ignorados por el watcher aunque caigan dentro de un patrón `include`. Úsalo para omitir archivos de tests, código generado o cualquier ruta que cambie frecuentemente sin afectar el proceso en ejecución.
+</Dropdown>
+
+<Dropdown title="debounce">
+  Milisegundos a esperar tras un cambio de archivo antes de reiniciar. El valor por defecto es 300 ms. Auméntalo cuando guardes varios archivos a la vez para evitar múltiples reinicios consecutivos.
+</Dropdown>
+</DropdownGroup>
+
+<Callout tone="info" title="Exclusiones por defecto siempre activas">
+  Incluso sin bloque de configuración, el watcher ignora `node_modules`, `.git` y `.spraxium` para prevenir bucles de reinicio por instalaciones de dependencias o salida de build.
+</Callout>
+
+### Recuperación de fallos
+
+Si el proceso del bot falla, el servidor de desarrollo no se cierra. Aplica un retraso de backoff exponencial antes de relanzarlo, calculado como `Math.min(1000 × 2^crashCount, maxBackoff)`. Esto evita un bucle de relanzamiento continuo cuando el fallo es reproducible. Corrige el error, guarda el archivo y el watcher dispara un reinicio normal.
+
+---
+
+## spraxium build
+
+*spraxium build* valida los tipos y produce un bundle listo para producción. Se ejecuta en dos pasos secuenciales: primero una pasada de verificación de tipos y luego el bundler. Si la verificación falla, el bundler nunca se ejecuta, por lo que obtienes un código de salida limpio que los pipelines de CI pueden usar con confianza.
+
+```bash filename="terminal"
+spraxium build
+```
+
+### Qué ocurre
+
+<Steps>
+  <Step title="Verificación de tipos">
+    Ejecuta `tsc --noEmit` en tu proyecto. Cualquier error de tipos falla el comando inmediatamente. Corrige todos los errores de TypeScript antes de que el bundler pueda continuar.
+  </Step>
+  <Step title="Bundle">
+    Ejecuta `tsdown` con la configuración de tu proyecto. Si existe un archivo `tsdown.config.*` en la raíz del proyecto, la CLI lo usa. De lo contrario aplica estos valores por defecto: entradas `src/main.ts` y `spraxium.config.ts`, directorio de salida `.spraxium/dist`, formato ESM, plataforma Node, `--clean` y `--no-dts`.
+  </Step>
+</Steps>
+
+La salida compilada queda en `.spraxium/dist/` por defecto. Este directorio es el artefacto que busca *spraxium start*.
+
+<Callout tone="warning" title="Build no ejecuta tests">
+  Ejecutar *spraxium build* no corre tu suite de tests. Ejecuta los tests por separado antes o después, y trata el build solo como un control de tipos y bundle.
+</Callout>
+
+---
+
+## spraxium start
+
+*spraxium start* ejecuta el artefacto compilado producido por *spraxium build*. Establece `NODE_ENV=production` antes de lanzarlo y hereda el stdio del proceso actual para que los logs de la aplicación fluyan directamente al terminal.
+
+```bash filename="terminal"
+spraxium start
+```
+
+### Resolución del entrypoint
+
+La CLI verifica las siguientes rutas en orden y ejecuta la primera que encuentre:
+
+1. `.spraxium/dist/src/main.js`
+2. `.spraxium/dist/main.js`
+3. `dist/src/main.js`
+4. `dist/main.js`
+5. `build/src/main.js`
+6. `build/main.js`
+
+<Callout tone="warning" title="Sin build no hay start">
+  Si ninguna de las rutas candidatas existe, el comando falla y muestra un mensaje indicando que debes ejecutar *spraxium build* primero. Asegúrate de que las variables de entorno como `DISCORD_TOKEN` estén cargadas antes de ejecutar este comando.
+</Callout>
+
+---
+
+## Flujo típico
+
+Una iteración completa desde el desarrollo hasta producción sigue este orden: ejecuta *spraxium dev* durante el trabajo activo, cambia a *spraxium build* al preparar un release y ejecuta *spraxium start* para verificar o desplegar el artefacto compilado. En CI, omite el paso de dev por completo y ejecuta build y start en secuencia como tu pipeline de validación.
+
+## Siguiente página
+
+Continúa con [CLI Database](/guide/cli-database).
+
+## Cuándo usar
+
+Usa <code>spraxium dev</code> durante desarrollo local cuando necesitas reinicio automático al cambiar archivos.
+
+```bash
+spraxium dev
+```
+
+## Flujo interno
+
+<Steps>
+  <Step title="1) Detecta entrypoint">
+    Busca <code>src/main.ts</code> (o <code>main.ts</code>) en el directorio actual.
+  </Step>
+  <Step title="2) Lee config dev">
+    Carga <code>spraxium.config.ts</code> y aplica el bloque <code>dev</code>.
+  </Step>
+  <Step title="3) Lanza Node con SWC loader">
+    Ejecuta la app con loader SWC para ciclos de desarrollo rápidos.
+  </Step>
+  <Step title="4) Observa archivos y reinicia">
+    El watcher detecta cambios y reinicia con debounce configurable.
+  </Step>
+</Steps>
+
+## Configuración soportada
+
+```typescript
+export default {
+  dev: {
+    entrypoint: 'src/main.ts',
+    include: ['src/**'],
+    exclude: ['src/**/*.spec.ts'],
+    debounce: 300,
+  },
+};
+```
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Clave</TableCell>
+      <TableCell header>Función</TableCell>
+      <TableCell header>Cuándo ajustar</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell><code>entrypoint</code></TableCell>
+      <TableCell>Archivo inicial del proceso en dev</TableCell>
+      <TableCell>Bootstrap fuera del estándar</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell><code>include</code></TableCell>
+      <TableCell>Archivos que pueden disparar restart</TableCell>
+      <TableCell>Reducir reinicios ruidosos</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell><code>exclude</code></TableCell>
+      <TableCell>Archivos ignorados por watcher</TableCell>
+      <TableCell>Evitar loops por archivos generados</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell><code>debounce</code></TableCell>
+      <TableCell>Retraso antes de reiniciar</TableCell>
+      <TableCell>Guardar varios archivos a la vez</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+<Callout tone="info" title="Exclusiones por defecto ya aplicadas">
+  Incluso sin config, la CLI ignora <code>node_modules</code>, <code>.git</code> y
+  <code>.spraxium</code> para evitar reinicios ruidosos.
+</Callout>
+
+## Dónde y para quién usar
+
+- Local dev: comando principal para iteración rápida.
+- Sesiones en pareja: feedback inmediato al cambiar lógica.
+- Onboarding: menor fricción para nuevos contribuidores.
+
+## Problemas comunes
+
+- Error de entrypoint: no se detecta <code>src/main.ts</code>.
+- Demasiados reinicios: patrón <code>include</code> muy amplio.
+- Reinicio lento: <code>debounce</code> alto para tu flujo.
+
+## Siguiente página
+
+Continúa con [CLI Generate](/guide/cli-generate).

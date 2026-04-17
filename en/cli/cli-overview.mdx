@@ -1,0 +1,66 @@
+---
+title: CLI Overview
+description: |
+  The Spraxium CLI provides seven commands that cover the full development lifecycle.
+  Learn when to use each command and how they connect from scaffolding to production.
+order: 1
+category: CLI
+---
+
+## Available commands
+
+The CLI ships seven commands. Each one targets a distinct phase of the project lifecycle, from scaffolding a brand-new project to running the compiled artifact in production.
+
+<DropdownGroup>
+<Dropdown title="spraxium new">
+  Creates a new Spraxium project from a template. The interactive wizard asks for a project name, template choice, optional extra packages, and whether to initialize a Git repository. Run it once per project, outside any existing Spraxium workspace.
+</Dropdown>
+
+<Dropdown title="spraxium dev">
+  Starts the development server using the SWC loader for fast compilation cycles. Watches source files and restarts automatically on every save. The watcher behavior, entrypoint, and debounce delay are all configurable in *spraxium.config.ts*.
+</Dropdown>
+
+<Dropdown title="spraxium generate">
+  Scaffolds a framework-aligned file from one of nineteen schematics: modules, services, tasks, listeners, slash commands, prefix commands, guards, embeds, buttons, modals, and more. Auto-registers generated files into the correct module array when applicable.
+</Dropdown>
+
+<Dropdown title="spraxium build">
+  Runs *tsc --noEmit* to type-check, then bundles with *tsdown* for production. Returns a non-zero exit code on failure, making it suitable as a CI gate. The build output lands in `.spraxium/dist`.
+</Dropdown>
+
+<Dropdown title="spraxium start">
+  Runs the compiled artifact produced by *spraxium build*. Sets *NODE_ENV* to `production` automatically and streams stdio directly to the terminal. Requires a completed build before running.
+</Dropdown>
+
+<Dropdown title="spraxium database">
+  Generates a complete ORM integration module through an interactive wizard. Supports Prisma, Drizzle, TypeORM, Mongoose, and MikroORM. Installs dependencies and registers the module automatically.
+</Dropdown>
+
+<Dropdown title="spraxium info">
+  Prints a diagnostic report with the CLI version, Node version, OS, package manager, and all discovered *@spraxium/* package versions. Accepts a *--json* flag for machine-readable output. Useful for bug reports and CI artifacts.
+</Dropdown>
+</DropdownGroup>
+
+## Recommended daily flow
+
+<Steps>
+  <Step title="Scaffold with new">
+    Run *spraxium new* once to create the project. Pick your template and optional modules during the interactive wizard.
+  </Step>
+  <Step title="Generate with generate">
+    Use *spraxium generate* to add modules, services, listeners, or commands. The CLI places files in the right folder and auto-registers them.
+  </Step>
+  <Step title="Iterate with dev">
+    Run *spraxium dev* during implementation. Files reload automatically on save so you see results immediately.
+  </Step>
+  <Step title="Validate with build">
+    Run *spraxium build* before every shared environment push. Type errors and bundle failures show up here, not in production.
+  </Step>
+  <Step title="Ship with start">
+    Run *spraxium start* in staging and production after a successful build. It reads the compiled output directly.
+  </Step>
+</Steps>
+
+## Next page
+
+Continue with [Creating a Project](/guide/cli-new).

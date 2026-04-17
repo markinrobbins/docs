@@ -1,0 +1,121 @@
+---
+title: Development Lifecycle
+description: |
+  How spraxium dev, build, and start work together to drive your development flow.
+  Understand hot reload, type-check, bundling, and production startup in one place.
+order: 4
+category: CLI
+---
+
+## Overview
+
+Three commands cover the full development lifecycle in Spraxium: *spraxium dev* for local iteration, *spraxium build* for producing a production artifact, and *spraxium start* for running that artifact. This page covers all three so you never need to jump between pages to understand how they connect.
+
+## spraxium dev
+
+*spraxium dev* starts a file-watching development server that restarts the application automatically when source files change. It uses SWC for loading TypeScript without a separate compile step, keeping restart times short even in large projects. The watcher fires based on the `include` and `exclude` glob patterns in your configuration, and applies a configurable debounce to batch rapid file saves into a single restart.
+
+```bash filename="terminal"
+spraxium dev
+```
+
+### Dev configuration
+
+```typescript filename="spraxium.config.ts"
+export default {
+  dev: {
+    entrypoint: 'src/main.ts',
+    include: ['src/**'],
+    exclude: ['src/**/*.spec.ts'],
+    debounce: 300,
+  },
+};
+```
+
+<DropdownGroup>
+<Dropdown title="entrypoint">
+  The file the dev process boots from. Defaults to `src/main.ts` if present, then `main.ts`. Override this when your bootstrap file lives outside the standard location.
+</Dropdown>
+
+<Dropdown title="include">
+  Glob patterns for files that can trigger a restart. Narrowing this list reduces noisy restarts from files that should not affect runtime behavior.
+</Dropdown>
+
+<Dropdown title="exclude">
+  Files matched here are ignored by the watcher even if they fall inside an `include` pattern. Use this to skip test files, generated code, or any path that changes frequently without affecting the running process.
+</Dropdown>
+
+<Dropdown title="debounce">
+  Milliseconds to wait after a file change before restarting. The default is 300 ms. Increase this when saving multiple files at the same time to avoid multiple sequential restarts.
+</Dropdown>
+</DropdownGroup>
+
+<Callout tone="info" title="Default excludes are always on">
+  Even with no config block, the watcher ignores `node_modules`, `.git`, and `.spraxium` to prevent restart loops from dependency installs or build output.
+</Callout>
+
+### Crash recovery
+
+If the bot process crashes, the dev server does not exit. It applies an exponential backoff delay before relaunching, calculated as `Math.min(1000 × 2^crashCount, maxBackoff)`. This prevents a tight relaunch loop when the crash is reproducible. Fix the error, save the file, and the watcher triggers a normal restart.
+
+---
+
+## spraxium build
+
+*spraxium build* validates types and produces a production-ready bundle. It runs in two sequential steps: first a type-check pass and then the bundler. If the type-check fails, the bundler never runs, so you get a clean exit code that CI pipelines can rely on.
+
+```bash filename="terminal"
+spraxium build
+```
+
+### What happens
+
+<Steps>
+  <Step title="Type-check">
+    Runs `tsc --noEmit` against your project. Any type error fails the command immediately. Fix all TypeScript errors before the bundler can proceed.
+  </Step>
+  <Step title="Bundle">
+    Runs `tsdown` with your project's configuration. If a `tsdown.config.*` file exists in the project root, the CLI uses it. Otherwise it applies these defaults: entry points `src/main.ts` and `spraxium.config.ts`, output directory `.spraxium/dist`, format ESM, platform Node, `--clean`, and `--no-dts`.
+  </Step>
+</Steps>
+
+The compiled output lands in `.spraxium/dist/` by default. This directory is the artifact that *spraxium start* looks for.
+
+<Callout tone="warning" title="Build does not run tests">
+  Running *spraxium build* does not execute your test suite. Run your tests separately before or after, and treat the build as a type and bundle gate only.
+</Callout>
+
+---
+
+## spraxium start
+
+*spraxium start* runs the compiled artifact produced by *spraxium build*. It sets `NODE_ENV=production` before launching and inherits the current process stdio so application logs stream directly to the terminal.
+
+```bash filename="terminal"
+spraxium start
+```
+
+### Entrypoint resolution
+
+The CLI checks the following paths in order and runs the first one it finds:
+
+1. `.spraxium/dist/src/main.js`
+2. `.spraxium/dist/main.js`
+3. `dist/src/main.js`
+4. `dist/main.js`
+5. `build/src/main.js`
+6. `build/main.js`
+
+<Callout tone="warning" title="No build means no start">
+  If none of the candidate paths exist, the command fails and prints a message telling you to run *spraxium build* first. Ensure your environment variables such as `DISCORD_TOKEN` are loaded before running this command.
+</Callout>
+
+---
+
+## Typical workflow
+
+A complete iteration from development to production follows this order: run *spraxium dev* during active work, then switch to *spraxium build* when preparing a release, and finally run *spraxium start* to verify or deploy the compiled artifact. In CI, skip the dev step entirely and run build then start in sequence as your validation pipeline.
+
+## Next page
+
+Continue with [CLI Database](/guide/cli-database).

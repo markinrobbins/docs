@@ -1,0 +1,57 @@
+---
+title: CLI Info
+description: |
+  Guía del comando de diagnóstico spraxium info.
+  Aprende cuándo usar salida legible o JSON en troubleshooting.
+order: 6
+category: CLI
+---
+
+## Cuándo usar
+
+Usa `spraxium info` para recolectar contexto técnico antes de abrir un issue o investigar bugs.
+
+```bash filename="terminal"
+spraxium info
+spraxium info --json
+```
+
+## Qué incluye el reporte
+
+El comando compila un reporte con la versión de la CLI, el nombre del proyecto detectado, la versión de Node, el sistema operativo y la ruta del runtime. También captura el package manager preferido y las versiones detectadas de npm, pnpm, yarn y bun. Por último, escanea el proyecto y el workspace en busca de todos los paquetes `@spraxium/*` instalados y lista cada versión.
+
+## Modos de salida
+
+<DropdownGroup>
+<Dropdown title="Legible por humano (spraxium info)">
+  Imprime un resumen formateado directamente en el terminal. Úsalo para una inspección visual rápida antes de abrir un issue o durante una sesión de debugging donde necesitas una vista general del entorno.
+</Dropdown>
+
+<Dropdown title="JSON (spraxium info --json)">
+  Muestra el reporte completo como `JSON.stringify(report, null, 2)`. Úsalo en scripts de automatización, pipelines de CI que persisten el reporte como artefacto de build, o cuando necesitas analizar campos específicos de forma programática.
+</Dropdown>
+</DropdownGroup>
+
+## Dónde y para quién usar
+
+- Soporte interno: pedir contexto mínimo para reproducir problemas.
+- Bug reports públicos: adjuntar diagnóstico en issues.
+- Debug de CI: persistir reporte como artefacto.
+
+## Template rápido para issue
+
+```text
+Resumen del problema:
+Pasos para reproducir:
+Resultado esperado:
+Resultado actual:
+Salida de `spraxium info --json`:
+```
+
+## Próxima categoría
+
+Después de esta categoría, sigue con [Configuration: Core Fields](/guide/config-core-fields).
+
+## Siguiente estudio
+
+Continúa con [Configuration: Core Fields](/guide/config-core-fields).

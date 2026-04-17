@@ -1,0 +1,83 @@
+---
+title: Creando un Proyecto
+description: |
+  El comando spraxium new crea un proyecto Spraxium completo a partir de una plantilla.
+  Conoce cómo funciona el asistente interactivo, qué plantillas existen y qué se instala.
+order: 2
+category: CLI
+---
+
+## Qué hace
+
+*spraxium new* crea un nuevo directorio de proyecto desde cero. Ejecuta un asistente interactivo que recoge el nombre del proyecto, la plantilla seleccionada, paquetes extras opcionales y una preferencia de Git. Cuando el asistente termina, la CLI crea el directorio, instala todas las dependencias y, opcionalmente, inicializa un repositorio Git. El resultado es un proyecto listo para ejecutar *spraxium dev* de inmediato.
+
+Ejecuta el comando desde cualquier directorio fuera de tu proyecto existente. También puedes pasar el nombre del proyecto como argumento para omitir el primer paso del asistente.
+
+```bash filename="terminal"
+spraxium new
+spraxium new mi-bot
+# alias:
+spraxium n mi-bot
+```
+
+## Plantillas disponibles
+
+Hay tres plantillas disponibles. Cada una representa una configuración de inicio diferente, y el asistente te permite elegir entre ellas antes de crear el proyecto.
+
+<DropdownGroup>
+<Dropdown title="default">
+  Un bot de Discord minimalista que solo incluye los paquetes principales. Al seleccionar esta plantilla, el asistente muestra una lista de módulos opcionales para que elijas exactamente lo que necesitas. Úsala cuando quieras control total sobre lo que entra en el proyecto desde el principio.
+</Dropdown>
+
+<Dropdown title="slash-bot">
+  Un bot de Discord con un comando de barra `/ping` ya configurado y listo para usar. El comando, su handler y el registro del módulo están pre-generados, así que puedes ejecutar *spraxium dev* inmediatamente y ver la respuesta. Úsala como punto de partida cuando los slash commands sean tu modelo de interacción principal.
+</Dropdown>
+
+<Dropdown title="http-bot">
+  Un bot de Discord combinado con una API REST ligera basada en *@spraxium/http*. El módulo HTTP ya está registrado junto al bot. Úsala cuando tu bot necesite exponer endpoints además de las interacciones con Discord.
+</Dropdown>
+</DropdownGroup>
+
+## Paquetes opcionales
+
+Al elegir la plantilla *default*, el asistente muestra un selector de casillas donde puedes elegir cualquier combinación de los siguientes paquetes extras. Las plantillas que no son default utilizan un conjunto fijo de paquetes.
+
+<DropdownGroup>
+<Dropdown title="@spraxium/components">
+  Añade el *ComponentsModule* para crear componentes de UI interactivos de Discord, como botones, menús de selección y modales con decoradores.
+</Dropdown>
+
+<Dropdown title="@spraxium/http">
+  Añade el *HttpModule* para crear endpoints RESTful junto a tu bot de Discord en el mismo proceso.
+</Dropdown>
+
+<Dropdown title="@spraxium/schedule">
+  Añade el *ScheduleModule* para tareas cron, timeouts únicos y trabajos basados en intervalos con programación por decoradores.
+</Dropdown>
+
+<Dropdown title="@spraxium/i18n">
+  Añade el *I18nModule* para soporte multi-idioma con archivos de locale y servicios de traducción inyectables.
+</Dropdown>
+
+<Dropdown title="@spraxium/signal">
+  Añade el bus de eventos del lado del servidor *@spraxium/signal*. Úsalo cuando el bot necesite transmitir eventos tipados a clientes conectados.
+</Dropdown>
+
+<Dropdown title="@spraxium/signal-client">
+  Añade el *@spraxium/signal-client* para suscribirse a eventos de un servidor Signal. Úsalo junto con *@spraxium/signal* o en microservicios independientes.
+</Dropdown>
+</DropdownGroup>
+
+## Qué instala el asistente
+
+La CLI siempre instala un conjunto fijo de paquetes principales independientemente de la plantilla: *@spraxium/common*, *@spraxium/core*, *@spraxium/env* y *discord.js*. Las dependencias de desarrollo incluyen *@spraxium/cli*, *typescript*, *@types/node* y *tsdown*.
+
+Los paquetes extras que selecciones se añaden en el mismo paso de instalación. El instalador detecta si estás dentro de un monorepo y resuelve referencias locales de workspace cuando corresponde. Si no se detecta ningún gestor de paquetes, la CLI utiliza pnpm por defecto.
+
+<Callout tone="warning" title="El directorio no debe existir">
+  Si ya existe un directorio con el nombre del proyecto en la ruta actual, el comando se detiene de inmediato sin escribir ningún archivo. Renombra o elimina el directorio en conflicto antes de volver a ejecutar el asistente.
+</Callout>
+
+## Siguiente página
+
+Continúa con [Generando Archivos](/guide/cli-generate).
