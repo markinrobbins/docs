@@ -11,42 +11,20 @@ category: Prefix Commands
 
 When a prefix command fails at any stage, the framework produces a specific exception that you can intercept and format. Understanding the failure taxonomy helps you design user-friendly error responses instead of letting raw errors leak into chat. Each failure type maps to a distinct exception class with its own layout hook.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Failure</TableCell>
-      <TableCell header>Exception</TableCell>
-      <TableCell header>When it fires</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>Unknown command</TableCell>
-      <TableCell>*CommandNotFoundException*</TableCell>
-      <TableCell>Prefix matched but command name not in registry</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Missing argument</TableCell>
-      <TableCell>*ArgumentException*</TableCell>
-      <TableCell>A required argument was not provided</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Invalid argument</TableCell>
-      <TableCell>*ArgumentException*</TableCell>
-      <TableCell>Type coercion or validation failed</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Guard denial</TableCell>
-      <TableCell>Custom or *ForbiddenException*</TableCell>
-      <TableCell>A guard returned `false` or threw</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Cooldown active</TableCell>
-      <TableCell>Silently blocked</TableCell>
-      <TableCell>User ran command before cooldown expired</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="CommandNotFoundException (unknown command)">
+    Thrown when the prefix is recognized but the command name does not match any entry in the registry. The exception exposes the attempted *command* name and the matched *prefix* as properties. You can intercept it with an exception layout to send a helpful reply, or enable *replyOnNotFound* in *PrefixConfig* for automatic feedback without a custom layout.
+  </Dropdown>
+  <Dropdown title="ArgumentException (missing or invalid argument)">
+    Thrown when a required argument is absent or when type coercion or validation fails for a provided value. The exception exposes the argument *name*, the *expected* constraint, the *received* raw input, and the *usage* string from the command definition. Register a layout for *ArgumentException* to display consistent error messages across all commands.
+  </Dropdown>
+  <Dropdown title="ForbiddenException or custom (guard denial)">
+    Thrown when a guard's *canActivate* method returns `false` or throws. If the guard returns `false`, the framework throws a *ForbiddenException* automatically. If the guard throws its own exception, that exception propagates unchanged and can be caught by a matching layout.
+  </Dropdown>
+  <Dropdown title="Cooldown active (silently blocked)">
+    When a user triggers a command before the cooldown expires, the framework silently blocks execution without throwing an exception. You can read the remaining seconds from *PrefixCooldownManager.check* and send a custom reply from a cooldown guard if you want user-facing feedback.
+  </Dropdown>
+</DropdownGroup>
 
 ## Exception layouts
 
@@ -110,7 +88,7 @@ The *PrefixDispatcher* exposes methods for inspecting the registered command tre
 
 The dispatcher also exposes *getResolved* for the fully resolved command-handler bindings, *size* for the total number of registered entries, *commandCount* for distinct top-level commands, and *guildPrefixes* for the guild prefix manager. These introspection methods are useful for admin dashboards, health checks, and debugging tools.
 
-```typescript filename="src/modules/prefix/handlers/help.handler.ts"
+```typescript filename="src/modules/prefix/handlers/help-command.handler.ts"
 import { Ctx, PrefixCommandHandler } from '@spraxium/common';
 import { PrefixDispatcher } from '@spraxium/core';
 import type { Message } from 'discord.js';
@@ -155,7 +133,7 @@ export class ModeratorGuard implements CanActivate {
 ```
   </Tab>
   <Tab label="Handler with guard" language="typescript">
-```typescript filename="src/modules/moderation/handlers/ban.handler.ts"
+```typescript filename="src/modules/moderation/handlers/ban-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler, UseGuards } from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { ModeratorGuard } from '../guards/moderator.guard';
@@ -177,6 +155,6 @@ export class BanHandler {
   </Tab>
 </CodeTabs>
 
-## Next study
+## Next page
 
-Continue with [Slash Commands Overview](/slash-commands-overview).
+[Slash Commands Overview](/slash-commands-overview)

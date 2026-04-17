@@ -31,54 +31,26 @@ A ordem de resolução é importante para bots que atendem múltiplas comunidade
 
 A interface *PrefixConfig* controla o comportamento global do subsistema de prefix. Você a passa para *definePrefix* no arquivo de configuração. Todo campo exceto *prefix* é opcional e possui um valor padrão adequado.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Campo</TableCell>
-      <TableCell header>Tipo</TableCell>
-      <TableCell header>Padrão</TableCell>
-      <TableCell header>Descrição</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>*prefix*</TableCell>
-      <TableCell>`string | string[]`</TableCell>
-      <TableCell>`'!'`</TableCell>
-      <TableCell>Prefixo global ou array de prefixos</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*guildPrefixProvider*</TableCell>
-      <TableCell>`PrefixGuildProvider`</TableCell>
-      <TableCell>`undefined`</TableCell>
-      <TableCell>Função async que carrega prefixos de servidor na inicialização</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*caseSensitive*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`false`</TableCell>
-      <TableCell>Se a correspondência de prefixo diferencia maiúsculas</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*mentionPrefix*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`true`</TableCell>
-      <TableCell>Permitir menção do bot como prefixo universal</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*defaultCooldown*</TableCell>
-      <TableCell>`number`</TableCell>
-      <TableCell>`0`</TableCell>
-      <TableCell>Cooldown padrão em segundos para todos os comandos</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*replyOnNotFound*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`false`</TableCell>
-      <TableCell>Responder automaticamente quando comando não for encontrado</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="prefix (string | string[], obrigatório)">
+    A string de prefixo global ou um array de prefixos que o parser reconhecerá para todos os servidores sem sobrescrita customizada. Definir um array como `['!', '?']` permite que os usuários escolham entre múltiplos prefixos. Não há valor padrão; esse campo é obrigatório e deve ser fornecido em toda configuração.
+  </Dropdown>
+  <Dropdown title="guildPrefixProvider (PrefixGuildProvider)">
+    Uma função assíncrona chamada na inicialização que retorna um array de objetos *PrefixGuildEntry* para pré-popular o manager de prefixos por servidor. Esta é a forma recomendada de hidratar sobrescritas por servidor a partir de um banco de dados no boot. Se omitida, o store em memória inicia vazio e precisa ser populado em runtime via chamadas diretas à API.
+  </Dropdown>
+  <Dropdown title="caseSensitive (boolean, padrão false)">
+    Controla se a correspondência de string de prefixo diferencia maiúsculas e minúsculas. Quando `false` (o padrão), `!Ping` e `!ping` são tratados de forma idêntica. Ative isso apenas se houver uma razão deliberada para distinguir caracteres de acionamento em maiúsculas e minúsculas.
+  </Dropdown>
+  <Dropdown title="mentionPrefix (boolean, padrão true)">
+    Quando `true`, uma menção ao bot no início de uma mensagem é tratada como um prefixo válido. Isso permite que usuários invoquem comandos com `@NomeBot roll 6` independentemente do prefixo configurado, fornecendo um fallback confiável quando os usuários esquecem o prefixo ativo. Desative apenas se comandos acionados por menção conflitarem com outro comportamento do bot.
+  </Dropdown>
+  <Dropdown title="defaultCooldown (number, padrão 0)">
+    Um cooldown global em segundos aplicado a todo comando que não define seu próprio campo *cooldown*. Definir esse valor como `3` significa que todos os comandos têm um cooldown de 3 segundos, salvo sobrescrita específica. Um valor de `0` desabilita o cooldown padrão completamente.
+  </Dropdown>
+  <Dropdown title="replyOnNotFound (boolean, padrão false)">
+    Quando `true`, o framework envia automaticamente uma resposta quando um usuário digita um prefixo reconhecido seguido de um nome de comando desconhecido. Isso reduz o atrito para usuários que erram a digitação dos comandos. Quando `false`, comandos não reconhecidos são ignorados silenciosamente.
+  </Dropdown>
+</DropdownGroup>
 
 ```typescript filename="config/prefix.config.ts"
 import { definePrefix } from '@spraxium/core';
@@ -94,7 +66,7 @@ export default definePrefix({
 });
 ```
 
-<Callout type="info">
+<Callout tone="info">
   O arquivo de config deve declarar somente política global e hidratação inicial do subsistema de prefix. Lógica de leitura, escrita, auditoria e sincronização de prefixos por servidor deve ficar em services que injetam *PrefixDispatcher*. A página *API de Prefixos via Services* mostra esse padrão completo em cenários de produção.
 </Callout>
 
@@ -106,62 +78,38 @@ Cada entrada de servidor armazena o ID do servidor, um ou mais prefixos e um reg
 
 O método *loadFromProvider* é chamado automaticamente na inicialização se você definir um *guildPrefixProvider* no config. Você também pode chamá-lo manualmente para recarregar prefixos de servidor do banco de dados a qualquer momento, por exemplo após uma importação em massa ou migração.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Método</TableCell>
-      <TableCell header>Retorno</TableCell>
-      <TableCell header>Descrição</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>*getGuildPrefix(guildId)*</TableCell>
-      <TableCell>`string[] | undefined`</TableCell>
-      <TableCell>Retorna o array de prefixos do servidor ou `undefined`</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*getGuildEntry(guildId)*</TableCell>
-      <TableCell>`PrefixGuildEntry | undefined`</TableCell>
-      <TableCell>Retorna a entrada completa com metadados</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*hasGuildPrefix(guildId)*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>Verifica se um servidor possui sobrescrita</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*getAllGuildIds()*</TableCell>
-      <TableCell>`string[]`</TableCell>
-      <TableCell>Lista todos os IDs de servidores com sobrescritas</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*setGuildPrefix(guildId, prefix, metadata?)*</TableCell>
-      <TableCell>`void`</TableCell>
-      <TableCell>Cria uma nova entrada de prefixo de servidor</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*updateGuildPrefix(guildId, prefix, metadata?)*</TableCell>
-      <TableCell>`void`</TableCell>
-      <TableCell>Atualiza uma entrada de prefixo existente</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*removeGuildPrefix(guildId)*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>Remove o prefixo de servidor e retorna sucesso</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*clear()*</TableCell>
-      <TableCell>`void`</TableCell>
-      <TableCell>Remove todas as sobrescritas de prefixo</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*loadFromProvider(provider)*</TableCell>
-      <TableCell>`Promise<void>`</TableCell>
-      <TableCell>Carrega entradas de uma função provider async</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="getGuildPrefix(guildId)">
+    Retorna o array de strings de prefixo ativas para o servidor, ou `undefined` se não houver sobrescrita. É o método de leitura principal para verificar o prefixo atual antes de exibi-lo ao usuário ou construir conteúdo de help. A chamada é síncrona e lê diretamente do store em memória.
+  </Dropdown>
+  <Dropdown title="getGuildEntry(guildId)">
+    Retorna o objeto *PrefixGuildEntry* completo para o servidor, incluindo `guildId`, `prefix` e qualquer `metadata` armazenado. Use quando você precisa dos metadados além do valor do prefixo, por exemplo para exibir quem o alterou por último. Retorna `undefined` se não houver sobrescrita.
+  </Dropdown>
+  <Dropdown title="hasGuildPrefix(guildId)">
+    Retorna `true` se o servidor tem uma sobrescrita de prefixo ativa, `false` caso contrário. Use para verificações de existência quando você só precisa bifurcar na presença sem ler o valor do prefixo. É mais expressivo do que comparar *getGuildPrefix* contra `undefined`.
+  </Dropdown>
+  <Dropdown title="getAllGuildIds()">
+    Retorna um array de todos os IDs de servidores que atualmente possuem sobrescritas de prefixo registradas. Use em dashboards administrativos, rotinas de sincronização ou ferramentas de diagnóstico que precisam enumerar todos os servidores configurados. O resultado reflete o estado ativo em memória.
+  </Dropdown>
+  <Dropdown title="setGuildPrefix(guildId, prefix, metadata?)">
+    Cria uma nova entrada de prefixo para o servidor ou substitui inteiramente uma existente. O objeto de metadados opcional armazena campos de auditoria como ID do ator e timestamp. Sempre persista a alteração no banco de dados antes de chamar esse método para evitar divergência em caso de reinicialização do processo.
+  </Dropdown>
+  <Dropdown title="updateGuildPrefix(guildId, prefix, metadata?)">
+    Mescla parcialmente os valores fornecidos na entrada existente em vez de substituí-la. Se o servidor não tiver entrada existente, comporta-se como *setGuildPrefix*. Use quando quiser atualizar apenas o prefixo ou apenas os metadados sem sobrescrever o outro campo.
+  </Dropdown>
+  <Dropdown title="removeGuildPrefix(guildId)">
+    Exclui a sobrescrita em memória para o servidor e retorna `true` se existia uma entrada ou `false` caso contrário. Após a remoção, o parser usa o prefixo global para esse servidor. Siga o padrão persist-first e remova do banco de dados antes de chamar esse método.
+  </Dropdown>
+  <Dropdown title="clear()">
+    Remove todas as sobrescritas de prefixo de servidor do store em memória de uma vez. É útil principalmente durante a limpeza de testes ou resets controlados. Em produção, coordene um reload completo com *loadFromProvider* para restaurar o estado conhecido.
+  </Dropdown>
+  <Dropdown title="loadFromProvider(provider)">
+    Aceita uma função provider assíncrona, a aguarda e substitui todas as entradas de prefixo em memória pelo array retornado. É chamado automaticamente no boot se você definir um *guildPrefixProvider* no config, mas também pode ser chamado manualmente para recarregar do banco após uma importação em lote.
+  </Dropdown>
+  <Dropdown title="size (propriedade)">
+    Propriedade numérica que reflete a contagem total de entradas de prefixo por servidor atualmente em memória. Use em health checks ou endpoints de diagnóstico para confirmar se os dados de servidor foram hidratados. Um valor de `0` após o boot geralmente significa que o provider não retornou entradas ou não foi configurado.
+  </Dropdown>
+</DropdownGroup>
 
 ## Exemplo de mutação de prefixo em runtime
 
@@ -180,7 +128,7 @@ export class SetPrefixCommand {
 ```
   </Tab>
   <Tab label="Handler" language="typescript">
-```typescript filename="src/modules/admin/handlers/set-prefix.handler.ts"
+```typescript filename="src/modules/admin/handlers/set-prefix-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
 import { PrefixDispatcher } from '@spraxium/core';
 import type { Message } from 'discord.js';
@@ -218,10 +166,10 @@ O *PrefixCooldownManager* aplica cooldowns por usuário e por comando. Quando um
 
 Cooldowns são armazenados em memória e resetam quando o bot reinicia. O método *check* retorna os segundos restantes (zero se o cooldown expirou), o método *set* registra uma nova entrada de cooldown e o método *clear* remove todos os cooldowns rastreados. Para a maioria dos bots, o campo *cooldown* no decorator e o *defaultCooldown* global lidam com tudo automaticamente sem chamadas diretas à API.
 
-<Callout type="info">
+<Callout tone="info">
   O campo *cooldown* por comando no *@PrefixCommand* sobrescreve o *defaultCooldown* global. Se um comando define `cooldown: 5` e o padrão global é `3`, aquele comando usa um cooldown de 5 segundos.
 </Callout>
 
 ## Próxima página
 
-Continue com [API de Prefixos via Services](/guide/prefix-commands-service-api).
+[API de Prefixos via Services](/prefix-commands-service-api)

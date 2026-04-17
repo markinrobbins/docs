@@ -11,42 +11,20 @@ category: Prefix Commands
 
 Quando um prefix command falha em qualquer estágio, o framework produz uma exceção específica que você pode interceptar e formatar. Compreender a taxonomia de falhas ajuda você a projetar respostas de erro amigáveis ao invés de deixar erros brutos vazarem no chat. Cada tipo de falha mapeia para uma classe de exceção distinta com seu próprio hook de layout.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Falha</TableCell>
-      <TableCell header>Exceção</TableCell>
-      <TableCell header>Quando dispara</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>Comando desconhecido</TableCell>
-      <TableCell>*CommandNotFoundException*</TableCell>
-      <TableCell>Prefixo correspondido mas nome do comando não está no registry</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Argumento ausente</TableCell>
-      <TableCell>*ArgumentException*</TableCell>
-      <TableCell>Um argumento obrigatório não foi fornecido</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Argumento inválido</TableCell>
-      <TableCell>*ArgumentException*</TableCell>
-      <TableCell>Coerção de tipo ou validação falhou</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Negação de guard</TableCell>
-      <TableCell>Custom ou *ForbiddenException*</TableCell>
-      <TableCell>Um guard retornou `false` ou lançou exceção</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Cooldown ativo</TableCell>
-      <TableCell>Bloqueado silenciosamente</TableCell>
-      <TableCell>Usuário executou comando antes do cooldown expirar</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="CommandNotFoundException (comando desconhecido)">
+    Lançada quando o prefixo é reconhecido, mas o nome do comando não corresponde a nenhuma entrada no registry. A exceção expõe o nome do *command* tentado e o *prefix* correspondido como propriedades. Você pode interceptá-la com um exception layout para enviar uma resposta útil, ou habilitar *replyOnNotFound* no *PrefixConfig* para feedback automático sem layout customizado.
+  </Dropdown>
+  <Dropdown title="ArgumentException (argumento ausente ou inválido)">
+    Lançada quando um argumento obrigatório está ausente ou quando a coerção de tipo ou validação falha para um valor fornecido. A exceção expõe o nome do argumento via *argument*, a restrição *expected*, a entrada bruta *received* e a string *usage* da definição do comando. Registre um layout para *ArgumentException* para exibir mensagens de erro consistentes em todos os comandos.
+  </Dropdown>
+  <Dropdown title="ForbiddenException ou customizada (negação de guard)">
+    Lançada quando o método *canActivate* de um guard retorna `false` ou lança uma exceção. Se o guard retornar `false`, o framework lança uma *ForbiddenException* automaticamente. Se o guard lançar sua própria exceção, ela se propaga inalterada e pode ser capturada por um layout correspondente.
+  </Dropdown>
+  <Dropdown title="Cooldown ativo (bloqueado silenciosamente)">
+    Quando um usuário aciona um comando antes do cooldown expirar, o framework bloqueia a execução silenciosamente sem lançar exceção. Você pode ler os segundos restantes de *PrefixCooldownManager.check* e enviar uma resposta customizada de um guard de cooldown se quiser feedback visível ao usuário.
+  </Dropdown>
+</DropdownGroup>
 
 ## Exception layouts
 
@@ -110,7 +88,7 @@ O *PrefixDispatcher* expõe métodos para inspecionar a árvore de comandos regi
 
 O dispatcher também expõe *getResolved* para as ligações comando-handler completamente resolvidas, *size* para o número total de entradas registradas, *commandCount* para comandos top-level distintos e *guildPrefixes* para o manager de prefixos de servidor. Esses métodos de introspecção são úteis para dashboards administrativos, health checks e ferramentas de depuração.
 
-```typescript filename="src/modules/prefix/handlers/help.handler.ts"
+```typescript filename="src/modules/prefix/handlers/help-command.handler.ts"
 import { Ctx, PrefixCommandHandler } from '@spraxium/common';
 import { PrefixDispatcher } from '@spraxium/core';
 import type { Message } from 'discord.js';
@@ -155,7 +133,7 @@ export class ModeratorGuard implements CanActivate {
 ```
   </Tab>
   <Tab label="Handler com guard" language="typescript">
-```typescript filename="src/modules/moderation/handlers/ban.handler.ts"
+```typescript filename="src/modules/moderation/handlers/ban-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler, UseGuards } from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { ModeratorGuard } from '../guards/moderator.guard';
@@ -177,6 +155,6 @@ export class BanHandler {
   </Tab>
 </CodeTabs>
 
-## Próximo estudo
+## Próxima página
 
-Continue com [Visão Geral de Slash Commands](/guide/slash-commands-overview).
+[Visão Geral de Slash Commands](/slash-commands-overview)

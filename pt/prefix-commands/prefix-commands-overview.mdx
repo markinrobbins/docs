@@ -38,7 +38,7 @@ export class PingCommand {
 ```
   </Tab>
   <Tab label="Handler" language="typescript">
-```typescript filename="src/modules/fun/handlers/ping.handler.ts"
+```typescript filename="src/modules/fun/handlers/ping-command.handler.ts"
 import { Ctx, PrefixCommandHandler } from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { PingCommand } from '../commands/ping.command';
@@ -72,11 +72,7 @@ import { PingHandler } from './handlers/ping.handler';
 export class FunModule {}
 ```
 
-O módulo em si deve ser importado pelo seu módulo raiz ou outro módulo na cadeia de imports. O framework processa módulos durante o bootstrap, resolve os arrays de commands e handlers, instancia cada classe através do container de DI e então os conecta ao prefix dispatcher. Se um handler depende de um serviço, esse serviço deve estar disponível no escopo de providers do módulo ou exportado de um módulo importado, assim como qualquer outra dependência injetável.
-
-## Como o bootstrap conecta prefix commands
-
-O processo de bootstrap trata prefix commands em uma sequência específica que importa para entender quando seu comando fica ativo. Primeiro, o framework lê os arrays *commands* e *handlers* de cada módulo. Segundo, instancia cada classe pelo container de DI, resolvendo dependências de construtor. Terceiro, o *PrefixRegistry* indexa todos os nomes de comando, aliases, rotas de subcomandos e schemas de argumentos para busca rápida. Quarto, o *PrefixBinder* conecta um único listener *messageCreate* ao client do Discord. Por fim, quando uma mensagem chega, o *PrefixInvoker* executa o pipeline completo: detecção de prefixo, tokenização, verificação de cooldown, avaliação de guards, parsing de argumentos e despacho do handler.
+O módulo deve ser importado pelo módulo raiz ou outro módulo na cadeia de imports. Se um handler depende de um serviço, esse serviço deve estar disponível no escopo de providers do módulo ou exportado de um módulo importado, como qualquer outra classe injetável. Um módulo de prefix típico organiza comandos, handlers e guards em suas próprias pastas dentro do diretório de domínio.
 
 <FolderStructure title="Layout típico de módulo prefix">
   <Folder name="src" open>
@@ -87,8 +83,8 @@ O processo de bootstrap trata prefix commands em uma sequência específica que 
           <File name="roll.command.ts" />
         </Folder>
         <Folder name="handlers" open>
-          <File name="ping.handler.ts" />
-          <File name="roll.handler.ts" />
+          <File name="ping-command.handler.ts" />
+          <File name="roll-command.handler.ts" />
         </Folder>
         <Folder name="guards" open>
           <File name="cooldown.guard.ts" />
@@ -99,12 +95,12 @@ O processo de bootstrap trata prefix commands em uma sequência específica que 
   </Folder>
 </FolderStructure>
 
-Essa estrutura mantém definições de comando e handlers em pastas dedicadas e o arquivo de módulo na raiz do domínio. Conforme seu bot cresce, você pode adicionar mais arquivos de comando e handler sem mudar a estrutura de pastas. Cada comando tem exatamente um handler (ou um handler por subcomando), e o arquivo de módulo é o único lugar que declara quais comandos estão ativos.
+Essa estrutura mantém definições de comando e handlers em pastas dedicadas e o arquivo de módulo na raiz do domínio. Conforme seu bot cresce, você pode adicionar mais arquivos de comando e handler sem alterar a estrutura de pastas. O arquivo de módulo é o único lugar que declara quais comandos e handlers estão ativos.
 
 <Callout tone="info" title="Duas classes por comando">
-  Cada prefix command requer uma classe de comando e uma classe handler registradas no mesmo módulo. A classe de comando declara estrutura e metadados. A classe handler contém lógica de execução. Se você esquecer de registrar qualquer uma delas, o comando não vai funcionar e o framework não vai produzir erro no boot.
+  Cada prefix command requer uma classe de comando e uma classe handler registradas no mesmo módulo. A classe de comando declara a estrutura e os metadados. A classe handler contém a lógica de execução e as dependências injetáveis. Se você esquecer de registrar qualquer uma delas, o comando não funcionará em runtime.
 </Callout>
 
 ## Próxima página
 
-Continue com [Comandos e Handlers](/prefix-commands-definition).
+[Comandos e Handlers](/prefix-commands-definition)

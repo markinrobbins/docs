@@ -40,7 +40,7 @@ export class RollCommand {
 ```
   </Tab>
   <Tab label="Handler" language="typescript">
-```typescript filename="src/modules/fun/handlers/roll.handler.ts"
+```typescript filename="src/modules/fun/handlers/roll-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { RollCommand } from '../commands/roll.command';
@@ -102,7 +102,7 @@ export class ModCommand {
 ```
   </Tab>
   <Tab label="Handler Warn" language="typescript">
-```typescript filename="src/modules/moderation/handlers/mod-warn.handler.ts"
+```typescript filename="src/modules/moderation/handlers/mod-warn-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler, UseGuards } from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { ModCommand } from '../commands/mod.command';
@@ -130,47 +130,26 @@ Cada método de subcomando en la clase de comando define su propio schema de arg
 
 El decorator *@PrefixCommand* acepta un objeto de configuración que controla cómo aparece el comando en la salida de help, cómo se activa y qué límites operacionales tiene. Todos los campos excepto *name* son opcionales, pero proporcionar *description*, *usage* y *category* mejora significativamente la salida de cualquier implementación de comando help.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Campo</TableCell>
-      <TableCell header>Tipo</TableCell>
-      <TableCell header>Finalidad</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>`name`</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Nombre primario de activación (obligatorio)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`aliases`</TableCell>
-      <TableCell>`string[]`</TableCell>
-      <TableCell>Nombres alternativos de activación</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`description`</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Texto corto de ayuda para el comando</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`usage`</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Formato de invocación esperado</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`category`</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Etiqueta de agrupación en help</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`cooldown`</TableCell>
-      <TableCell>`number`</TableCell>
-      <TableCell>Cooldown por comando en segundos</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="name (string, obligatorio)">
+    Es el activador principal que los usuarios escriben después del prefijo. Cuando un usuario envía `!ping`, el parser elimina el prefijo, lee `ping` y busca un comando registrado con ese nombre. Cada comando debe tener un nombre único; si dos comandos comparten el mismo nombre, el último registrado sobrescribe al anterior.
+  </Dropdown>
+  <Dropdown title="aliases (string[])">
+    Son nombres alternativos de activación que resuelven al mismo comando y handler. Definir `aliases: ['p', 'latency']` hace que `!p` y `!latency` funcionen igual que `!ping`. Los aliases comparten el mismo pool de cooldown que el nombre principal, así que un usuario en cooldown por `!ping` también queda bloqueado para `!p`.
+  </Dropdown>
+  <Dropdown title="description (string)">
+    Es una línea corta que describe qué hace el comando y se usa en la salida de help. El framework no la muestra automáticamente; está disponible a través de *getCommandInfo* para que tu propio handler de help la formatee. Mantener descripciones cortas y consistentes mejora la calidad de los embeds de ayuda.
+  </Dropdown>
+  <Dropdown title="usage (string)">
+    Es una cadena legible que muestra el formato esperado de invocación, por ejemplo `!ban <usuario> [motivo]`. El framework la guarda en metadatos y la devuelve en *getCommandInfo*, pero no la valida ni la parsea automáticamente. Úsala en embeds de help y en mensajes de *ArgumentException* para mostrar la sintaxis correcta cuando falle el parsing.
+  </Dropdown>
+  <Dropdown title="category (string)">
+    Es una etiqueta para agrupar comandos en la salida de help. Los comandos de la misma categoría suelen mostrarse juntos en embeds de ayuda. El framework no impone categorías ni asigna comportamientos especiales a partir de ellas, son metadatos puros para tu handler de help.
+  </Dropdown>
+  <Dropdown title="cooldown (number)">
+    Define un cooldown por comando en segundos y sobrescribe el *defaultCooldown* global de *PrefixConfig*. Cuando un usuario ejecuta el comando, el framework registra el timestamp y bloquea ejecuciones posteriores hasta que expire el cooldown. Definir `cooldown: 0` desactiva el cooldown para ese comando, aunque exista uno global.
+  </Dropdown>
+</DropdownGroup>
 
 ## Registro en el módulo
 
@@ -194,4 +173,4 @@ export class ModerationModule {}
 
 ## Siguiente página
 
-Continúa con [Argumentos y Parsing](/prefix-commands-arguments-parsing).
+[Argumentos y Parsing](/prefix-commands-arguments-parsing)

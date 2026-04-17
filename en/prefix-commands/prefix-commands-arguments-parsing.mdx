@@ -51,133 +51,75 @@ export class ModCommand {
 
 The framework provides 14 argument types that cover the most common Discord bot input patterns. Each type has its own parser that converts the raw text token into a typed output. If conversion fails, the parser throws an *ArgumentException* with a descriptive error message.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Decorator</TableCell>
-      <TableCell header>Input example</TableCell>
-      <TableCell header>Output type</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>*PrefixArg.String*</TableCell>
-      <TableCell>`hello`</TableCell>
-      <TableCell>`string`</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.Integer*</TableCell>
-      <TableCell>`42`</TableCell>
-      <TableCell>`number`</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.Number*</TableCell>
-      <TableCell>`3.14`</TableCell>
-      <TableCell>`number`</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.Boolean*</TableCell>
-      <TableCell>`true`, `yes`, `1`</TableCell>
-      <TableCell>`boolean`</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.User*</TableCell>
-      <TableCell>`<@123>` or snowflake</TableCell>
-      <TableCell>ID (`string`)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.Channel*</TableCell>
-      <TableCell>`<#456>` or snowflake</TableCell>
-      <TableCell>ID (`string`)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.Role*</TableCell>
-      <TableCell>`<@&789>` or snowflake</TableCell>
-      <TableCell>ID (`string`)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.Member*</TableCell>
-      <TableCell>`<@123>` or snowflake</TableCell>
-      <TableCell>ID (`string`)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.Snowflake*</TableCell>
-      <TableCell>17-20 digit ID</TableCell>
-      <TableCell>`string`</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.Url*</TableCell>
-      <TableCell>`https://example.com`</TableCell>
-      <TableCell>`string`</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.Duration*</TableCell>
-      <TableCell>`5m`, `1h30m`, `2d`</TableCell>
-      <TableCell>milliseconds (`number`)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.Color*</TableCell>
-      <TableCell>`#FF0000` or `FF0000`</TableCell>
-      <TableCell>integer (`number`)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.Emoji*</TableCell>
-      <TableCell>Custom or unicode emoji</TableCell>
-      <TableCell>`ParsedEmoji` object</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PrefixArg.Rest*</TableCell>
-      <TableCell>All remaining tokens</TableCell>
-      <TableCell>joined `string`</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="PrefixArg.String">
+    Passes the raw token as a `string` with no coercion. Accepts *minLength* and *maxLength* constraints for bounding character count. Use this for free-form text fields, tags, or any input that does not need numeric or Discord-specific conversion.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Integer">
+    Parses the token with `parseInt` and returns a `number`. Accepts *min* and *max* constraints to bound the parsed integer. Throws an *ArgumentException* if the token cannot be parsed as a whole number.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Number">
+    Parses the token with `parseFloat` and returns a `number`. Accepts *min* and *max* constraints for bounds checking. Use this instead of *PrefixArg.Integer* when decimal values like `3.14` are valid input.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Boolean">
+    Converts truthy tokens (`true`, `yes`, `1`) to `true` and falsy tokens (`false`, `no`, `0`) to `false`. Throws an *ArgumentException* for any token that does not match either set. This is useful for toggle flags in moderation or configuration commands.
+  </Dropdown>
+  <Dropdown title="PrefixArg.User">
+    Accepts a user mention like `<@123456>` or a raw snowflake ID and returns the extracted `string` ID. The parser strips the mention formatting automatically. Use this when you need the user ID to look up or target a member.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Channel">
+    Accepts a channel mention like `<#456789>` or a raw snowflake ID and returns the `string` ID. The parser strips the mention formatting. Use this for commands that accept a target channel as input.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Role">
+    Accepts a role mention like `<@&789012>` or a raw snowflake ID and returns the `string` ID. The parser strips the mention formatting. Use this for commands that assign or check roles.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Member">
+    Behaves identically to *PrefixArg.User*, accepting a user mention or snowflake and returning the `string` ID. The distinction is semantic, signaling to readers that you expect a server member rather than any user.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Snowflake">
+    Validates that the token is a 17 to 20 digit numeric string and returns it as a `string`. Unlike *PrefixArg.User*, this type rejects mention formatting and only accepts bare snowflake IDs. Use it for admin commands that target arbitrary Discord entities by raw ID.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Url">
+    Validates the token using `new URL()` and returns it as a `string` if parsing succeeds. Throws an *ArgumentException* for any input that is not a valid URL. Use this for commands that accept image links, webhook URLs, or any web address.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Duration">
+    Parses duration strings like `5m`, `1h30m`, or `2d` into a `number` of milliseconds. Supported units are `ms`, `s`, `m`, `h`, `d`, and `w`. Throws an *ArgumentException* if the token cannot be interpreted as a valid duration expression.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Color">
+    Accepts hex color strings like `#FF0000` or `FF0000` and returns an integer (`number`) representation. Throws an *ArgumentException* for input that is not a valid 6-digit hex color. Use this for embed color fields or role color setters.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Emoji">
+    Parses a custom Discord emoji like `<:name:id>` or a standard unicode emoji and returns a `ParsedEmoji` object with `name`, `id`, and `animated` fields. The `id` field is `null` for unicode emojis. Use this for reaction management or emoji-based configuration commands.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Rest">
+    Collects all remaining tokens after the previous argument position and joins them into a single `string`. This is useful for free-text fields like ban reasons or message content where the input can span multiple words. Only one *PrefixArg.Rest* can appear per schema and it must be the last declared argument.
+  </Dropdown>
+</DropdownGroup>
 
 ## Validation options
 
 Every *@PrefixArg* decorator accepts an optional configuration object with validation rules. These rules are applied during the parsing phase before the handler receives the value. If any validation fails, the parser throws an *ArgumentException* that includes the argument name, the expected constraint, and the received input.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Option</TableCell>
-      <TableCell header>Applies to</TableCell>
-      <TableCell header>Behavior</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>`required`</TableCell>
-      <TableCell>All types</TableCell>
-      <TableCell>Throws if argument is missing (default: `true`)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`min` / `max`</TableCell>
-      <TableCell>*Integer*, *Number*</TableCell>
-      <TableCell>Numeric bounds check after coercion</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`minLength` / `maxLength`</TableCell>
-      <TableCell>*String*, *Rest*</TableCell>
-      <TableCell>Character length bounds</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`choices`</TableCell>
-      <TableCell>All types</TableCell>
-      <TableCell>Input must match one of the allowed values</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`validation.pattern`</TableCell>
-      <TableCell>All types</TableCell>
-      <TableCell>Regex the raw input must match before coercion</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`validation.validate`</TableCell>
-      <TableCell>All types</TableCell>
-      <TableCell>Custom function returning `true` or an error string</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="required (boolean, default true)">
+    When `true`, the parser throws an *ArgumentException* if the argument token is missing or empty. When `false`, a missing token results in `undefined` being injected and all further validation is skipped. Marking an argument as optional is useful for fields like reason text or count modifiers that have sensible defaults in the handler.
+  </Dropdown>
+  <Dropdown title="min / max (number)">
+    Numeric bounds applied to *Integer* and *Number* values after coercion. If the parsed number falls below *min* or above *max*, the parser throws an *ArgumentException* with the constraint and the received value. These options are not applicable to string or Discord entity types.
+  </Dropdown>
+  <Dropdown title="minLength / maxLength (number)">
+    Character length bounds applied to *String* and *Rest* values. The check runs on the raw token before any further processing. Use *maxLength* to protect against unexpectedly long inputs in free-text fields.
+  </Dropdown>
+  <Dropdown title="choices (string[])">
+    An allowlist of valid raw input values. The parser checks the raw token against this array before coercion and throws an *ArgumentException* if the token is not included. This is useful for enum-style arguments like status names, action types, or mode selectors.
+  </Dropdown>
+  <Dropdown title="validation.pattern (RegExp)">
+    A regular expression that the raw token must match before any other processing. The check runs on the raw string, so it can validate format constraints like specific prefixes, patterns, or structures that the built-in type parsers do not enforce. If the regex does not match, an *ArgumentException* is thrown.
+  </Dropdown>
+  <Dropdown title="validation.validate (function)">
+    A custom function that receives the raw token and returns either `true` to pass or an error string to fail. The error string is included in the *ArgumentException* message so users see your custom feedback. Use this for domain-specific rules that cannot be expressed with a regex or the other constraint options.
+  </Dropdown>
+</DropdownGroup>
 
 ## Validation pipeline order
 
@@ -202,7 +144,7 @@ The argument parser applies validations in a specific order for each argument. U
 
 In the handler class, the *@PrefixArg* function (without the namespace) is a parameter decorator that injects a parsed argument value by name. The name must match an argument declared in the command schema. The *@Ctx* decorator injects the raw *Message* object. Together, they let the handler receive fully typed parameters without manual parsing.
 
-```typescript filename="src/modules/fun/handlers/roll.handler.ts"
+```typescript filename="src/modules/fun/handlers/roll-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { RollCommand } from '../commands/roll.command';
@@ -226,4 +168,4 @@ export class RollHandler {
 
 ## Next page
 
-Continue with [Execution and Guild Prefixes](/prefix-commands-execution-guild-prefixes).
+[Execution and Guild Prefixes](/prefix-commands-execution-guild-prefixes)

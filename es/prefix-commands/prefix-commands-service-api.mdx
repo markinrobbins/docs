@@ -13,32 +13,9 @@ category: Prefix Commands
 
 El punto de entrada para todas las operaciones de prefijo en runtime es *PrefixDispatcher*, que expone *guildPrefixes* como instancia de *PrefixGuildManager*. Inyectar *PrefixDispatcher* en un service da control total sobre el estado por servidor sin dependencia directa de los internos del config. Todo lo que sigue opera sobre ese único punto de inyección.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Capa</TableCell>
-      <TableCell header>Responsabilidad</TableCell>
-      <TableCell header>Evitar</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>*PrefixConfig*</TableCell>
-      <TableCell>Política global, flags y provider de boot</TableCell>
-      <TableCell>Queries, autorización y mutaciones de runtime</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*Service*</TableCell>
-      <TableCell>CRUD por servidor, persistencia coordinada y auditoría</TableCell>
-      <TableCell>Reimplementar bootstrap o comportamiento del parser</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*Repositorio*</TableCell>
-      <TableCell>Lectura y escritura de estado en storage</TableCell>
-      <TableCell>Lógica de respuesta Discord u orquestación de handlers</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+- *PrefixConfig* gestiona política global, flags y provider de boot. Evita meter queries, autorización o mutaciones de runtime en esta capa.
+- Los services concentran CRUD por servidor, coordinación de persistencia y auditoría. Evita reimplementar bootstrap o reglas internas del parser.
+- Los repositorios se enfocan en lectura y escritura de estado en storage. Evita colocar lógica de respuesta Discord u orquestación de handlers allí.
 
 ## getGuildPrefix
 
@@ -221,7 +198,7 @@ export class PrefixPrefetchService implements SpraxiumOnReady {
 }
 ```
 
-<Callout type="info">
+<Callout tone="info">
   Registra *PrefixPrefetchService* en un módulo para que *SpraxiumOnReady* sea invocado automáticamente. El framework llama a *onReady* en todo injectable que lo implemente, por lo que no se requiere configuración adicional más allá de la declaración en el módulo.
 </Callout>
 
@@ -229,37 +206,12 @@ export class PrefixPrefetchService implements SpraxiumOnReady {
 
 Una implementación robusta debe mantener en sincronía el estado en memoria y el estado persistido ante cualquier fallo intermedio. También necesita contexto de auditoría suficiente para soporte y flujos de moderación. Esta lista te ayuda a validar esas garantías antes de publicar.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Item</TableCell>
-      <TableCell header>Objetivo</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>Persistir antes de mutar memoria</TableCell>
-      <TableCell>Evitar divergencia entre estado activo y estado durable</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Encapsular writes del dispatcher en un service</TableCell>
-      <TableCell>Centralizar reglas y simplificar el testing</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Registrar metadata de auditoría en cada escritura</TableCell>
-      <TableCell>Rastrear quién cambió el prefijo y cuándo</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Usar onReady para la carga inicial</TableCell>
-      <TableCell>Garantizar que los datos estén disponibles antes de que los comandos se ejecuten</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Programar rutinas de recarga seguras</TableCell>
-      <TableCell>Reconciliar el estado del runtime tras migraciones o importaciones masivas</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+- **Persistir antes de mutar memoria**: escribe en la base de datos antes de llamar métodos de escritura en el dispatcher para evitar divergencias.
+- **Encapsular writes del dispatcher en un service**: centraliza reglas de negocio y validaciones en un punto único.
+- **Registrar metadata de auditoría en cada escritura**: conserva actor y timestamp para trazabilidad operativa.
+- **Usar onReady para la carga inicial**: garantiza que el estado esté disponible antes de ejecutar comandos.
+- **Programar recargas seguras**: reconcilia memoria y storage tras migraciones o importaciones masivas.
 
 ## Siguiente página
 
-Continúa con [Runtime](/prefix-commands-runtime-testing).
+[Comportamiento en Runtime](/prefix-commands-runtime-testing)

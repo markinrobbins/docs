@@ -40,7 +40,7 @@ export class RollCommand {
 ```
   </Tab>
   <Tab label="Handler" language="typescript">
-```typescript filename="src/modules/fun/handlers/roll.handler.ts"
+```typescript filename="src/modules/fun/handlers/roll-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { RollCommand } from '../commands/roll.command';
@@ -102,7 +102,7 @@ export class ModCommand {
 ```
   </Tab>
   <Tab label="Warn Handler" language="typescript">
-```typescript filename="src/modules/moderation/handlers/mod-warn.handler.ts"
+```typescript filename="src/modules/moderation/handlers/mod-warn-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler, UseGuards } from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { ModCommand } from '../commands/mod.command';
@@ -130,47 +130,26 @@ Each subcommand method on the command class defines its own argument schema. The
 
 The *@PrefixCommand* decorator accepts a configuration object that controls how the command appears in help output, how it is triggered, and what operational limits it has. All fields except *name* are optional, but providing *description*, *usage*, and *category* significantly improves the output of any help command implementation.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Field</TableCell>
-      <TableCell header>Type</TableCell>
-      <TableCell header>Purpose</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>`name`</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Primary trigger name (required)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`aliases`</TableCell>
-      <TableCell>`string[]`</TableCell>
-      <TableCell>Alternative trigger names</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`description`</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Short help text for the command</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`usage`</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Expected invocation format</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`category`</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Help grouping label</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`cooldown`</TableCell>
-      <TableCell>`number`</TableCell>
-      <TableCell>Per-command cooldown in seconds</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="name (string, required)">
+    The primary command trigger that users type after the prefix. When a user sends `!ping`, the parser strips the prefix, reads `ping`, and looks for a registered command with that name. Every command must have a unique name; if two commands share the same name, the last one registered will shadow the first.
+  </Dropdown>
+  <Dropdown title="aliases (string[])">
+    Alternative trigger names that resolve to the same command and handler. Setting `aliases: ['p', 'latency']` means `!p` and `!latency` work identically to `!ping`. Aliases share the same cooldown pool as the primary name, so a user on cooldown from `!ping` is also blocked from using `!p`.
+  </Dropdown>
+  <Dropdown title="description (string)">
+    A short line of text describing what the command does, used in help command output. The framework does not display this automatically; it is available through the dispatcher's *getCommandInfo* method so your own help handler can format it. Keeping descriptions concise and consistent across commands improves the quality of bot help embeds.
+  </Dropdown>
+  <Dropdown title="usage (string)">
+    A human-readable string showing the expected invocation format, like `!ban <user> [reason]`. The framework stores this on the command metadata and returns it as part of *getCommandInfo*, but it does not parse or validate it automatically. Use it in help embeds and in *ArgumentException* messages so users know the correct syntax when parsing fails.
+  </Dropdown>
+  <Dropdown title="category (string)">
+    A grouping label for organizing commands in help output. Commands in the same category are typically displayed together in help embeds. The framework does not enforce categories or assign special behavior based on them; they are purely metadata that your help handler reads from *getCommandInfo*.
+  </Dropdown>
+  <Dropdown title="cooldown (number)">
+    A per-command cooldown in seconds that overrides the global *defaultCooldown* from *PrefixConfig*. When a user runs the command, the framework records the timestamp and blocks subsequent runs until the cooldown expires. Setting `cooldown: 0` disables the cooldown for this command regardless of the global default.
+  </Dropdown>
+</DropdownGroup>
 
 ## Module registration
 
@@ -194,4 +173,4 @@ export class ModerationModule {}
 
 ## Next page
 
-Continue with [Arguments and Parsing](/prefix-commands-arguments-parsing).
+[Arguments and Parsing](/prefix-commands-arguments-parsing)

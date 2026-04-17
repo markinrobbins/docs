@@ -13,32 +13,9 @@ category: Prefix Commands
 
 The entry point for all runtime prefix operations is *PrefixDispatcher*, which exposes *guildPrefixes* as a *PrefixGuildManager* instance. Injecting *PrefixDispatcher* into a service gives you full control over per-guild state without any direct dependency on config internals. Everything below operates on that single injection point.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Layer</TableCell>
-      <TableCell header>Responsibility</TableCell>
-      <TableCell header>Avoid</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>*PrefixConfig*</TableCell>
-      <TableCell>Global prefix policy, flags, and boot provider</TableCell>
-      <TableCell>Queries, authorization logic, runtime mutations</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*Service*</TableCell>
-      <TableCell>Per-guild CRUD, persistence coordination, audit</TableCell>
-      <TableCell>Re-implementing bootstrap or parser behavior</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*Repository*</TableCell>
-      <TableCell>Read and write prefix state in storage</TableCell>
-      <TableCell>Discord response logic or handler orchestration</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+- *PrefixConfig* handles global prefix policy, feature flags, and the boot-time provider. Keep queries, authorization logic, and runtime mutations out of config.
+- Services own per-guild CRUD operations, persistence coordination, and audit logic. Avoid re-implementing bootstrap or parser behavior inside a service.
+- Repositories read and write prefix state in storage. Keep Discord response logic and handler orchestration separate from the repository layer.
 
 ## getGuildPrefix
 
@@ -221,7 +198,7 @@ export class PrefixPrefetchService implements SpraxiumOnReady {
 }
 ```
 
-<Callout type="info">
+<Callout tone="info">
   Register *PrefixPrefetchService* in a module so *SpraxiumOnReady* is called automatically. The framework invokes *onReady* on every injectable that implements it, so no extra wiring is required beyond the module declaration.
 </Callout>
 
@@ -229,37 +206,12 @@ export class PrefixPrefetchService implements SpraxiumOnReady {
 
 A robust implementation must keep in-memory and persisted state aligned under failure conditions. It also needs enough audit context for support and moderation workflows. This checklist helps validate those guarantees before release.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Item</TableCell>
-      <TableCell header>Purpose</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>Persist before mutating memory</TableCell>
-      <TableCell>Prevent divergence between active and durable state</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Wrap dispatcher writes in a service</TableCell>
-      <TableCell>Centralize business rules and simplify unit tests</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Store audit metadata on every write</TableCell>
-      <TableCell>Track who changed a prefix and when it changed</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Use onReady for initial load</TableCell>
-      <TableCell>Guarantee data is available before commands run</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Schedule safe reload routines</TableCell>
-      <TableCell>Reconcile runtime state after migrations or bulk imports</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+- **Persist before mutating memory**: write to your database before calling any in-memory mutation method to prevent state divergence under partial failures.
+- **Wrap dispatcher writes in a service**: centralize business rules and validation in a single service class to simplify testing and future changes.
+- **Store audit metadata on every write**: record the actor ID and timestamp so moderation and support workflows can trace when a prefix changed.
+- **Use *onReady* for initial load**: call *loadFromProvider* from a lifecycle hook after the Discord client is ready to guarantee data is available before commands execute.
+- **Schedule safe reload routines**: reconcile in-memory state with the database after migrations or bulk imports to close any drift window.
 
 ## Next page
 
-Continue with [Runtime and Testing](/prefix-commands-runtime-testing).
+[Runtime Behavior](/prefix-commands-runtime-testing)

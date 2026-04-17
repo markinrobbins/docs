@@ -38,7 +38,7 @@ export class PingCommand {
 ```
   </Tab>
   <Tab label="Handler" language="typescript">
-```typescript filename="src/modules/fun/handlers/ping.handler.ts"
+```typescript filename="src/modules/fun/handlers/ping-command.handler.ts"
 import { Ctx, PrefixCommandHandler } from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { PingCommand } from '../commands/ping.command';
@@ -63,7 +63,7 @@ Prefix commands do not activate just by existing in your source code. You need t
 ```typescript filename="src/modules/fun/fun.module.ts"
 import { Module } from '@spraxium/common';
 import { PingCommand } from './commands/ping.command';
-import { PingHandler } from './handlers/ping.handler';
+import { PingHandler } from './handlers/ping-command.handler';
 
 @Module({
   commands: [PingCommand],
@@ -72,11 +72,7 @@ import { PingHandler } from './handlers/ping.handler';
 export class FunModule {}
 ```
 
-The module itself must be imported by your root module or another module in the import chain. The framework processes modules during bootstrap, resolves their command and handler arrays, instantiates each class through the DI container, and then binds them to the prefix dispatcher. If a handler depends on a service, that service must be available in the module's provider scope or exported from an imported module, just like any other injectable dependency.
-
-## How the bootstrap wires prefix commands
-
-The bootstrap process handles prefix commands in a specific sequence that matters for understanding when your command becomes active. First, the framework reads the *commands* and *handlers* arrays from each module. Second, it instantiates each class through the DI container, resolving constructor dependencies. Third, the *PrefixRegistry* indexes all command names, aliases, subcommand routes, and argument schemas for fast lookup. Fourth, the *PrefixBinder* wires a single *messageCreate* listener to the Discord client. Finally, when a message arrives, the *PrefixInvoker* runs the full pipeline: prefix detection, tokenization, cooldown check, guard evaluation, argument parsing, and handler dispatch.
+The module must be imported by your root module or another module in the import chain. If a handler depends on a service, that service must be available in the module's provider scope or exported from an imported module, like any other injectable class. A typical prefix module organizes commands, handlers, and guards into their own folders inside the domain directory.
 
 <FolderStructure title="Typical prefix module layout">
   <Folder name="src" open>
@@ -87,8 +83,8 @@ The bootstrap process handles prefix commands in a specific sequence that matter
           <File name="roll.command.ts" />
         </Folder>
         <Folder name="handlers" open>
-          <File name="ping.handler.ts" />
-          <File name="roll.handler.ts" />
+          <File name="ping-command.handler.ts" />
+          <File name="roll-command.handler.ts" />
         </Folder>
         <Folder name="guards" open>
           <File name="cooldown.guard.ts" />
@@ -99,12 +95,12 @@ The bootstrap process handles prefix commands in a specific sequence that matter
   </Folder>
 </FolderStructure>
 
-This structure keeps command definitions and handlers in dedicated folders and the module file at the domain root. As your bot grows, you can add more command and handler files without changing the folder structure. Each command has exactly one handler (or one handler per subcommand), and the module file is the single place that declares which commands are active.
+This structure keeps command definitions and handlers in dedicated folders and the module file at the domain root. As your bot grows, you can add more command and handler files without changing the folder structure. The module file is the single place that declares which commands and handlers are active.
 
 <Callout tone="info" title="Two classes per command">
-  Each prefix command requires both a command class and a handler class registered in the same module. The command class declares structure and metadata. The handler class holds execution logic. If you forget to register either one, the command will not work and the framework will not produce an error at boot time.
+  Each prefix command requires both a command class and a handler class registered in the same module. The command class declares structure and metadata. The handler class holds the execution logic and injectable dependencies. If you forget to register either one, the command will not work at runtime.
 </Callout>
 
 ## Next page
 
-Continue with [Commands and Handlers](/prefix-commands-definition).
+[Commands and Handlers](/prefix-commands-definition)

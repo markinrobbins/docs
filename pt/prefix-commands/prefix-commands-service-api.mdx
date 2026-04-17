@@ -13,32 +13,9 @@ category: Prefix Commands
 
 O ponto de entrada para todas as operações de prefixo em runtime é *PrefixDispatcher*, que expõe *guildPrefixes* como uma instância de *PrefixGuildManager*. Injetar *PrefixDispatcher* em um service dá controle total sobre o estado por servidor sem dependência direta dos internos do config. Tudo abaixo opera sobre esse único ponto de injeção.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Camada</TableCell>
-      <TableCell header>Responsabilidade</TableCell>
-      <TableCell header>O que evitar</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>*PrefixConfig*</TableCell>
-      <TableCell>Política global, flags e provider de boot</TableCell>
-      <TableCell>Queries, lógica de autorização, mutações de runtime</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*Service*</TableCell>
-      <TableCell>CRUD por servidor, coordenação de persistência e auditoria</TableCell>
-      <TableCell>Reimplementar bootstrap ou comportamento do parser</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*Repositório*</TableCell>
-      <TableCell>Leitura e escrita de estado em storage</TableCell>
-      <TableCell>Lógica de resposta Discord ou orquestração de handlers</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+- *PrefixConfig* cuida de política global, flags e o provider de boot. Mantenha queries, lógica de autorização e mutações de runtime longe do config.
+- Services são responsáveis pelas operações de CRUD por servidor, coordenação de persistência e auditoria. Evite reimplementar comportamento de bootstrap ou parser dentro de um service.
+- Repositórios lêem e escrevem estado de prefixo no storage. Mantenha lógica de resposta Discord e orquestração de handlers separados da camada de repositório.
 
 ## getGuildPrefix
 
@@ -221,7 +198,7 @@ export class PrefixPrefetchService implements SpraxiumOnReady {
 }
 ```
 
-<Callout type="info">
+<Callout tone="info">
   Registre *PrefixPrefetchService* em um módulo para que *SpraxiumOnReady* seja chamado automaticamente. O framework invoca *onReady* em todo injectable que o implementa, então nenhuma configuração extra é necessária além da declaração no módulo.
 </Callout>
 
@@ -229,37 +206,12 @@ export class PrefixPrefetchService implements SpraxiumOnReady {
 
 Uma implementação robusta precisa manter estado em memória e estado persistido alinhados em qualquer cenário de falha. Também precisa de contexto de auditoria suficiente para suporte e fluxos de moderação. O checklist abaixo ajuda a validar essas garantias antes de subir para produção.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Item</TableCell>
-      <TableCell header>Objetivo</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>Persistir antes de mutar memória</TableCell>
-      <TableCell>Evitar divergência entre estado ativo e estado durável</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Encapsular writes do dispatcher em service</TableCell>
-      <TableCell>Centralizar regras e simplificar testes unitários</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Registrar metadata de auditoria em cada escrita</TableCell>
-      <TableCell>Rastrear quem alterou o prefixo e quando</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Usar onReady para carga inicial</TableCell>
-      <TableCell>Garantir que dados estejam disponíveis antes de comandos rodarem</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Agendar rotinas de recarga seguras</TableCell>
-      <TableCell>Reconciliar estado do runtime após migrações ou importações em lote</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+- **Persistir antes de mutar memória**: escreva no banco de dados antes de chamar qualquer método de mutação em memória para evitar divergência sob falhas parciais.
+- **Encapsular writes do dispatcher em service**: centralize regras de negócio e validação em uma única classe de service para simplificar testes e alterações futuras.
+- **Registrar metadata de auditoria em cada escrita**: registre o ID do ator e o timestamp para que fluxos de suporte e moderação possam rastrear quando um prefixo foi alterado.
+- **Usar *onReady* para carga inicial**: chame *loadFromProvider* de um lifecycle hook após o client Discord estar pronto, garantindo que os dados estejam disponíveis antes de comandos executarem.
+- **Agendar rotinas de recarga seguras**: reconcilie o estado em memória com o banco de dados após migrações ou importações em lote para fechar qualquer janela de divergência.
 
 ## Próxima página
 
-Continue com [Runtime e Testes](/guide/prefix-commands-runtime-testing).
+[Comportamento em Runtime](/prefix-commands-runtime-testing)

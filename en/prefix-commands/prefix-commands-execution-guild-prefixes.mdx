@@ -31,54 +31,26 @@ The resolution order is important for bots that serve multiple communities with 
 
 The *PrefixConfig* interface controls global behavior for the prefix subsystem. You pass it to *definePrefix* in your configuration file. Every field except *prefix* is optional and has a sensible default value.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Field</TableCell>
-      <TableCell header>Type</TableCell>
-      <TableCell header>Default</TableCell>
-      <TableCell header>Description</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>*prefix*</TableCell>
-      <TableCell>`string | string[]`</TableCell>
-      <TableCell>`'!'`</TableCell>
-      <TableCell>Global prefix or array of prefixes</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*guildPrefixProvider*</TableCell>
-      <TableCell>`PrefixGuildProvider`</TableCell>
-      <TableCell>`undefined`</TableCell>
-      <TableCell>Async function that loads guild prefixes at startup</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*caseSensitive*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`false`</TableCell>
-      <TableCell>Whether prefix matching is case-sensitive</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*mentionPrefix*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`true`</TableCell>
-      <TableCell>Allow bot mention as a universal prefix</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*defaultCooldown*</TableCell>
-      <TableCell>`number`</TableCell>
-      <TableCell>`0`</TableCell>
-      <TableCell>Default cooldown in seconds for all commands</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*replyOnNotFound*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`false`</TableCell>
-      <TableCell>Automatically reply when a command is not found</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="prefix (string | string[], required)">
+    The global prefix string or an array of prefixes that the parser will recognize for all guilds without a custom override. Setting an array like `['!', '?']` lets users choose from multiple prefixes. There is no default; this field is required and must be provided in every config.
+  </Dropdown>
+  <Dropdown title="guildPrefixProvider (PrefixGuildProvider)">
+    An async function called at startup that returns an array of *PrefixGuildEntry* objects to pre-populate the guild prefix manager. This is the recommended way to hydrate per-guild overrides from a database at boot time. If omitted, the in-memory store starts empty and must be populated at runtime through direct API calls.
+  </Dropdown>
+  <Dropdown title="caseSensitive (boolean, default false)">
+    Controls whether prefix string matching is case-sensitive. When `false` (the default), `!Ping` and `!ping` are treated identically. Enable this only if you have a deliberate reason to distinguish uppercase and lowercase trigger characters.
+  </Dropdown>
+  <Dropdown title="mentionPrefix (boolean, default true)">
+    When `true`, a bot mention at the start of a message is treated as a valid prefix. This lets users invoke commands with `@BotName roll 6` regardless of the configured prefix, providing a reliable fallback when users forget the active prefix. Disable it only if mention-triggered commands conflict with other bot behavior.
+  </Dropdown>
+  <Dropdown title="defaultCooldown (number, default 0)">
+    A global cooldown in seconds applied to every command that does not define its own *cooldown* field. Setting this to `3` means all commands have a 3-second cooldown unless specifically overridden. A value of `0` disables the default cooldown entirely.
+  </Dropdown>
+  <Dropdown title="replyOnNotFound (boolean, default false)">
+    When `true`, the framework automatically sends a reply when a user types a recognized prefix followed by an unknown command name. This reduces friction for users who mistype commands. When `false`, unrecognized commands are silently ignored.
+  </Dropdown>
+</DropdownGroup>
 
 ```typescript filename="config/prefix.config.ts"
 import { definePrefix } from '@spraxium/core';
@@ -94,7 +66,7 @@ export default definePrefix({
 });
 ```
 
-<Callout type="info">
+<Callout tone="info">
   Your config file should define only global policy and initial hydration for the prefix subsystem. Prefix read and write logic, auditing, and synchronization should live in services that inject *PrefixDispatcher*. The *Prefixes API via Services* page shows this architecture in depth for production workflows.
 </Callout>
 
@@ -106,62 +78,38 @@ Each guild entry stores the guild ID, one or more prefixes, and an optional meta
 
 The *loadFromProvider* method is called automatically at startup if you define a *guildPrefixProvider* in the config. You can also call it manually to reload guild prefixes from your database at any time, for example after a bulk import or migration.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Method</TableCell>
-      <TableCell header>Return</TableCell>
-      <TableCell header>Description</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>*getGuildPrefix(guildId)*</TableCell>
-      <TableCell>`string[] | undefined`</TableCell>
-      <TableCell>Returns the guild prefix array or `undefined`</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*getGuildEntry(guildId)*</TableCell>
-      <TableCell>`PrefixGuildEntry | undefined`</TableCell>
-      <TableCell>Returns the full entry with metadata</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*hasGuildPrefix(guildId)*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>Checks whether a guild has an override</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*getAllGuildIds()*</TableCell>
-      <TableCell>`string[]`</TableCell>
-      <TableCell>Lists all guild IDs with overrides</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*setGuildPrefix(guildId, prefix, metadata?)*</TableCell>
-      <TableCell>`void`</TableCell>
-      <TableCell>Creates a new guild prefix entry</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*updateGuildPrefix(guildId, prefix, metadata?)*</TableCell>
-      <TableCell>`void`</TableCell>
-      <TableCell>Updates an existing guild prefix entry</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*removeGuildPrefix(guildId)*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>Removes a guild prefix and returns success</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*clear()*</TableCell>
-      <TableCell>`void`</TableCell>
-      <TableCell>Removes all guild prefix overrides</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*loadFromProvider(provider)*</TableCell>
-      <TableCell>`Promise<void>`</TableCell>
-      <TableCell>Loads entries from an async provider function</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="getGuildPrefix(guildId)">
+    Returns the array of active prefix strings for the given guild, or `undefined` if no override exists. This is the primary read method for checking the current guild prefix before displaying it to a user or building help content. The call is synchronous and reads directly from the in-memory store.
+  </Dropdown>
+  <Dropdown title="getGuildEntry(guildId)">
+    Returns the full *PrefixGuildEntry* object for the guild, including the `guildId`, `prefix`, and any stored `metadata`. Use this when you need the metadata alongside the prefix value, for example to display who last changed the prefix. Returns `undefined` if no override exists.
+  </Dropdown>
+  <Dropdown title="hasGuildPrefix(guildId)">
+    Returns `true` if the guild has an active prefix override, `false` otherwise. Use this for existence checks when you only need to branch on presence without reading the prefix value itself. This is more expressive than comparing *getGuildPrefix* against `undefined`.
+  </Dropdown>
+  <Dropdown title="getAllGuildIds()">
+    Returns an array of all guild IDs that currently have registered prefix overrides. Use this in administrative dashboards, synchronization routines, or diagnostic tools that need to enumerate all configured guilds. The result reflects the live in-memory state.
+  </Dropdown>
+  <Dropdown title="setGuildPrefix(guildId, prefix, metadata?)">
+    Creates a new prefix entry for the guild or fully replaces an existing one. The optional metadata object stores audit fields like actor ID and timestamp. Always persist the change to your database before calling this method to avoid divergence if the process restarts.
+  </Dropdown>
+  <Dropdown title="updateGuildPrefix(guildId, prefix, metadata?)">
+    Partially merges the provided values into the existing entry rather than replacing it. If the guild has no existing entry, it behaves like *setGuildPrefix*. Use this when you want to update only the prefix or only the metadata without overwriting the other field.
+  </Dropdown>
+  <Dropdown title="removeGuildPrefix(guildId)">
+    Deletes the in-memory override for the guild and returns `true` if an entry existed or `false` if not. After removal, the parser falls back to the global prefix for that guild. Follow the persist-first pattern and remove from the database before calling this method.
+  </Dropdown>
+  <Dropdown title="clear()">
+    Removes all guild prefix overrides from the in-memory store at once. This is mainly useful during test teardown or controlled resets. In production, coordinate a full reload with *loadFromProvider* afterwards to restore known-good state.
+  </Dropdown>
+  <Dropdown title="loadFromProvider(provider)">
+    Accepts an async provider function, awaits it, and replaces all in-memory guild prefix entries with the returned array. This is called automatically at startup if you define a *guildPrefixProvider* in config, but you can also call it manually to reload from the database after a bulk import or migration.
+  </Dropdown>
+  <Dropdown title="size (property)">
+    A numeric property reflecting the total count of guild prefix entries currently in memory. Use this in health checks or diagnostic endpoints to confirm whether guild data has been hydrated. A value of `0` after startup typically means the provider returned no entries or was not configured.
+  </Dropdown>
+</DropdownGroup>
 
 ## Runtime prefix mutation example
 
@@ -180,7 +128,7 @@ export class SetPrefixCommand {
 ```
   </Tab>
   <Tab label="Handler" language="typescript">
-```typescript filename="src/modules/admin/handlers/set-prefix.handler.ts"
+```typescript filename="src/modules/admin/handlers/set-prefix-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
 import { PrefixDispatcher } from '@spraxium/core';
 import type { Message } from 'discord.js';
@@ -218,10 +166,10 @@ The *PrefixCooldownManager* enforces per-user, per-command cooldowns. When a com
 
 Cooldowns are stored in memory and reset when the bot restarts. The *check* method returns the remaining seconds (zero if the cooldown has expired), the *set* method registers a new cooldown entry, and the *clear* method removes all tracked cooldowns. For most bots, the decorator-level *cooldown* field and the global *defaultCooldown* config handle everything automatically without direct API calls.
 
-<Callout type="info">
+<Callout tone="info">
   The per-command *cooldown* field in *@PrefixCommand* overrides the global *defaultCooldown*. If a command sets `cooldown: 5` and the global default is `3`, that command uses a 5-second cooldown.
 </Callout>
 
 ## Next page
 
-Continue with [Prefixes API via Services](/prefix-commands-service-api).
+[Prefixes API via Services](/prefix-commands-service-api)

@@ -11,42 +11,20 @@ category: Prefix Commands
 
 Los prefix commands pueden fallar en múltiples puntos del pipeline de ejecución. Cada tipo de fallo produce una excepción diferente con un código específico que puedes capturar y manejar. Comprender estos puntos de fallo te ayuda a diseñar mensajes de error que informen al usuario qué salió mal y cómo corregirlo.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Tipo de fallo</TableCell>
-      <TableCell header>Excepción</TableCell>
-      <TableCell header>Cuándo ocurre</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>Comando no encontrado</TableCell>
-      <TableCell>*CommandNotFoundException*</TableCell>
-      <TableCell>El mensaje con prefijo no coincide con ningún nombre de comando registrado</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Argumento inválido</TableCell>
-      <TableCell>*ArgumentException*</TableCell>
-      <TableCell>Un argumento no supera la validación de tipo o restricción</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Argumento faltante</TableCell>
-      <TableCell>*ArgumentException*</TableCell>
-      <TableCell>Un argumento requerido no fue proporcionado</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>En cooldown</TableCell>
-      <TableCell>Respuesta silenciosa</TableCell>
-      <TableCell>El usuario ejecutó el comando antes de que el cooldown expirase</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Guard rechazó</TableCell>
-      <TableCell>Respuesta silenciosa o personalizada</TableCell>
-      <TableCell>Un guard retornó `false` o lanzó una excepción</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="CommandNotFoundException (comando no encontrado)">
+    Ocurre cuando el prefijo se reconoce, pero el nombre del comando no existe en el registry. Esta excepción permite responder con una sugerencia útil o redirigir al comando de help. También puedes habilitar *replyOnNotFound* para una respuesta automática básica.
+  </Dropdown>
+  <Dropdown title="ArgumentException (argumento inválido o faltante)">
+    Se lanza cuando falta un argumento requerido o cuando falla validación y coerción de tipo. Incluye datos suficientes para explicar al usuario qué entrada no cumple el contrato del comando. Es recomendable centralizar el formato de este error con un layout dedicado.
+  </Dropdown>
+  <Dropdown title="Guard rejection (ForbiddenException o excepción custom)">
+    Si un guard retorna `false`, el flujo de ejecución se bloquea antes de llegar al handler. Si un guard lanza una excepción propia, esa excepción se propaga para manejo específico. Este punto es clave para permisos, límites de canal y reglas de acceso.
+  </Dropdown>
+  <Dropdown title="Cooldown activo (bloqueo silencioso)">
+    Cuando un usuario ejecuta un comando antes de expirar el cooldown, el framework bloquea la ejecución. Por defecto no se lanza una excepción visible al usuario en ese caso. Si quieres feedback explícito, puedes calcular segundos restantes con el manager de cooldown y responder manualmente.
+  </Dropdown>
+</DropdownGroup>
 
 ## Layouts de excepción
 
@@ -97,7 +75,7 @@ export default defineConfig({
 
 El servicio *PrefixDispatcher* te da acceso de solo lectura a todos los comandos registrados y sus metadatos en tiempo de ejecución. Esto es útil para construir comandos de ayuda, herramientas de depuración o dashboards de administración. Puedes inyectar el dispatcher en cualquier handler o servicio y consultar su estado.
 
-```typescript filename="src/modules/admin/handlers/help.handler.ts"
+```typescript filename="src/modules/admin/handlers/help-command.handler.ts"
 import { Ctx, PrefixCommandHandler } from '@spraxium/common';
 import { PrefixDispatcher } from '@spraxium/core/prefix';
 import type { Message } from 'discord.js';
@@ -137,7 +115,7 @@ export class AdminOnlyGuard implements CanActivate {
 ```
   </Tab>
   <Tab label="Aplicar al handler" language="typescript">
-```typescript filename="src/modules/admin/handlers/set-prefix.handler.ts"
+```typescript filename="src/modules/admin/handlers/set-prefix-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler, UseGuards } from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { AdminOnlyGuard } from '../../../guards/admin-only.guard';
@@ -157,6 +135,6 @@ export class SetPrefixHandler {
   </Tab>
 </CodeTabs>
 
-## Siguiente estudio
+## Siguiente página
 
-Continúa con [Visión General de Slash Commands](/slash-commands-overview).
+[Descripción General de Slash Commands](/slash-commands-overview)

@@ -29,54 +29,26 @@ Este diseño permite que cada comunidad adopte su propia convención sin afectar
 
 *PrefixConfig* define política global del subsistema y punto de hidratación inicial. Debe permanecer enfocado en bootstrap y no en lógica de dominio de runtime. La lectura y escritura de prefijos por servidor debe quedar encapsulada en services de aplicación.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Campo</TableCell>
-      <TableCell header>Tipo</TableCell>
-      <TableCell header>Predeterminado</TableCell>
-      <TableCell header>Descripción</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>*prefix*</TableCell>
-      <TableCell>`string | string[]`</TableCell>
-      <TableCell>`'!'`</TableCell>
-      <TableCell>Prefijo global o lista de prefijos globales</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*guildPrefixProvider*</TableCell>
-      <TableCell>`PrefixGuildProvider`</TableCell>
-      <TableCell>`undefined`</TableCell>
-      <TableCell>Provider async para carga inicial por servidor</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*caseSensitive*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`false`</TableCell>
-      <TableCell>Activa coincidencia sensible a mayúsculas</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*mentionPrefix*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`true`</TableCell>
-      <TableCell>Permite mención al bot como prefijo alternativo</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*defaultCooldown*</TableCell>
-      <TableCell>`number`</TableCell>
-      <TableCell>`0`</TableCell>
-      <TableCell>Cooldown global para comandos sin override</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*replyOnNotFound*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`false`</TableCell>
-      <TableCell>Responde automáticamente cuando no existe comando</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="prefix (string | string[], obligatorio)">
+    Define el prefijo global o una lista de prefijos globales para servidores sin sobrescritura. Puedes usar un solo valor o múltiples opciones como `['!', '?']`. Este campo es obligatorio y no debe omitirse en la configuración.
+  </Dropdown>
+  <Dropdown title="guildPrefixProvider (PrefixGuildProvider)">
+    Es una función asíncrona que hidrata prefijos por servidor durante el arranque. Debe retornar un arreglo de entradas con `guildId` y `prefix`. Si no se define, la memoria inicia vacía y se completa solo por mutaciones de runtime.
+  </Dropdown>
+  <Dropdown title="caseSensitive (boolean, predeterminado false)">
+    Controla si la coincidencia de prefijo distingue mayúsculas y minúsculas. Con `false`, `!Ping` y `!ping` se tratan igual. Actívalo solo cuando exista una necesidad real de diferenciación.
+  </Dropdown>
+  <Dropdown title="mentionPrefix (boolean, predeterminado true)">
+    Permite que una mención al bot funcione como prefijo universal. Este fallback reduce fricción cuando el usuario no recuerda el prefijo configurado. Desactívalo únicamente si interfiere con otros flujos del bot.
+  </Dropdown>
+  <Dropdown title="defaultCooldown (number, predeterminado 0)">
+    Aplica un cooldown global en segundos a comandos que no tienen *cooldown* propio. Si defines `3`, ese valor se usa como base del catálogo completo. Con `0`, no hay cooldown global por defecto.
+  </Dropdown>
+  <Dropdown title="replyOnNotFound (boolean, predeterminado false)">
+    Envía respuesta automática cuando el prefijo es válido pero el comando no existe. Con `false`, ese caso se ignora de forma silenciosa. Con `true`, mejoras feedback para usuarios que escriben mal un comando.
+  </Dropdown>
+</DropdownGroup>
 
 ```typescript filename="config/prefix.config.ts"
 import { definePrefix } from '@spraxium/core';
@@ -91,7 +63,7 @@ export default definePrefix({
 });
 ```
 
-<Callout type="info">
+<Callout tone="info">
   El archivo de config debe declarar solo política global e hidratación inicial del subsistema. La lectura, escritura, auditoría y sincronización por servidor deben vivir en services que inyectan *PrefixDispatcher*. La página *API de Prefijos vía Services* explica este patrón con más profundidad y escenarios de producción.
 </Callout>
 
@@ -99,62 +71,38 @@ export default definePrefix({
 
 *PrefixGuildManager* mantiene sobrescrituras de prefijo en memoria para cada servidor activo. El framework lo hidrata durante bootstrap con *guildPrefixProvider* y luego permite mutaciones en runtime sin reiniciar el proceso. Esta API habilita comandos administrativos, paneles y tareas de sincronización con efecto inmediato.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Método</TableCell>
-      <TableCell header>Retorna</TableCell>
-      <TableCell header>Descripción</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>*getGuildPrefix(guildId)*</TableCell>
-      <TableCell>`string[] | undefined`</TableCell>
-      <TableCell>Retorna prefijos activos de un servidor</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*getGuildEntry(guildId)*</TableCell>
-      <TableCell>`PrefixGuildEntry | undefined`</TableCell>
-      <TableCell>Retorna entrada completa con metadata</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*hasGuildPrefix(guildId)*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>Indica si el servidor tiene sobrescritura</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*getAllGuildIds()*</TableCell>
-      <TableCell>`string[]`</TableCell>
-      <TableCell>Lista todos los servidores con configuración personalizada</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*setGuildPrefix(guildId, prefix, metadata?)*</TableCell>
-      <TableCell>`void`</TableCell>
-      <TableCell>Crea o reemplaza prefijo de un servidor</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*updateGuildPrefix(guildId, prefix, metadata?)*</TableCell>
-      <TableCell>`void`</TableCell>
-      <TableCell>Actualiza prefijo y metadata con merge parcial</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*removeGuildPrefix(guildId)*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>Elimina sobrescritura de prefijo por servidor</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*clear()*</TableCell>
-      <TableCell>`void`</TableCell>
-      <TableCell>Limpia todas las sobrescrituras en memoria</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*loadFromProvider(provider)*</TableCell>
-      <TableCell>`Promise<void>`</TableCell>
-      <TableCell>Recarga entradas desde un provider asíncrono</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="getGuildPrefix(guildId)">
+    Retorna el arreglo de prefijos activos de un servidor, o `undefined` si no existe sobrescritura. Es la lectura principal para mostrar el prefijo actual en comandos de administración. La consulta es síncrona porque opera sobre memoria.
+  </Dropdown>
+  <Dropdown title="getGuildEntry(guildId)">
+    Retorna la entrada completa con `guildId`, `prefix` y `metadata`. Úsalo cuando necesites contexto adicional de auditoría. Si no hay entrada, retorna `undefined`.
+  </Dropdown>
+  <Dropdown title="hasGuildPrefix(guildId)">
+    Indica con `true` o `false` si existe sobrescritura para el servidor. Es ideal para guards o bifurcaciones de flujo. Expresa intención de existencia sin leer el valor completo.
+  </Dropdown>
+  <Dropdown title="getAllGuildIds()">
+    Lista todos los IDs de servidor con configuración personalizada activa. Sirve para dashboards, diagnósticos o jobs de reconciliación. El resultado refleja solo el estado cargado en memoria.
+  </Dropdown>
+  <Dropdown title="setGuildPrefix(guildId, prefix, metadata?)">
+    Crea o reemplaza completamente la configuración de prefijo del servidor. Puedes adjuntar metadata para auditoría, como actor y timestamp. Conviene persistir en base de datos antes de mutar memoria.
+  </Dropdown>
+  <Dropdown title="updateGuildPrefix(guildId, prefix, metadata?)">
+    Actualiza de forma parcial una entrada existente y conserva campos no enviados. Si la entrada no existe, actúa como creación. Es útil para paneles que actualizan un campo a la vez.
+  </Dropdown>
+  <Dropdown title="removeGuildPrefix(guildId)">
+    Elimina la sobrescritura en memoria y retorna si la entrada existía. Después de eliminar, ese servidor vuelve al prefijo global. Sigue patrón persist-first para evitar rehidratación accidental en reinicios.
+  </Dropdown>
+  <Dropdown title="clear()">
+    Limpia todas las sobrescrituras de prefijo en memoria de una sola vez. Es útil para tests, reset controlado o mantenimiento operativo. En producción, suele combinarse con una recarga posterior.
+  </Dropdown>
+  <Dropdown title="loadFromProvider(provider)">
+    Recarga todo el estado desde una función asíncrona y reemplaza el contenido en memoria. Se usa en arranque y en recargas controladas tras cambios masivos. Permite mantener runtime alineado con storage.
+  </Dropdown>
+  <Dropdown title="size (propiedad)">
+    Expone el total de entradas de prefijo por servidor actualmente cargadas en memoria. Sirve para métricas rápidas y health checks. Un valor inesperadamente bajo suele indicar problema de hidratación.
+  </Dropdown>
+</DropdownGroup>
 
 ## Ejemplo de actualización en runtime
 
@@ -191,7 +139,7 @@ export class GuildPrefixService {
 ```
   </Tab>
   <Tab label="Handler" language="typescript">
-```typescript filename="src/modules/admin/handlers/set-prefix.handler.ts"
+```typescript filename="src/modules/admin/handlers/set-prefix-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { SetPrefixCommand } from '../commands/set-prefix.command';
@@ -225,10 +173,10 @@ export class SetPrefixHandler {
 
 Los cooldowns viven en memoria y se limpian automáticamente al expirar o al reiniciar el proceso. Este comportamiento es suficiente para la mayoría de bots comunitarios con operación estándar. Si necesitas persistencia entre reinicios, debes complementar con almacenamiento externo y recarga controlada.
 
-<Callout type="info">
+<Callout tone="info">
   Usa cooldown global como política base de producto. Usa cooldown por comando en operaciones de moderación, economía o administración. Mantener esta jerarquía evita duplicación y mejora legibilidad del catálogo de comandos.
 </Callout>
 
 ## Siguiente página
 
-Continúa con [API de Prefijos vía Services](/prefix-commands-service-api).
+[API de Prefijos vía Services](/prefix-commands-service-api)
