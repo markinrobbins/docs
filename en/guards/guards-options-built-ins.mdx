@@ -71,67 +71,47 @@ export class MixedHandler {
 
 Spraxium ships ten built-in guards in the core package that cover the most common Discord access patterns. Each guard is already decorated with *@Guard()* and ready to use with *@UseGuards* or *useGlobalGuards*. The table below shows every built-in guard, what it checks, and what options it expects.
 
-<Table variant="striped">
-  <TableHead>
-    <TableRow>
-      <TableCell header>Guard</TableCell>
-      <TableCell header>What it checks</TableCell>
-      <TableCell header>Options</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>*GuildOnly*</TableCell>
-      <TableCell>Denies if the command runs in a DM</TableCell>
-      <TableCell>None</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*DMOnly*</TableCell>
-      <TableCell>Denies if the command runs inside a guild</TableCell>
-      <TableCell>None</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*OwnerOnly*</TableCell>
-      <TableCell>Denies if the user ID is not in the configured owner list</TableCell>
-      <TableCell>*ownerIds*: string[] (required)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*PermissionGuard*</TableCell>
-      <TableCell>Denies if the member lacks any of the required Discord permissions</TableCell>
-      <TableCell>*permissions*: PermissionsString[] (required)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*RoleGuard*</TableCell>
-      <TableCell>Denies if the member has none of the specified roles by name or ID</TableCell>
-      <TableCell>*roles*: string[] (required)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*CooldownGuard*</TableCell>
-      <TableCell>Denies if the user triggered the same command within the cooldown window</TableCell>
-      <TableCell>*cooldown*: number in milliseconds (required)</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*NoBotGuard*</TableCell>
-      <TableCell>Denies if the triggering user is a bot account</TableCell>
-      <TableCell>None</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*NSFWGuard*</TableCell>
-      <TableCell>Denies if the channel is not marked as NSFW</TableCell>
-      <TableCell>None</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*ThreadOnlyGuard*</TableCell>
-      <TableCell>Denies if the channel is not a thread</TableCell>
-      <TableCell>None</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*VoiceChannelGuard*</TableCell>
-      <TableCell>Denies if the member is not connected to a voice channel</TableCell>
-      <TableCell>None</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+<Dropdown title="GuildOnly">
+  Denies execution when the command is invoked from a direct message channel. This is the most commonly used guard for ensuring server-only commands cannot be triggered from DMs. It requires no options and can be passed directly to *@UseGuards* without *withOptions*.
+</Dropdown>
+
+<Dropdown title="DMOnly">
+  Denies execution when the command is invoked inside a guild channel. This is the inverse of *GuildOnly* and restricts commands to direct message contexts only. It requires no options and can be passed directly to *@UseGuards*.
+</Dropdown>
+
+<Dropdown title="OwnerOnly">
+  Denies execution when the user ID is not present in the configured owner list. This guard requires the *ownerIds* option, which is a `string[]` of Discord user snowflake IDs. Use *withOptions* to pass the owner IDs when attaching this guard.
+</Dropdown>
+
+<Dropdown title="PermissionGuard">
+  Denies execution when the guild member lacks any of the required Discord permissions. This guard requires the *permissions* option, which is a `PermissionsString[]` using discord.js permission strings like `"BanMembers"` or `"ManageGuild"`. The member must have all listed permissions for the guard to pass.
+</Dropdown>
+
+<Dropdown title="RoleGuard">
+  Denies execution when the guild member has none of the specified roles. This guard requires the *roles* option, which is a `string[]` of role names or role snowflake IDs. The member needs at least one matching role for the guard to pass.
+</Dropdown>
+
+<Dropdown title="CooldownGuard">
+  Denies execution when the user triggered the same command within the cooldown window. This guard requires the *cooldown* option, which is a `number` in milliseconds. It tracks the last execution timestamp per user and blocks repeat invocations until the window elapses.
+</Dropdown>
+
+<Dropdown title="NoBotGuard">
+  Denies execution when the triggering user is a bot account. This guard is useful when your listeners or prefix commands should ignore messages from other bots. It requires no options and can be passed directly to *@UseGuards*.
+</Dropdown>
+
+<Dropdown title="NSFWGuard">
+  Denies execution when the channel is not marked as NSFW in the Discord server settings. Use this guard for age-restricted content that should only appear in designated channels. It requires no options and can be passed directly to *@UseGuards*.
+</Dropdown>
+
+<Dropdown title="ThreadOnlyGuard">
+  Denies execution when the channel is not a thread. This guard is useful for commands that should only run inside thread conversations, like ticket-based systems. It requires no options and can be passed directly to *@UseGuards*.
+</Dropdown>
+
+<Dropdown title="VoiceChannelGuard">
+  Denies execution when the guild member is not connected to a voice channel. Use this guard for commands that require a voice connection, like music playback or voice-based features. It requires no options and can be passed directly to *@UseGuards*.
+</Dropdown>
+</DropdownGroup>
 
 ## Using built-in guards
 
@@ -257,3 +237,7 @@ Notice the guard has two options: *minDays* is required because the guard cannot
 <Callout tone="info" title="Start with built-ins">
   Before creating a custom guard, check if one of the ten built-in guards already covers your use case. Custom guards are powerful but unnecessary when a built-in already does exactly what you need.
 </Callout>
+
+## Next page
+
+Continue with [Denials and Exception Integration](/guards-failures-testing).
