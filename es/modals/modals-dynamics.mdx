@@ -1,0 +1,300 @@
+---
+title: Modales dinámicos
+description: |
+  Genera campos de modal en runtime con @ModalDynamic, @ModalDynamicFields y @ModalWhen.
+  Construye modales sensibles al contexto que adaptan su estructura según datos de usuario o estado de la aplicación.
+order: 3
+category: Modals
+---
+
+## Por qué modales dinámicos
+
+Los modales estáticos funcionan bien cuando los campos se conocen en tiempo de compilación. Sin embargo, muchos escenarios del mundo real requieren modales que se adapten a condiciones de runtime. Un modal de creación de tickets podría mostrar campos diferentes según la categoría del ticket. Un modal de configuración podría incluir campos solo para funcionalidades a las que el usuario tiene acceso. Un asistente multi-paso podría pasar datos de un paso anterior al modal para personalizar su contenido.
+
+Spraxium proporciona tres mecanismos para modales dinámicos. El decorator *@ModalDynamic* marca un modal como sensible a datos, el método *@ModalDynamicFields* genera campos programáticamente en el momento de construcción, y el decorator *@ModalWhen* incluye o excluye condicionalmente campos estáticos individuales basándose en un predicado. Estos mecanismos se componen de forma natural, así que puedes mezclar campos estáticos, condicionales y generados dinámicamente en el mismo modal.
+
+El *ModalSchemaBuilder* resuelve las tres fuentes (decorators estáticos, condicionales y métodos dinámicos) en una única lista plana de campos cuando se llama a *ModalService.build*. Esto significa que la estructura del modal se determina en el momento del renderizado, no en el momento de definición de la clase.
+
+## Hacer un modal sensible a datos
+
+El decorator genérico *@ModalDynamic* marca una clase de componente modal como receptora de datos externos de un tipo específico. Cuando llamas a *ModalService.build(MyModal, data)*, los datos se almacenan y se ponen a disposición de los métodos *@ModalDynamicFields* y los predicados *@ModalWhen*. El parámetro de tipo proporciona seguridad en compilación para la forma de los datos.
+
+```typescript filename="src/components/config-modal.modal.ts"
+import { ModalComponent, ModalDynamic, ModalInput } from '@spraxium/components';
+
+interface ConfigData {
+  featureFlags: string[];
+  userRole: 'admin' | 'moderator' | 'member';
+}
+
+@ModalComponent({ id: 'config-modal', title: 'Server Configuration' })
+@ModalDynamic<ConfigData>()
+export class ConfigModal {
+  @ModalInput({
+    label: 'Server Name',
+    style: 'short',
+    required: true,
+  })
+  serverName!: string;
+}
+```
+
+## Campos condicionales con @ModalWhen
+
+El decorator *@ModalWhen* toma una función predicado que recibe los datos del modal y retorna un booleano. Si el predicado retorna `true`, el campo se incluye en el modal renderizado. Si retorna `false`, el campo se omite completamente, no solo se oculta. Esto significa que el campo no cuenta hacia el límite de 5 campos cuando se excluye, liberando action rows para otros campos.
+
+El predicado recibe los datos pasados a *ModalService.build*. Si no se proporcionan datos, el predicado recibe `undefined`, así que tu predicado debería manejar este caso correctamente.
+
+```typescript filename="src/components/config-modal.modal.ts"
+import {
+  ModalComponent,
+  ModalDynamic,
+  ModalInput,
+  ModalWhen,
+  ModalSelect,
+  ModalChoice,
+} from '@spraxium/components';
+
+interface ConfigData {
+  featureFlags: string[];
+  userRole: 'admin' | 'moderator' | 'member';
+}
+
+@ModalComponent({ id: 'config-modal', title: 'Server Configuration' })
+@ModalDynamic<ConfigData>()
+export class ConfigModal {
+  @ModalInput({
+    label: 'Server Name',
+    style: 'short',
+    required: true,
+  })
+  serverName!: string;
+
+  @ModalWhen<ConfigData>((data) => data?.userRole === 'admin')
+  @ModalInput({
+    label: 'Admin Secret Key',
+    style: 'short',
+    required: true,
+    placeholder: 'Enter the admin secret key',
+  })
+  adminKey!: string;
+
+  @ModalWhen<ConfigData>((data) => data?.featureFlags.includes('moderation'))
+  @ModalSelect({ label: 'Auto-mod Level', required: true })
+  @ModalChoice({ label: 'Off', value: 'off' })
+  @ModalChoice({ label: 'Low', value: 'low' })
+  @ModalChoice({ label: 'High', value: 'high' })
+  autoModLevel!: string;
+}
+```
+
+## Generación dinámica de campos
+
+El decorator de método *@ModalDynamicFields* marca un método de clase que retorna un array de objetos *ModalFieldDef* en runtime. Este método se llama durante *ModalService.build* y recibe los datos pasados a la llamada build. Los campos retornados se agregan después de todos los campos estáticos y condicionales en el layout del modal.
+
+Usa los helpers del namespace *Modal.field* para construir definiciones de campo dentro del método dinámico. Esto mantiene el código legible y con seguridad de tipos en comparación con construir objetos de definición crudos.
+
+```typescript filename="src/components/survey.modal.ts"
+import {
+  ModalComponent,
+  ModalDynamic,
+  ModalDynamicFields,
+  ModalInput,
+} from '@spraxium/components';
+import { Modal } from '@spraxium/components';
+import type { ModalFieldDef } from '@spraxium/components';
+
+interface SurveyData {
+  questions: Array<{ id: string; label: string }>;
+}
+
+@ModalComponent({ id: 'survey-modal', title: 'Quick Survey' })
+@ModalDynamic<SurveyData>()
+export class SurveyModal {
+  @ModalInput({
+    label: 'Your Name',
+    style: 'short',
+    required: true,
+  })
+  name!: string;
+
+  @ModalDynamicFields()
+  generateQuestions(data: SurveyData): ModalFieldDef[] {
+    return data.questions.slice(0, 4).map((q) =>
+      Modal.field.text({
+        id: q.id,
+        label: q.label,
+        style: 'paragraph',
+        required: true,
+        maxLength: 1000,
+      }),
+    );
+  }
+}
+```
+
+## Construir modales sensibles a datos
+
+Cuando tu modal usa *@ModalDynamic*, pasa el objeto de datos como segundo argumento a *ModalService.build*. El schema builder lee los datos, evalúa todos los predicados *@ModalWhen*, llama a los métodos *@ModalDynamicFields*, fusiona los resultados con los campos estáticos y produce el layout final del modal.
+
+<CodeTabs>
+<Tab label="Construir con datos">
+```typescript filename="src/commands/survey.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { ModalService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { SurveyModal } from '../components/survey.modal';
+import { SurveyCommand } from './survey.command';
+
+@SlashCommandHandler(SurveyCommand)
+export class SurveyCommandHandler {
+  constructor(private readonly modals: ModalService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const questions = await this.loadQuestions(interaction.guildId);
+
+    const modal = this.modals.build(SurveyModal, {
+      questions: questions.map((q) => ({ id: q.id, label: q.text })),
+    });
+
+    await interaction.showModal(modal);
+  }
+
+  private async loadQuestions(guildId: string) {
+    return [
+      { id: 'q1', text: 'How would you rate the server?' },
+      { id: 'q2', text: 'What could be improved?' },
+    ];
+  }
+}
+```
+</Tab>
+<Tab label="Campos condicionales de admin">
+```typescript filename="src/commands/configure.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { ModalService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { ConfigModal } from '../components/config-modal.modal';
+import { ConfigureCommand } from './configure.command';
+
+@SlashCommandHandler(ConfigureCommand)
+export class ConfigureCommandHandler {
+  constructor(private readonly modals: ModalService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const member = interaction.member;
+    const featureFlags = await this.getFlags(interaction.guildId);
+
+    const modal = this.modals.build(ConfigModal, {
+      userRole: member.permissions.has('Administrator') ? 'admin' : 'member',
+      featureFlags,
+    });
+
+    await interaction.showModal(modal);
+  }
+
+  private async getFlags(guildId: string): Promise<string[]> {
+    return ['moderation', 'logging'];
+  }
+}
+```
+</Tab>
+</CodeTabs>
+
+## Combinar campos estáticos, condicionales y dinámicos
+
+Las tres fuentes de campos se componen en un solo modal. El *ModalSchemaBuilder* las procesa en orden: primero campos estáticos (en orden de declaración), luego campos condicionales (evaluados contra los datos), luego campos dinámicos (agregados desde el retorno del método). El conteo total de campos no debe exceder 5 después de la resolución.
+
+```typescript filename="src/components/application.modal.ts"
+import {
+  ModalComponent,
+  ModalDynamic,
+  ModalDynamicFields,
+  ModalInput,
+  ModalWhen,
+  ModalSelect,
+  ModalChoice,
+} from '@spraxium/components';
+import { Modal } from '@spraxium/components';
+import type { ModalFieldDef } from '@spraxium/components';
+
+interface ApplicationData {
+  position: 'developer' | 'designer' | 'moderator';
+  requiresPortfolio: boolean;
+}
+
+@ModalComponent({ id: 'application-modal', title: 'Staff Application' })
+@ModalDynamic<ApplicationData>()
+export class ApplicationModal {
+  @ModalInput({
+    label: 'Your Name',
+    style: 'short',
+    required: true,
+  })
+  name!: string;
+
+  @ModalWhen<ApplicationData>((data) => data?.requiresPortfolio === true)
+  @ModalInput({
+    label: 'Portfolio URL',
+    style: 'short',
+    required: true,
+    placeholder: 'https://your-portfolio.com',
+  })
+  portfolio!: string;
+
+  @ModalDynamicFields()
+  positionFields(data: ApplicationData): ModalFieldDef[] {
+    const fields: ModalFieldDef[] = [];
+
+    if (data.position === 'developer') {
+      fields.push(
+        Modal.field.text({
+          id: 'languages',
+          label: 'Programming Languages',
+          style: 'short',
+          required: true,
+        }),
+      );
+    }
+
+    if (data.position === 'moderator') {
+      fields.push(
+        Modal.field.text({
+          id: 'experience',
+          label: 'Moderation Experience',
+          style: 'paragraph',
+          required: true,
+        }),
+      );
+    }
+
+    return fields;
+  }
+}
+```
+
+## Orden de resolución del schema
+
+Comprender el orden de resolución te ayuda a predecir el layout final del modal. El *ModalSchemaBuilder* sigue un proceso determinístico que produce el mismo resultado dados los mismos inputs.
+
+<Steps>
+<Step title="Recopilar campos estáticos">
+El builder lee todos los decorators de propiedad (*@ModalInput*, *@ModalSelect*, etc.) de la clase del componente modal. Estos se recopilan en orden de declaración y forman la lista base de campos. Los campos sin decorator *@ModalWhen* siempre se incluyen.
+</Step>
+
+<Step title="Evaluar condicionales">
+Para cada campo que tiene un decorator *@ModalWhen*, el builder llama a la función predicado con el objeto de datos. Si el predicado retorna `false`, el campo se elimina de la lista. Este paso solo puede eliminar campos, nunca reordenarlos ni agregarlos.
+</Step>
+
+<Step title="Generar campos dinámicos">
+Si la clase tiene un método *@ModalDynamicFields*, el builder lo llama con el objeto de datos. El array de *ModalFieldDef* retornado se agrega al final de la lista de campos, después de todos los campos estáticos y condicionales.
+</Step>
+
+<Step title="Validar y construir">
+El builder valida que el conteo total de campos no exceda 5. Si lo excede, se lanza un error en tiempo de construcción con un mensaje descriptivo indicando qué modal superó el límite. Los campos validados se convierten entonces en componentes de action row de Discord.
+</Step>
+</Steps>
+
+## Siguiente página
+
+Continúa con [Validación de modales](/guide/modals-validation).

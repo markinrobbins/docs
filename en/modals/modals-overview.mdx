@@ -1,0 +1,230 @@
+---
+title: Modals Overview
+description: |
+  Build Discord modals with the declarative @ModalComponent and @ModalHandler pattern.
+  Learn modal registration, field declaration, service rendering, and submission dispatch flow.
+order: 1
+category: Modals
+---
+
+## What are modals in Spraxium
+
+Modals are overlay forms that Discord presents to users when triggered by a button click, select menu interaction, or application command. They collect structured input through fields like text inputs, select menus, radio groups, and checkboxes. In Spraxium, modals follow the same declarative decorator-handler pattern used by buttons and selects, but with a richer field system, built-in validation, dynamic fields, and per-user caching that warrants a dedicated documentation category.
+
+The modal system consists of two main pieces: a *@ModalComponent* class that declares the modal's structure (title, fields, and options), and a *@ModalHandler* class that processes the submitted values. The *ModalService* renders the component into a Discord-ready modal object, and the *ModalDispatcher* routes submissions to the correct handler after running validation rules.
+
+Unlike buttons and selects where the component is a lightweight decorator on a class, modals use property-level decorators to define each field. This gives you fine-grained control over field types, placeholder text, validation constraints, conditional inclusion, and dynamic generation, all expressed through TypeScript decorators.
+
+## Defining a modal component
+
+Use *@ModalComponent* to mark a class as a modal definition. The decorator accepts an object with *id* (the *customId* that Discord sends back on submission) and *title* (displayed at the top of the modal). Field decorators on the class properties define the modal's input fields.
+
+```typescript filename="src/components/feedback.modal.ts"
+import { ModalComponent, ModalInput } from '@spraxium/components';
+
+@ModalComponent({ id: 'feedback-modal', title: 'Send Feedback' })
+export class FeedbackModal {
+  @ModalInput({
+    label: 'Subject',
+    placeholder: 'Brief summary of your feedback',
+    required: true,
+    minLength: 3,
+    maxLength: 100,
+    style: 'short',
+  })
+  subject!: string;
+
+  @ModalInput({
+    label: 'Details',
+    placeholder: 'Describe your feedback in detail...',
+    required: true,
+    minLength: 10,
+    maxLength: 4000,
+    style: 'paragraph',
+  })
+  details!: string;
+}
+```
+
+## Creating a modal handler
+
+The *@ModalHandler* decorator links a handler class to a specific modal component. The handler's *handle* method receives the modal submission interaction and any injected parameters. Use the *@Field* parameter decorator to extract individual field values by their property name.
+
+```typescript filename="src/components/feedback.handler.ts"
+import { ModalHandler, Field, Ctx } from '@spraxium/components';
+import type { ModalSubmitInteraction } from 'discord.js';
+import { FeedbackModal } from './feedback.modal';
+
+@ModalHandler(FeedbackModal)
+export class FeedbackModalHandler {
+  async handle(
+    @Ctx() interaction: ModalSubmitInteraction,
+    @Field('subject') subject: string,
+    @Field('details') details: string,
+  ): Promise<void> {
+    await interaction.reply({
+      content: `Thank you for your feedback on "${subject}".`,
+      ephemeral: true,
+    });
+  }
+}
+```
+
+## Showing a modal
+
+Use *ModalService* to build a Discord-ready modal and present it to the user. The *build* method takes the modal component class and returns a modal interaction response. You typically call this from a button handler, select handler, or slash command that has received an interaction with a *showModal* method.
+
+<CodeTabs>
+<Tab label="From a Button">
+```typescript filename="src/components/open-feedback.handler.ts"
+import { ButtonHandler, Ctx } from '@spraxium/components';
+import { ModalService } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import { OpenFeedbackButton } from './open-feedback.button';
+import { FeedbackModal } from './feedback.modal';
+
+@ButtonHandler(OpenFeedbackButton)
+export class OpenFeedbackHandler {
+  constructor(private readonly modals: ModalService) {}
+
+  async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
+    const modal = this.modals.build(FeedbackModal);
+    await interaction.showModal(modal);
+  }
+}
+```
+</Tab>
+<Tab label="From a Command">
+```typescript filename="src/commands/feedback.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { ModalService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { FeedbackModal } from '../components/feedback.modal';
+import { FeedbackCommand } from './feedback.command';
+
+@SlashCommandHandler(FeedbackCommand)
+export class FeedbackCommandHandler {
+  constructor(private readonly modals: ModalService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const modal = this.modals.build(FeedbackModal);
+    await interaction.showModal(modal);
+  }
+}
+```
+</Tab>
+</CodeTabs>
+
+## The @Field parameter decorator
+
+The *@Field* decorator extracts a specific field value from the modal submission by matching the property name defined in the modal component class. The extracted value is always a string for text inputs, or the selected value(s) for select-type fields. This decorator eliminates the need to manually access `interaction.fields.getTextInputValue()` or iterate through components.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Usage</TableCell>
+      <TableCell header>Resolved value</TableCell>
+      <TableCell header>Notes</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`@Field('subject')`</TableCell>
+      <TableCell>Text input value as `string`</TableCell>
+      <TableCell>Matches the property name in the modal component class.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`@Field('category')`</TableCell>
+      <TableCell>Selected value as `string`</TableCell>
+      <TableCell>For single-value selects, returns the selected option value.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`@Field('tags')`</TableCell>
+      <TableCell>Selected values as `string[]`</TableCell>
+      <TableCell>For multi-value selects, returns an array of selected values.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## ModalService API reference
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Method</TableCell>
+      <TableCell header>Signature</TableCell>
+      <TableCell header>Purpose</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*build*</TableCell>
+      <TableCell>`build(modal: Type, data?: unknown)`</TableCell>
+      <TableCell>Builds the modal from the component class. Pass *data* to supply dynamic field context.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*buildFor*</TableCell>
+      <TableCell>`buildFor(modal: Type, interaction: Interaction, data?: unknown)`</TableCell>
+      <TableCell>Builds with user context. Prefills cached field values if a previous submission failed validation.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*storeCache*</TableCell>
+      <TableCell>`storeCache(modal: Type, interaction: ModalSubmitInteraction, values: Record<string, string>)`</TableCell>
+      <TableCell>Manually stores field values in the cache. Used internally by validation flow.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*clearCacheFor*</TableCell>
+      <TableCell>`clearCacheFor(modal: Type, interaction: ModalSubmitInteraction)`</TableCell>
+      <TableCell>Removes cached values for a specific user and modal combination.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getCacheFor*</TableCell>
+      <TableCell>`getCacheFor(modal: Type, interaction: Interaction)`</TableCell>
+      <TableCell>Retrieves cached field values. Returns `null` if no cache exists.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Module registration
+
+Register your modal handlers in the *handlers* array of a feature module. Modal component classes decorated with *@ModalComponent* and button classes decorated with *@Button* are metadata-only and are never registered in any module. The system scans all registered handler instances for *@ModalHandler* metadata during the boot lifecycle and reads the referenced modal component's metadata by class reference.
+
+```typescript filename="src/components/components.module.ts"
+import { Module } from '@spraxium/core';
+import { FeedbackModalHandler } from './feedback.handler';
+import { OpenFeedbackHandler } from './open-feedback.handler';
+
+@Module({
+  handlers: [
+    FeedbackModalHandler,
+    OpenFeedbackHandler,
+  ],
+})
+export class FeedbackModule {}
+```
+
+## Dispatch flow
+
+When a user submits a modal, the interaction goes through several stages before reaching your handler. Understanding this flow helps you reason about where validation, caching, and field resolution happen.
+
+<Steps>
+<Step title="Interaction received">
+The Discord.js client emits an *interactionCreate* event with a *ModalSubmitInteraction*. The *ComponentDispatcher* checks if the *customId* matches a registered modal handler, splitting the custom ID at the tilde separator to extract the base ID and optional context ID.
+</Step>
+
+<Step title="Context resolution">
+If the *customId* contains a context ID (after the tilde), the dispatcher retrieves the *SpraxiumContext* from the storage adapter. If the context is expired or the user is restricted, the dispatcher sends an ephemeral reply and stops processing. If no context is needed, this step is skipped.
+</Step>
+
+<Step title="Validation execution">
+If the modal component has *@ModalValidate* rules, the *ModalValidatorRunner* executes them sequentially against the submitted field values. On the first failure, the runner caches all submitted values (if *@ModalCache* is present), sends the validation error embed, and stops processing. See the validation page for details.
+</Step>
+
+<Step title="Field resolution and handler invocation">
+The dispatcher resolves *@Field* parameter decorators by extracting values from the submission. The *@Ctx* decorator receives the raw *ModalSubmitInteraction*. If a *@FlowContext* decorator is present, the resolved context is injected. The handler's *handle* method is called with all resolved parameters.
+</Step>
+</Steps>
+
+## Next page
+
+Continue with [Modal Fields](/guide/modals-fields).

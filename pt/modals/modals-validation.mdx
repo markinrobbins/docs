@@ -1,0 +1,277 @@
+---
+title: Validação de Modal
+description: |
+  Valide submissões de modal com regras @ModalValidate e personalize respostas de erro com @ModalValidationConfig.
+  Aprenda validadores integrados, regras customizadas e o ciclo de vida completo da validação até a invocação do handler.
+order: 4
+category: Modals
+---
+
+## Por que validação de modal
+
+A validação nativa do Discord para modais é limitada a restrições de *minLength*, *maxLength* e *required* em inputs de texto. Modais do mundo real frequentemente precisam de validação mais rica: contagem mínima de palavras para relatórios, verificação de formato de email para formulários de contato, validação de URL para links, correspondência de padrão para códigos ou regras de negócio totalmente customizadas. A validação de modal do Spraxium executa no servidor após a submissão, dando controle total sobre o que constitui input válido.
+
+O sistema de validação usa uma abordagem declarativa com regras *@ModalValidate* aplicadas a campos individuais. As regras executam sequencialmente e param na primeira falha. Quando a validação falha, o sistema pode fazer cache dos valores submetidos pelo usuário para que sejam preenchidos automaticamente quando o modal for reaberto, evitando que o usuário precise redigitar tudo. Um embed de erro customizado é enviado como resposta efêmera explicando o que deu errado.
+
+Essa combinação de validação, cache e apresentação de erros cria uma experiência de usuário fluida onde submissões inválidas são capturadas imediatamente e os usuários podem corrigir seu input sem perder progresso.
+
+## Aplicando regras de validação
+
+O decorator *@ModalValidate* aceita um array de regras de validação e é colocado em uma propriedade de campo junto com o decorator de tipo de campo. Cada regra é uma chamada de função que retorna um objeto de regra. As regras executam na ordem do array e param na primeira falha.
+
+```typescript filename="src/components/contact.modal.ts"
+import {
+  ModalComponent,
+  ModalInput,
+  ModalValidate,
+  minWords,
+  emailFormat,
+  urlFormat,
+} from '@spraxium/components';
+
+@ModalComponent({ id: 'contact-modal', title: 'Contact Us' })
+export class ContactModal {
+  @ModalInput({
+    label: 'Email',
+    style: 'short',
+    required: true,
+    placeholder: 'your@email.com',
+  })
+  @ModalValidate([emailFormat()])
+  email!: string;
+
+  @ModalInput({
+    label: 'Website',
+    style: 'short',
+    required: false,
+    placeholder: 'https://your-website.com',
+  })
+  @ModalValidate([urlFormat()])
+  website!: string;
+
+  @ModalInput({
+    label: 'Message',
+    style: 'paragraph',
+    required: true,
+    minLength: 20,
+  })
+  @ModalValidate([minWords(5)])
+  message!: string;
+}
+```
+
+## Regras de validação integradas
+
+O Spraxium inclui cinco regras de validação integradas que cobrem cenários comuns. Cada regra é uma função fábrica que retorna um objeto *ModalValidationRule*. O método *validate* da regra recebe o valor do campo como string e retorna `true` se válido, ou uma string de mensagem de erro se inválido.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Regra</TableCell>
+      <TableCell header>Uso</TableCell>
+      <TableCell header>Falha quando</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*minWords*</TableCell>
+      <TableCell>`minWords(count)`</TableCell>
+      <TableCell>O valor do campo contém menos de *count* palavras separadas por espaço.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*matchesPattern*</TableCell>
+      <TableCell>`matchesPattern(regex, message?)`</TableCell>
+      <TableCell>O valor do campo não corresponde à expressão regular fornecida.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*emailFormat*</TableCell>
+      <TableCell>`emailFormat()`</TableCell>
+      <TableCell>O valor do campo não é um formato de endereço de email válido.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*urlFormat*</TableCell>
+      <TableCell>`urlFormat()`</TableCell>
+      <TableCell>O valor do campo não é uma URL válida começando com `http://` ou `https://`.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*isNumeric*</TableCell>
+      <TableCell>`isNumeric()`</TableCell>
+      <TableCell>O valor do campo não pode ser interpretado como um número finito.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Regras de validação customizadas
+
+Crie regras customizadas fornecendo um objeto com um método *validate*. O método recebe o valor do campo e retorna `true` para input válido ou uma string de mensagem de erro para input inválido. Regras customizadas se integram perfeitamente com regras integradas no array *@ModalValidate*.
+
+```typescript filename="src/components/invite-code.modal.ts"
+import {
+  ModalComponent,
+  ModalInput,
+  ModalValidate,
+  matchesPattern,
+} from '@spraxium/components';
+import type { ModalValidationRule } from '@spraxium/components';
+
+const noSpaces: ModalValidationRule = {
+  validate(value: string) {
+    return value.includes(' ')
+      ? 'Invite codes cannot contain spaces.'
+      : true;
+  },
+};
+
+const isUppercase: ModalValidationRule = {
+  validate(value: string) {
+    return value === value.toUpperCase()
+      ? true
+      : 'Invite code must be all uppercase.';
+  },
+};
+
+@ModalComponent({ id: 'invite-modal', title: 'Enter Invite Code' })
+export class InviteCodeModal {
+  @ModalInput({
+    label: 'Invite Code',
+    style: 'short',
+    required: true,
+    placeholder: 'XXXX-XXXX-XXXX',
+  })
+  @ModalValidate([
+    noSpaces,
+    isUppercase,
+    matchesPattern(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/, 'Invalid invite code format. Expected: XXXX-XXXX-XXXX'),
+  ])
+  code!: string;
+}
+```
+
+## Personalizando erros de validação
+
+O decorator de classe *@ModalValidationConfig* personaliza o embed de erro enviado quando a validação falha. Por padrão, o sistema envia um embed efêmero simples com a mensagem de erro. Você pode sobrescrever a cor, título, template de descrição, rodapé e se a resposta é efêmera.
+
+```typescript filename="src/components/strict.modal.ts"
+import {
+  ModalComponent,
+  ModalInput,
+  ModalValidate,
+  ModalValidationConfig,
+  ModalCache,
+  minWords,
+} from '@spraxium/components';
+
+@ModalComponent({ id: 'strict-modal', title: 'Strict Input' })
+@ModalCache({ ttl: 180 })
+@ModalValidationConfig({
+  ephemeral: true,
+  embed: (errors) => ({
+    color: 0xff4444,
+    title: 'Validation Failed',
+    footer: { text: 'Please fix the highlighted field and try again.' },
+  }),
+})
+export class StrictModal {
+  @ModalInput({
+    label: 'Essay',
+    style: 'paragraph',
+    required: true,
+  })
+  @ModalValidate([minWords(50)])
+  essay!: string;
+}
+```
+
+## Ciclo de vida da validação
+
+O fluxo completo de validação envolve várias etapas coordenadas entre o dispatcher, o runner de validação, o cache de campos e o respondedor de erros. Entender esse ciclo de vida ajuda a projetar modais que proporcionam uma experiência de usuário fluida.
+
+<Steps>
+<Step title="Submissão recebida">
+O *ModalDispatcher* recebe a *ModalSubmitInteraction* do Discord. Ele resolve o *customId* do modal para o handler registrado e verifica se a classe do componente tem decorators *@ModalValidate* em algum campo. Se nenhuma regra de validação existir, pula diretamente para a resolução de campos e invocação do handler.
+</Step>
+
+<Step title="Execução das regras">
+O *ModalValidatorRunner* itera por cada campo que tem regras *@ModalValidate*. Para cada campo, extrai o valor submetido e executa as regras na ordem do array. Na primeira regra que retorna mensagem de erro, a execução para imediatamente. O runner não verifica campos restantes ou regras restantes.
+</Step>
+
+<Step title="Cache em caso de falha">
+Se o modal tem *@ModalCache* e a validação falhou, o runner armazena todos os valores de campos submetidos no *ModalFieldCache*. A chave do cache é `customId:userId`, e os valores em cache são um `Record<string, string>` mapeando IDs de campo para seus valores submetidos. A entrada de cache tem o TTL especificado em *@ModalCache*.
+</Step>
+
+<Step title="Resposta de erro">
+O dispatcher constrói um embed usando as configurações de *@ModalValidationConfig* (ou padrões) e a mensagem de erro da regra que falhou. Envia como resposta efêmera à interação de submissão do modal. O handler não é invocado.
+</Step>
+
+<Step title="Modal reaberto com cache">
+Quando o usuário aciona o modal novamente (por exemplo, clica no mesmo botão), a chamada *ModalService.buildFor* detecta valores em cache para essa combinação de usuário e modal. Preenche cada campo com o valor em cache, para que o usuário veja seu input anterior. O usuário pode corrigir o campo inválido e resubmeter.
+</Step>
+
+<Step title="Submissão bem-sucedida">
+Quando todas as regras de validação passam, o runner retorna sucesso. Se o modal tem *@ModalCache*, o dispatcher chama *ModalService.clearCacheFor* para remover entradas de cache obsoletas para esse usuário e modal. O dispatcher então resolve os decorators *@Field* e invoca o handler normalmente.
+</Step>
+</Steps>
+
+## Combinando validação com modais dinâmicos
+
+A validação funciona perfeitamente com campos dinâmicos e condicionais. O *ModalValidatorRunner* valida apenas campos que estão presentes no schema do modal resolvido. Se um campo foi excluído por *@ModalWhen* ou não foi gerado por *@ModalDynamicFields*, suas regras de validação não são executadas. Isso significa que você pode aplicar *@ModalValidate* com segurança a campos condicionais sem se preocupar com eles sendo verificados quando ausentes.
+
+```typescript filename="src/components/dynamic-validated.modal.ts"
+import {
+  ModalComponent,
+  ModalDynamic,
+  ModalInput,
+  ModalWhen,
+  ModalValidate,
+  ModalCache,
+  emailFormat,
+  urlFormat,
+  minWords,
+} from '@spraxium/components';
+
+interface FormData {
+  includeContact: boolean;
+}
+
+@ModalComponent({ id: 'dynamic-form', title: 'Dynamic Form' })
+@ModalDynamic<FormData>()
+@ModalCache({ ttl: 300 })
+export class DynamicValidatedModal {
+  @ModalInput({
+    label: 'Full Name',
+    style: 'short',
+    required: true,
+  })
+  name!: string;
+
+  @ModalWhen<FormData>((data) => data?.includeContact === true)
+  @ModalInput({
+    label: 'Contact Email',
+    style: 'short',
+    required: true,
+  })
+  @ModalValidate([emailFormat()])
+  email!: string;
+
+  @ModalWhen<FormData>((data) => data?.includeContact === true)
+  @ModalInput({
+    label: 'Website',
+    style: 'short',
+    required: false,
+  })
+  @ModalValidate([urlFormat()])
+  website!: string;
+
+  @ModalInput({
+    label: 'Message',
+    style: 'paragraph',
+    required: true,
+  })
+  @ModalValidate([minWords(10)])
+  message!: string;
+}
+```
+
+## Próxima página
+
+Continue com [Cache de Modal](/guide/modals-cache).

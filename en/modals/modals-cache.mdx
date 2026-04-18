@@ -1,0 +1,176 @@
+---
+title: Modal Cache
+description: |
+  Persist submitted field values between modal reopens with @ModalCache and ModalService.buildFor.
+  Learn cache key format, TTL configuration, the manual cache API, and combining cache with dynamic modals.
+order: 5
+category: Modals
+---
+
+## Why cache modal submissions
+
+When a modal submission fails validation, Discord closes the form and your handler sends an error reply. If the user wants to correct their input and try again, they must open the modal from scratch. Without caching, all their previously typed values are gone, forcing them to fill the entire form a second time.
+
+The *@ModalCache* class-level decorator solves this by persisting all submitted field values in memory, keyed to the user's ID and the modal's *customId*. When the same user opens the modal again through *ModalService.buildFor*, the cached values are pre-populated into each field. The user only needs to fix the field that failed validation.
+
+Cache entries are automatically cleared on a successful submission, so there is no manual cleanup required in the happy path. The *ttl* option ensures stale entries are discarded if the user never returns to complete the form.
+
+## Enabling cache with @ModalCache
+
+Apply *@ModalCache* at the class level on any *@ModalComponent*. The decorator accepts an object with a required *ttl* property measured in seconds. The TTL starts from the moment of the failed submission. Short-lived forms like confirmation prompts work well with a TTL of 60 to 120 seconds, while multi-field applications can use 300 to 600 seconds.
+
+```typescript filename="src/components/application.modal.ts"
+import {
+  ModalComponent,
+  ModalInput,
+  ModalValidate,
+  ModalCache,
+  minWords,
+  emailFormat,
+} from '@spraxium/components';
+
+@ModalComponent({ id: 'apply-modal', title: 'Staff Application' })
+@ModalCache({ ttl: 300 })
+export class ApplicationModal {
+  @ModalInput({
+    label: 'Email Address',
+    style: 'short',
+    required: true,
+  })
+  @ModalValidate([emailFormat()])
+  email!: string;
+
+  @ModalInput({
+    label: 'Why do you want to join?',
+    style: 'paragraph',
+    required: true,
+    minLength: 50,
+  })
+  @ModalValidate([minWords(20)])
+  motivation!: string;
+
+  @ModalInput({
+    label: 'Relevant Experience',
+    style: 'paragraph',
+    required: true,
+  })
+  @ModalValidate([minWords(10)])
+  experience!: string;
+}
+```
+
+## Showing a modal with cached values
+
+To load cached values when reopening the modal, use *ModalService.buildFor* instead of *build*. This method accepts the triggering interaction as its second argument. It extracts the user's ID from the interaction, checks the cache for a matching entry, and pre-populates each field's value if found. If no cache entry exists, the modal opens with its standard defaults.
+
+<CodeTabs>
+<Tab label="With cache (recommended)">
+```typescript filename="src/components/open-apply.handler.ts"
+import { ButtonHandler, Ctx } from '@spraxium/components';
+import { ModalService } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import { OpenApplyButton } from './open-apply.button';
+import { ApplicationModal } from './application.modal';
+
+@ButtonHandler(OpenApplyButton)
+export class OpenApplyHandler {
+  constructor(private readonly modals: ModalService) {}
+
+  async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
+    const modal = this.modals.buildFor(ApplicationModal, interaction);
+    await interaction.showModal(modal);
+  }
+}
+```
+</Tab>
+<Tab label="Without cache">
+```typescript filename="src/components/open-apply-nocache.handler.ts"
+import { ButtonHandler, Ctx } from '@spraxium/components';
+import { ModalService } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import { OpenApplyButton } from './open-apply.button';
+import { ApplicationModal } from './application.modal';
+
+@ButtonHandler(OpenApplyButton)
+export class OpenApplyNoCacheHandler {
+  constructor(private readonly modals: ModalService) {}
+
+  async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
+    const modal = this.modals.build(ApplicationModal);
+    await interaction.showModal(modal);
+  }
+}
+```
+</Tab>
+</CodeTabs>
+
+## Cache key format and TTL
+
+The cache key is the string `customId:userId`, built from the modal component's *id* value and the Discord user's snowflake ID. This means each user has their own independent cache entry per modal. Two different users filling the same form do not interfere with each other's cached values.
+
+The TTL is measured from the moment the cache entry is written on validation failure. If the user does not reopen the modal within the TTL window, the entry expires and the next open shows an empty form. There is no sliding window: the TTL does not reset on each reopening. For longer forms where users might take their time, use a TTL of 600 seconds or more.
+
+Once the user submits successfully, the dispatcher calls *ModalService.clearCacheFor* automatically. This means the cache self-manages in both the success and expiry paths, with no manual cleanup required by your handler code.
+
+## Cache API reference
+
+*ModalService* exposes three methods for direct cache management. These are used internally by the dispatcher and the *buildFor* flow, but they are public if you need to clear or inspect cache entries from your own handler code.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Method</TableCell>
+      <TableCell header>Signature</TableCell>
+      <TableCell header>Purpose</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*storeCache*</TableCell>
+      <TableCell>`storeCache(modal: Type, interaction: ModalSubmitInteraction, values: Record<string, string>)`</TableCell>
+      <TableCell>Writes field values to the cache for the given modal and user combination.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getCacheFor*</TableCell>
+      <TableCell>`getCacheFor(modal: Type, interaction: Interaction)`</TableCell>
+      <TableCell>Reads cached field values. Returns `null` if no entry exists or the TTL has expired.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*clearCacheFor*</TableCell>
+      <TableCell>`clearCacheFor(modal: Type, interaction: ModalSubmitInteraction)`</TableCell>
+      <TableCell>Removes the cache entry for the given modal and user. Called automatically on successful submission.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Combining cache with dynamic modals
+
+*@ModalCache* composes naturally with *@ModalDynamic* and *@ModalWhen*. You can add caching to any dynamic modal without extra configuration. The cache stores field values as a flat key-value map regardless of how they were generated, so even fields included conditionally at submission time are cached. On the next open, *buildFor* restores the cached values for whichever fields are present in the new resolved schema.
+
+```typescript filename="src/commands/configure.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { ModalService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { ConfigModal } from '../components/config-modal.modal';
+import { ConfigureCommand } from './configure.command';
+
+@SlashCommandHandler(ConfigureCommand)
+export class ConfigureCommandHandler {
+  constructor(private readonly modals: ModalService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const featureFlags = await this.getFlags(interaction.guildId);
+
+    const modal = this.modals.buildFor(ConfigModal, interaction);
+    await interaction.showModal(modal);
+  }
+
+  private async getFlags(guildId: string): Promise<string[]> {
+    return ['moderation', 'logging'];
+  }
+}
+```
+
+## Next study
+
+Continue with [Error Fundamentals](/guide/exceptions-overview).

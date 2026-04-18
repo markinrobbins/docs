@@ -1,0 +1,413 @@
+---
+title: Campos de modal
+description: |
+  Declara campos de modal con decorators de propiedad para inputs de texto, selects, radios, checkboxes y más.
+  Aprende los 11 tipos de campo, decorators de opciones, campos de visualización y los helpers del namespace Modal.
+order: 2
+category: Modals
+---
+
+## Vista general de tipos de campo
+
+Los modales de Spraxium soportan 11 tipos de campo, cada uno declarado a través de un decorator a nivel de propiedad en tu clase *@ModalComponent*. Los inputs de texto y selects son los más comunes, pero el sistema también incluye grupos de radio, checkboxes, subida de archivos y textos estáticos de solo lectura. Cada decorator de campo acepta un objeto de configuración con propiedades específicas del tipo de campo, además de propiedades compartidas como *label* y *required*.
+
+El orden de los campos en el modal renderizado coincide con el orden de declaración de las propiedades decoradas en la clase. Los modales de Discord tienen un máximo de 5 action rows, y cada campo ocupa una row. Este límite significa que un solo modal puede contener como máximo 5 campos, aunque los campos dinámicos y condicionales pueden alterar lo que aparece para cada usuario.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Tipo de campo</TableCell>
+      <TableCell header>Acepta opciones</TableCell>
+      <TableCell header>Notas</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*@ModalInput*</TableCell>
+      <TableCell>Input de texto</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Estilo corto o párrafo. Soporta *minLength*, *maxLength*, *placeholder*.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalSelect*</TableCell>
+      <TableCell>Select de string</TableCell>
+      <TableCell>Sí</TableCell>
+      <TableCell>Dropdown con opciones estáticas o dinámicas. Soporta *minValues*, *maxValues*.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalUserSelect*</TableCell>
+      <TableCell>Select de usuario</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Selector de miembros del servidor. Soporta valores por defecto.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalRoleSelect*</TableCell>
+      <TableCell>Select de rol</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Selector de roles del servidor. Soporta valores por defecto.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalMentionableSelect*</TableCell>
+      <TableCell>Select de mencionable</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Selecciona usuarios o roles. Combina ambos tipos de entidad en un dropdown.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalChannelSelect*</TableCell>
+      <TableCell>Select de canal</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Selector de canales. Filtra por array de *channelTypes*.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalRadioGroup*</TableCell>
+      <TableCell>Grupo de radio</TableCell>
+      <TableCell>Sí</TableCell>
+      <TableCell>Radio buttons de selección única. Debe seleccionarse exactamente una opción.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalCheckboxGroup*</TableCell>
+      <TableCell>Grupo de checkbox</TableCell>
+      <TableCell>Sí</TableCell>
+      <TableCell>Checkboxes de selección múltiple. Soporta *minValues*, *maxValues*.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalCheckbox*</TableCell>
+      <TableCell>Checkbox individual</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Toggle booleano. Retorna `true` o `false` como string.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalFileUpload*</TableCell>
+      <TableCell>Subida de archivo</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Campo de adjunto. Accede al archivo subido a través de la interacción.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalTextDisplay*</TableCell>
+      <TableCell>Texto de solo lectura</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Texto estático mostrado en el modal. No se envía como valor.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Inputs de texto
+
+El decorator *@ModalInput* crea un campo de input de texto. La propiedad *style* controla si el campo se renderiza como un input de línea única (*short*) o multilínea (*paragraph*). Los campos cortos son ideales para nombres, asuntos y valores breves. Los campos de párrafo se adaptan a descripciones, mensajes y contenido más extenso.
+
+```typescript filename="src/components/report.modal.ts"
+import { ModalComponent, ModalInput } from '@spraxium/components';
+
+@ModalComponent({ id: 'report-modal', title: 'Submit Report' })
+export class ReportModal {
+  @ModalInput({
+    label: 'Title',
+    placeholder: 'A short title for the report',
+    required: true,
+    minLength: 5,
+    maxLength: 100,
+    style: 'short',
+  })
+  title!: string;
+
+  @ModalInput({
+    label: 'Description',
+    placeholder: 'Describe the issue in detail...',
+    required: true,
+    minLength: 20,
+    maxLength: 4000,
+    style: 'paragraph',
+  })
+  description!: string;
+
+  @ModalInput({
+    label: 'Reproduction Steps',
+    placeholder: 'Optional steps to reproduce',
+    required: false,
+    style: 'paragraph',
+    value: '1. \n2. \n3. ',
+  })
+  steps!: string;
+}
+```
+
+## Selects de string con opciones
+
+El decorator *@ModalSelect* crea un menú desplegable de selección dentro del modal. Define las opciones disponibles usando el decorator apilable *@ModalChoice* en la misma propiedad. Cada opción tiene un *label* (mostrado al usuario), *value* (enviado al enviar), y un *description* opcional.
+
+```typescript filename="src/components/category-select.modal.ts"
+import { ModalComponent, ModalSelect, ModalChoice } from '@spraxium/components';
+
+@ModalComponent({ id: 'ticket-modal', title: 'Create Ticket' })
+export class TicketModal {
+  @ModalSelect({
+    label: 'Category',
+    placeholder: 'Select a ticket category',
+    required: true,
+  })
+  @ModalChoice({ label: 'Bug Report', value: 'bug', description: 'Something is broken' })
+  @ModalChoice({ label: 'Feature Request', value: 'feature', description: 'Suggest an improvement' })
+  @ModalChoice({ label: 'General Question', value: 'question', description: 'Ask a question' })
+  category!: string;
+
+  @ModalInput({
+    label: 'Details',
+    style: 'paragraph',
+    required: true,
+  })
+  details!: string;
+}
+```
+
+## Selects de entidad
+
+Los decorators de select de entidad permiten a los usuarios elegir miembros del servidor, roles, canales o entidades mencionables directamente desde el modal. Estos campos usan los selectores nativos de entidad de Discord, por lo que muestran avatares, colores de rol e iconos de canal. No se necesitan decorators *@ModalChoice* porque las opciones se llenan desde el servidor.
+
+<CodeTabs>
+<Tab label="Select de usuario">
+```typescript filename="src/components/assign.modal.ts"
+import { ModalComponent, ModalUserSelect } from '@spraxium/components';
+
+@ModalComponent({ id: 'assign-modal', title: 'Assign User' })
+export class AssignModal {
+  @ModalUserSelect({
+    label: 'Assignee',
+    placeholder: 'Pick a team member',
+    required: true,
+  })
+  assignee!: string;
+}
+```
+</Tab>
+<Tab label="Select de canal">
+```typescript filename="src/components/move-channel.modal.ts"
+import { ModalComponent, ModalChannelSelect } from '@spraxium/components';
+import { ChannelType } from 'discord.js';
+
+@ModalComponent({ id: 'move-modal', title: 'Move to Channel' })
+export class MoveChannelModal {
+  @ModalChannelSelect({
+    label: 'Target Channel',
+    placeholder: 'Select a text channel',
+    required: true,
+    channelTypes: [ChannelType.GuildText],
+  })
+  channel!: string;
+}
+```
+</Tab>
+<Tab label="Select de rol">
+```typescript filename="src/components/role-assign.modal.ts"
+import { ModalComponent, ModalRoleSelect } from '@spraxium/components';
+
+@ModalComponent({ id: 'role-modal', title: 'Assign Role' })
+export class RoleAssignModal {
+  @ModalRoleSelect({
+    label: 'Role',
+    placeholder: 'Pick a role to assign',
+    required: true,
+  })
+  role!: string;
+}
+```
+</Tab>
+</CodeTabs>
+
+## Grupos de radio y checkboxes
+
+Los grupos de radio presentan opciones mutuamente excluyentes donde el usuario debe elegir exactamente una. Los grupos de checkbox permiten selecciones múltiples. Un *@ModalCheckbox* individual se renderiza como un toggle booleano. Todos los campos basados en opciones usan *@ModalOption* (un alias de *@ModalChoice*) para definir sus opciones.
+
+<CodeTabs>
+<Tab label="Grupo de radio">
+```typescript filename="src/components/priority.modal.ts"
+import { ModalComponent, ModalRadioGroup, ModalOption } from '@spraxium/components';
+
+@ModalComponent({ id: 'priority-modal', title: 'Set Priority' })
+export class PriorityModal {
+  @ModalRadioGroup({ label: 'Priority Level' })
+  @ModalOption({ label: 'Low', value: 'low' })
+  @ModalOption({ label: 'Medium', value: 'medium' })
+  @ModalOption({ label: 'High', value: 'high' })
+  @ModalOption({ label: 'Critical', value: 'critical' })
+  priority!: string;
+}
+```
+</Tab>
+<Tab label="Grupo de checkbox">
+```typescript filename="src/components/notifications.modal.ts"
+import { ModalComponent, ModalCheckboxGroup, ModalOption } from '@spraxium/components';
+
+@ModalComponent({ id: 'notif-modal', title: 'Notification Settings' })
+export class NotificationsModal {
+  @ModalCheckboxGroup({
+    label: 'Notification Types',
+    minValues: 1,
+    maxValues: 3,
+  })
+  @ModalOption({ label: 'Mentions', value: 'mentions' })
+  @ModalOption({ label: 'Direct Messages', value: 'dms' })
+  @ModalOption({ label: 'Server Events', value: 'events' })
+  types!: string[];
+}
+```
+</Tab>
+<Tab label="Checkbox individual">
+```typescript filename="src/components/consent.modal.ts"
+import { ModalComponent, ModalCheckbox, ModalInput } from '@spraxium/components';
+
+@ModalComponent({ id: 'consent-modal', title: 'Terms and Conditions' })
+export class ConsentModal {
+  @ModalCheckbox({
+    label: 'I agree to the terms and conditions',
+    required: true,
+  })
+  agreed!: string;
+
+  @ModalInput({ label: 'Signature', style: 'short', required: true })
+  signature!: string;
+}
+```
+</Tab>
+</CodeTabs>
+
+## Subida de archivos y textos de visualización
+
+El decorator *@ModalFileUpload* agrega un campo de adjunto al modal. El decorator *@ModalTextDisplay* agrega texto estático de solo lectura que no se envía como valor de campo. Los textos de visualización son útiles para mostrar instrucciones, avisos o información de contexto dentro del propio formulario del modal.
+
+```typescript filename="src/components/upload-evidence.modal.ts"
+import {
+  ModalComponent,
+  ModalTextDisplay,
+  ModalFileUpload,
+  ModalInput,
+} from '@spraxium/components';
+
+@ModalTextDisplay({
+  content: 'Please upload a screenshot or log file as evidence. Accepted formats: PNG, JPG, TXT.',
+})
+@ModalComponent({ id: 'evidence-modal', title: 'Upload Evidence' })
+export class UploadEvidenceModal {
+  @ModalFileUpload({
+    label: 'Evidence File',
+    required: true,
+  })
+  file!: string;
+
+  @ModalInput({
+    label: 'Additional Notes',
+    style: 'paragraph',
+    required: false,
+    placeholder: 'Any extra context about the evidence...',
+  })
+  notes!: string;
+}
+```
+
+## Helpers del namespace Modal
+
+El namespace *Modal* proporciona funciones fábrica para crear definiciones de campo programáticamente en lugar de usar decorators. Esto se usa principalmente con campos dinámicos (cubierto en la página de dinámicos), pero también puede ser útil al construir schemas de modal en funciones utilitarias o bibliotecas compartidas.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Helper</TableCell>
+      <TableCell header>Retorna</TableCell>
+      <TableCell header>Decorator equivalente</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`Modal.field.text(config)`</TableCell>
+      <TableCell>Def de campo de input de texto</TableCell>
+      <TableCell>*@ModalInput*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`Modal.field.stringSelect(config)`</TableCell>
+      <TableCell>Def de campo de select de string</TableCell>
+      <TableCell>*@ModalSelect*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`Modal.field.userSelect(config)`</TableCell>
+      <TableCell>Def de campo de select de usuario</TableCell>
+      <TableCell>*@ModalUserSelect*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`Modal.field.roleSelect(config)`</TableCell>
+      <TableCell>Def de campo de select de rol</TableCell>
+      <TableCell>*@ModalRoleSelect*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`Modal.field.mentionableSelect(config)`</TableCell>
+      <TableCell>Def de campo de select de mencionable</TableCell>
+      <TableCell>*@ModalMentionableSelect*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`Modal.field.channelSelect(config)`</TableCell>
+      <TableCell>Def de campo de select de canal</TableCell>
+      <TableCell>*@ModalChannelSelect*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`Modal.field.radioGroup(config)`</TableCell>
+      <TableCell>Def de campo de grupo de radio</TableCell>
+      <TableCell>*@ModalRadioGroup*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`Modal.field.checkboxGroup(config)`</TableCell>
+      <TableCell>Def de campo de grupo de checkbox</TableCell>
+      <TableCell>*@ModalCheckboxGroup*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`Modal.field.checkbox(config)`</TableCell>
+      <TableCell>Def de campo de checkbox individual</TableCell>
+      <TableCell>*@ModalCheckbox*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`Modal.field.fileUpload(config)`</TableCell>
+      <TableCell>Def de campo de subida de archivo</TableCell>
+      <TableCell>*@ModalFileUpload*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`Modal.field.textDisplay(config)`</TableCell>
+      <TableCell>Def de campo de texto de visualización</TableCell>
+      <TableCell>*@ModalTextDisplay*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`Modal.choice(config)`</TableCell>
+      <TableCell>Definición de opción</TableCell>
+      <TableCell>*@ModalChoice* / *@ModalOption*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`Modal.when(predicate)`</TableCell>
+      <TableCell>Wrapper condicional</TableCell>
+      <TableCell>*@ModalWhen*</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+```typescript filename="src/utils/modal-helpers.ts"
+import { Modal } from '@spraxium/components';
+
+export function createReasonField(required = true) {
+  return Modal.field.text({
+    id: 'reason',
+    label: 'Reason',
+    placeholder: 'Provide a reason...',
+    style: 'paragraph',
+    required,
+    minLength: 10,
+  });
+}
+
+export function createPriorityChoices() {
+  return [
+    Modal.choice({ label: 'Low', value: 'low' }),
+    Modal.choice({ label: 'Medium', value: 'medium' }),
+    Modal.choice({ label: 'High', value: 'high' }),
+  ];
+}
+```
+
+## Siguiente página
+
+Continúa con [Modales dinámicos](/guide/modals-dynamics).
