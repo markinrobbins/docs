@@ -1,25 +1,25 @@
 ---
-title: Exceptions e Integracao com Guards
+title: Exceptions e Integração com Guards
 description: |
-  Listeners tem dois caminhos de execucao dependendo do formato do payload do evento.
+  Listeners tem dois caminhos de execução dependendo do formato do payload do evento.
   Entenda como guards e exceptions funcionam dentro de listeners e quando se aplicam.
 order: 4
 category: Listeners
 ---
 
-## Dois caminhos de execucao
+## Dois caminhos de execução
 
-Nem todos os eventos do Discord sao iguais da perspectiva do framework. Alguns eventos carregam uma message ou interaction como primeiro argumento, e outros carregam outros tipos de payload como um objeto Client, um GuildMember ou um canal. Essa distincao importa porque o framework a usa pra decidir como executar seu metodo listener e se aplica o pipeline de guards e exceptions.
+Nem todos os eventos do Discord sao iguais da perspectiva do framework. Alguns eventos carregam uma message ou interaction como primeiro argumento, e outros carregam outros tipos de payload como um objeto Client, um GuildMember ou um canal. Essa distincao importa porque o framework a usa pra decidir como executar seu método listener e se aplica o pipeline de guards e exceptions.
 
-Quando o primeiro argumento do evento e um *BaseInteraction* ou uma *Message*, o framework roda o metodo pelo pipeline completo. Isso significa que guards de classe e metodo executam primeiro, e se o metodo lanca uma exception, o pipeline de exceptions trata com renderizacao de layout e comportamento opcional de reply. Esse e o mesmo pipeline que slash e prefix commands usam, e por isso guards e exception layouts funcionam sem problemas em listeners de message e interaction.
+Quando o primeiro argumento do evento e um *BaseInteraction* ou uma *Message*, o framework roda o método pelo pipeline completo. Isso significa que guards de classe e método executam primeiro, e se o método lança uma exception, o pipeline de exceptions trata com renderização de layout e comportamento opcional de reply. Esse é o mesmo pipeline que slash e prefix commands usam, é por isso guards e exception layouts funcionam sem problemas em listeners de message e interaction.
 
-Quando o primeiro argumento e qualquer outra coisa, como o objeto *Client* pra *ClientReady* ou um *GuildMember* pra *GuildMemberAdd*, o framework chama o metodo diretamente sem o pipeline de guards ou exceptions. Se o metodo lanca um erro, o framework captura e loga como um erro de listener nao tratado, mas nao ha renderizacao de layout ou comportamento de reply porque o payload do evento nao suporta respostas da mesma forma que messages e interactions.
+Quando o primeiro argumento e qualquer outra coisa, como o objeto *Client* pra *ClientReady* ou um *GuildMember* pra *GuildMemberAdd*, o framework chama o método diretamente sem o pipeline de guards ou exceptions. Se o método lança um erro, o framework captura e loga como um erro de listener não tratado, mas não ha renderização de layout ou comportamento de reply porque o payload do evento não suporta respostas da mesma forma que messages e interactions.
 
 <Table variant="striped">
   <TableHead>
     <TableRow>
       <TableCell header>Tipo do primeiro argumento</TableCell>
-      <TableCell header>Caminho de execucao</TableCell>
+      <TableCell header>Caminho de execução</TableCell>
       <TableCell header>Tratamento de erro</TableCell>
     </TableRow>
   </TableHead>
@@ -31,17 +31,17 @@ Quando o primeiro argumento e qualquer outra coisa, como o objeto *Client* pra *
     </TableRow>
     <TableRow>
       <TableCell>Qualquer outro tipo</TableCell>
-      <TableCell>Invocacao direta do metodo</TableCell>
-      <TableCell>Erro e capturado e logado, sem capacidade de reply</TableCell>
+      <TableCell>Invocação direta do método</TableCell>
+      <TableCell>Erro é capturado e logado, sem capacidade de reply</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-Esse e um detalhe importante pra manter em mente ao projetar seus listeners. Se voce aplica guards a um listener que trata *GuildMemberAdd*, os guards nao vao rodar porque o primeiro argumento e um *GuildMember*, nao um *BaseInteraction* ou *Message*. Guards so ativam quando o framework consegue construir um *ExecutionContext* a partir do payload do evento, o que exige uma interaction ou message.
+Esse é um detalhe importante pra manter em mente ao projetar seus listeners. Se você aplica guards a um listener que trata *GuildMemberAdd*, os guards não vao rodar porque o primeiro argumento e um *GuildMember*, não um *BaseInteraction* ou *Message*. Guards só ativam quando o framework consegue construir um *ExecutionContext* a partir do payload do evento, o que exige uma interaction ou message.
 
 ## Usando guards em listeners
 
-Pra eventos que passam pelo pipeline completo, voce pode aplicar guards no nivel de classe ou metodo usando *@UseGuards*, exatamente como faria em um command handler. Os guards rodam antes do metodo listener executar, e se qualquer guard nega, o metodo e pulado e a negacao vai pelo pipeline de exceptions.
+Pra eventos que passam pelo pipeline completo, você pode aplicar guards no nível de classe ou método usando *@UseGuards*, exatamente como faria em um command handler. Os guards rodam antes do método listener executar, e se qualquer guard nega, o método é pulado e a negação vai pelo pipeline de exceptions.
 
 ```typescript filename="protected-message.listener.ts"
 import { Events, Listener, On, UseGuards, withOptions } from '@spraxium/common';
@@ -54,18 +54,18 @@ export class ProtectedMessageListener {
   @On()
   async onMessage(message: Message): Promise<void> {
     if (message.author.bot) return;
-    await message.reply('Voce esta verificado e em um servidor.');
+    await message.reply('Você está verificado e em um servidor.');
   }
 }
 ```
 
-Nesse exemplo, tanto o guard *GuildOnly* quanto o *RoleGuard* rodam antes de *onMessage* executar. Se a mensagem vem de DM, *GuildOnly* nega e o metodo nunca roda. Se o membro nao tem a role "Verified", *RoleGuard* nega. Somente quando ambos os guards passam o metodo executa.
+Nesse exemplo, tanto o guard *GuildOnly* quanto o *RoleGuard* rodam antes de *onMessage* executar. Se a mensagem vem de DM, *GuildOnly* nega e o método nunca roda. Se o membro não tem a role "Verified", *RoleGuard* nega. Somente quando ambos os guards passam o método executa.
 
-Voce tambem pode usar guards de metodo pra controle refinado quando uma classe listener tem multiplos metodos handler. Os guards de classe se aplicam a todos os metodos, e guards de metodo adicionam restricoes extras a metodos especificos.
+Você também pode usar guards de método pra controle refinado quando uma classe listener tem múltiplos métodos handler. Os guards de classe se aplicam a todos os métodos, e guards de método adicionam restricoes extras a métodos específicos.
 
-## Lancando exceptions de listeners
+## Lançando exceptions de listeners
 
-Pra eventos no pipeline completo, voce pode lancar exceptions de dominio especificas dos metodos listener e a camada de exceptions trata da mesma forma que trata exceptions de comandos. Isso significa que seus layouts, comportamento de reply e configuracao de logging se aplicam a exceptions de listener sem nenhuma configuracao extra.
+Pra eventos no pipeline completo, você pode lancar exceptions de dominio específicas dos métodos listener e a camada de exceptions trata da mesma forma que trata exceptions de comandos. Isso significa que seus layouts, comportamento de reply e configuração de logging se aplicam a exceptions de listener sem nenhuma configuração extra.
 
 ```typescript filename="account-policy.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
@@ -91,7 +91,7 @@ export class AccountPolicyListener {
     const isSuspended = await this.checkSuspension(message.author.id);
     if (isSuspended) {
       throw new AccountSuspendedException({
-        reason: 'Violacao de politica',
+        reason: 'Violação de política',
         userId: message.author.id,
       });
     }
@@ -104,7 +104,7 @@ export class AccountPolicyListener {
 }
 ```
 
-Pra eventos que passam por invocacao direta em vez do pipeline completo, erros lancados sao capturados e logados mas nao processados pela camada de exceptions. Isso significa que voce nao recebe renderizacao de layout ou respostas estruturadas pra esses eventos. Se voce precisa de tratamento confiavel de erros em eventos de invocacao direta como *GuildMemberAdd*, trate erros explicitamente dentro do metodo com try-catch e seu proprio logging.
+Pra eventos que passam por invocação direta em vez do pipeline completo, erros lançados sao capturados e logados mas não processados pela camada de exceptions. Isso significa que você não recebe renderização de layout ou respostas estruturadas pra esses eventos. Se você precisa de tratamento confiável de erros em eventos de invocação direta como *GuildMemberAdd*, trate erros explicitamente dentro do método com try-catch e seu próprio logging.
 
 ```typescript filename="member-join.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
@@ -129,6 +129,10 @@ export class MemberJoinListener {
 }
 ```
 
-<Callout tone="warning" title="Guards so funcionam em eventos de message e interaction">
-  Aplicar guards a um listener que trata eventos como ClientReady ou GuildMemberAdd nao tem efeito porque o framework nao consegue construir um ExecutionContext a partir desses payloads de evento. Use checagens explicitas dentro do metodo no lugar.
+<Callout tone="warning" title="Guards só funcionam em eventos de message e interaction">
+  Aplicar guards a um listener que trata eventos como ClientReady ou GuildMemberAdd não tem efeito porque o framework não consegue construir um ExecutionContext a partir desses payloads de evento. Use checagens explícitas dentro do método no lugar.
 </Callout>
+
+## Próximo estudo
+
+Continue com [Visão Geral dos Prefix Commands](/prefix-commands-overview).

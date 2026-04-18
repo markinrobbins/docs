@@ -1,20 +1,20 @@
 ---
-title: Excepciones e Integracion
+title: Excepciones e Integración
 description: |
-  Los listeners manejan eventos que siguen caminos de ejecucion distintos segun el tipo de payload.
-  Aprende las dos rutas de ejecucion, como guards protegen listeners y como lanzar excepciones correctamente.
+  Los listeners manejan eventos que siguen caminos de ejecución distintos según el tipo de payload.
+  Aprende las dos rutas de ejecución, cómo guards protegen listeners y cómo lanzar excepciones correctamente.
 order: 4
 category: Listeners
 ---
 
-## Las dos rutas de ejecucion
+## Las dos rutas de ejecución
 
-No todos los eventos de Discord son iguales desde la perspectiva del framework. Algunos eventos entregan payloads que son interacciones de Discord o mensajes, y esos payloads pueden recibir respuestas de vuelta al usuario. Otros eventos entregan payloads completamente diferentes como objetos de Client, GuildMember, o VoiceState, que son eventos de background que no tienen un usuario esperando una respuesta. Spraxium maneja estos dos tipos de forma diferente internamente.
+No todos los eventos de Discord son iguales desde la perspectiva del framework. Algunos eventos entregan payloads que son interacciónes de Discord o mensajes, y esos payloads pueden recibir respuestas de vuelta al usuario. Otros eventos entregan payloads completamente diferentes como objetos de Client, GuildMember, o VoiceState, que son eventos de background que no tienen un usuario esperando una respuesta. Spraxium maneja estos dos tipos de forma diferente internamente.
 
 <Table variant="striped">
   <TableHead>
     <TableRow>
-      <TableCell header>Ruta de ejecucion</TableCell>
+      <TableCell header>Ruta de ejecución</TableCell>
       <TableCell header>Primer argumento</TableCell>
       <TableCell header>Guards</TableCell>
       <TableCell header>Excepciones</TableCell>
@@ -36,15 +36,15 @@ No todos los eventos de Discord son iguales desde la perspectiva del framework. 
   </TableBody>
 </Table>
 
-Cuando el primer argumento de tu handler es una *BaseInteraction* o un *Message*, el framework ejecuta el metodo a traves de la ruta de pipeline. Esto significa que los guards se evaluan antes de que tu handler corra, y si tu handler lanza una excepcion, el framework puede renderizar una respuesta al usuario a traves del sistema de exception layouts. Todo funciona exactamente como lo hace con commands.
+Cuando el primer argumento de tu handler es una *BaseInteraction* o un *Message*, el framework ejecuta el método a través de la ruta de pipeline. Esto significa que los guards se evaluan antes de que tu handler corra, y si tu handler lanza una excepción, el framework puede renderizar una respuesta al usuario a través del sistema de exception layouts. Todo funciona exactamente como lo hace con commands.
 
-Cuando el primer argumento es cualquier otro tipo, como un *Client* para el evento Ready o un *GuildMember* para GuildMemberAdd, el framework usa la ruta directa. En esta ruta, tu metodo se llama directamente sin pasar por el pipeline de guards. Si tu metodo lanza una excepcion, el framework la atrapa y la loguea en la consola en vez de enviar una respuesta al usuario, porque no hay una interaccion o mensaje al cual responder.
+Cuando el primer argumento es cualquier otro tipo, como un *Client* para el evento Ready o un *GuildMember* para GuildMemberAdd, el framework usa la ruta directa. En esta ruta, tu método se llama directamente sin pasar por el pipeline de guards. Si tu método lanza una excepción, el framework la atrapa y la loguea en la consola en vez de enviar una respuesta al usuario, porque no hay una interacción o mensaje al cual responder.
 
-Esta distincion importa porque influye en como estructuras tu manejo de errores. Para listeners de ruta pipeline, puedes confiar en el sistema de exception layouts para manejar errores elegantemente. Para listeners de ruta directa, necesitas atrapar errores tu mismo si necesitas hacer algo mas que loguear el error.
+Esta distinción importa porque influye en cómo estructuras tu manejo de errores. Para listeners de ruta pipeline, puedes confiar en el sistema de exception layouts para manejar errores elegantemente. Para listeners de ruta directa, necesitas atrapar errores tú mismo si necesitas hacer algo más que loguear el error.
 
 ## Guards en listeners
 
-Los listeners que operan en la ruta de pipeline soportan guards exactamente como los commands lo hacen. Puedes aplicar *@UseGuards* a la clase listener o a metodos individuales, y los guards se evaluan antes de que el handler corra. Esto te permite reutilizar los mismos guards que escribiste para commands en tus listeners sin modificacion.
+Los listeners que operan en la ruta de pipeline soportan guards exactamente como los commands lo hacen. Puedes aplicar *@UseGuards* a la clase listener o a métodos individuales, y los guards se evaluan antes de que el handler corra. Esto te permite reutilizar los mismos guards que escribiste para commands en tus listeners sin modificación.
 
 ```typescript filename="src/events/listeners/message-create.listener.ts"
 import { Events, Listener, On, UseGuards } from '@spraxium/common';
@@ -62,17 +62,17 @@ export class MessageCreateListener {
 }
 ```
 
-En este ejemplo, *NoBotGuard* verifica que el mensaje no vino de una cuenta de bot, y *GuildOnlyGuard* verifica que el mensaje fue enviado en un servidor y no en un DM. Si cualquiera de los dos guards niega, el handler no se ejecuta y el framework maneja la denegacion a traves de la excepcion correspondiente.
+En este ejemplo, *NoBotGuard* verifica que el mensaje no vino de una cuenta de bot, y *GuildOnlyGuard* verifica que el mensaje fue enviado en un servidor y no en un DM. Si cualquiera de los dos guards niega, el handler no se ejecuta y el framework maneja la denegación a través de la excepción correspondiente.
 
-Los guards globales registrados con *useGlobalGuards* tambien se aplican a listeners que operan en la ruta de pipeline. El flujo completo es: guards globales primero, luego guards a nivel de clase, luego guards a nivel de metodo, y finalmente el handler. Si cualquier guard devuelve false o lanza una excepcion en cualquier punto, el resto se salta.
+Los guards globales registrados con *useGlobalGuards* también se aplican a listeners que operan en la ruta de pipeline. El flujo completo es: guards globales primero, luego guards a nivel de clase, luego guards a nivel de método, y finalmente el handler. Si cualquier guard devuelve false o lanza una excepción en cualquier punto, el resto se salta.
 
 <Callout tone="warning" title="Guards no funcionan en la ruta directa">
-  Si aplicas UseGuards a un listener cuyo evento entrega un payload que no es BaseInteraction ni Message, los guards seran ignorados silenciosamente. El framework no puede construir un ExecutionContext a partir de un Client o GuildMember, asi que no hay contexto para pasar a los guards.
+  Si aplicas UseGuards a un listener cuyo evento entrega un payload que no es BaseInteraction ni Message, los guards serán ignorados silenciosamente. El framework no puede construir un ExecutionContext a partir de un Client o GuildMember, así que no hay contexto para pasar a los guards.
 </Callout>
 
 ## Lanzando excepciones en listeners
 
-Para listeners en la ruta de pipeline, puedes lanzar excepciones de Spraxium desde tu metodo handler y el framework las maneja a traves del sistema de exception layouts. Esto funciona exactamente igual que en commands: defines una excepcion, la lanzas desde el handler y el layout correspondiente renderiza la respuesta al usuario.
+Para listeners en la ruta de pipeline, puedes lanzar excepciones de Spraxium desde tu método handler y el framework las maneja a través del sistema de exception layouts. Esto funciona exactamente igual que en commands: defines una excepción, la lanzas desde el handler y el layout correspondiente renderiza la respuesta al usuario.
 
 ```typescript filename="src/events/listeners/message-create.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
@@ -103,11 +103,11 @@ export class MessageCreateListener {
 }
 ```
 
-Cuando *AccountSuspendedException* se lanza, el framework atrapa la excepcion y busca un layout registrado para ese tipo de excepcion en tu configuracion. Si encuentra un layout, renderiza la respuesta como un embed, mensaje de texto, o cualquier formato que el layout defina. Si no encuentra un layout, usa el layout por defecto para exceptions no manejadas.
+Cuando *AccountSuspendedException* se lanza, el framework atrapa la excepción y busca un layout registrado para ese tipo de excepción en tu configuración. Si encuentra un layout, renderiza la respuesta como un embed, mensaje de texto, o cualquier formato que el layout defina. Si no encuentra un layout, usa el layout por defecto para exceptions no manejadas.
 
 ## Try-catch para la ruta directa
 
-Para listeners que operan en la ruta directa, la historia es diferente. El framework envuelve tu metodo en un try-catch generico que loguea errores pero no envia respuestas. Si necesitas un manejo de errores mas sofisticado para estos listeners, necesitas agregar tu propio try-catch dentro del metodo handler.
+Para listeners que operan en la ruta directa, la historia es diferente. El framework envuelve tu método en un try-catch generico que loguea errores pero no envia respuestas. Si necesitas un manejo de errores más sofisticado para estos listeners, necesitas agregar tu propio try-catch dentro del método handler.
 
 ```typescript filename="src/events/listeners/member-join.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
@@ -135,8 +135,12 @@ export class MemberJoinListener {
 }
 ```
 
-El try-catch aqui es necesario porque si *sendWelcomeMessage* falla y no atrapas el error, la llamada a *assignDefaultRoles* nunca se ejecuta. Sin tu propio try-catch, el framework solo loguearia el error y seguiria adelante. Con tu propio try-catch, puedes decidir si quieres reintentar la operacion, loguear detalles adicionales, o manejar los errores por separado.
+El try-catch aquí es necesario porque si *sendWelcomeMessage* falla y no atrapas el error, la llamada a *assignDefaultRoles* nunca se ejecuta. Sin tu propio try-catch, el framework solo loguearía el error y seguiría adelante. Con tu propio try-catch, puedes decidir si quieres reintentar la operación, loguear detalles adicionales, o manejar los errores por separado.
 
-<Callout tone="info" title="Cuando usar cada estrategia de errores">
-  Para listeners de ruta pipeline que reciben Message o BaseInteraction, confia en el sistema de exceptions de Spraxium y lanza excepciones personalizadas. Para listeners de ruta directa que reciben GuildMember, Client u otros tipos, agrega try-catch manualmente en los metodos donde la recuperacion de errores importa.
+<Callout tone="info" title="Cuándo usar cada estrategia de errores">
+  Para listeners de ruta pipeline que reciben Message o BaseInteraction, confía en el sistema de exceptions de Spraxium y lanza excepciones personalizadas. Para listeners de ruta directa que reciben GuildMember, Client u otros tipos, agrega try-catch manualmente en los métodos donde la recuperación de errores importa.
 </Callout>
+
+## Siguiente estudio
+
+Continúa con [Visión General de Prefix Commands](/prefix-commands-overview).

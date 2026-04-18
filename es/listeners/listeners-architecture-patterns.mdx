@@ -1,17 +1,17 @@
 ---
 title: Arquitectura y Patrones
 description: |
-  Los listeners crecen mejor con estructura clara y logica de negocio delegada a servicios.
-  Aprende a organizar listeners en modulos, mantener handlers delgados y escalar con inyeccion de dependencias.
+  Los listeners crecen mejor con estructura clara y lógica de negocio delegada a servicios.
+  Aprende a organizar listeners en módulos, mantener handlers delgados y escalar con inyección de dependencias.
 order: 3
 category: Listeners
 ---
 
 ## Listeners delgados, servicios gruesos
 
-Un patron que vas a encontrar repetidamente en bots bien estructurados es mantener tus metodos de listener lo mas delgados posible. El metodo handler deberia extraer datos del payload del evento, llamar a un servicio que contiene la logica de negocio real y posiblemente enviar una respuesta. No deberia contener la logica de negocio en si. Esto no es un capricho de estilo, sino una decision practica que hace tus listeners mas faciles de testear, reutilizar y modificar.
+Un patron que vas a encontrar repetidamente en bots bien estructurados es mantener tus métodos de listener lo más delgados posible. El método handler debería extraer datos del payload del evento, llamar a un servicio que contiene la lógica de negocio real y posiblemente enviar una respuesta. No debería contener la lógica de negocio en si. Esto no es un capricho de estilo, sino una decision práctica que hace tus listeners mas fáciles de testear, reutilizar y modificar.
 
-La razon es sencilla: la logica de negocio que vive directamente en un metodo listener solo puede ser ejecutada cuando ese evento especifico de Discord dispara. Si quieres ejecutar la misma logica desde un comando, un endpoint HTTP, o una tarea programada, vas a tener que duplicar el codigo. Al mover la logica a un servicio, la escribes una sola vez y la llamas desde cualquier lugar que necesite.
+La razon es sencilla: la lógica de negocio que vive directamente en un método listener solo puede ser ejecutada cuando ese evento específico de Discord dispara. Si quieres ejecutar la misma lógica desde un comando, un endpoint HTTP, o una tarea programada, vas a tener que duplicar el código. Al mover la lógica a un servicio, la escribes una sola vez y la llamas desde cualquier lugar que necesite.
 
 <CodeTabs>
   <Tab label="Listener" language="typescript">
@@ -48,13 +48,13 @@ export class XpService {
   </Tab>
 </CodeTabs>
 
-El listener extrae el ID de usuario y el ID de guild del mensaje, luego delega al *XpService*. Si mas tarde necesitas que un slash command tambien otorgue XP, simplemente inyectas el mismo servicio en el handler del comando. El servicio se convierte en la fuente unica de verdad para la logica de XP.
+El listener extrae el ID de usuario y el ID de guild del mensaje, luego delega al *XpService*. Si mas tarde necesitas que un slash command también otorgue XP, simplemente inyectas el mismo servicio en el handler del comando. El servicio se convierte en la fuente única de verdad para la lógica de XP.
 
-## Organizacion de carpetas a escala
+## Organización de carpetas a escala
 
-Cuando tu bot tiene solo dos o tres listeners, la estructura del proyecto es simple. Pero conforme creces a diez, veinte, o mas listeners, necesitas una estrategia de organizacion que se escale. El enfoque recomendado es agrupar listeners por dominio funcional, no por tipo tecnico. Esto significa que un modulo de moderacion contiene sus listeners, sus servicios y sus commands en conjunto, en vez de tener todos los listeners del proyecto en una carpeta gigante.
+Cuando tu bot tiene solo dos o tres listeners, la estructura del proyecto es simple. Pero conforme creces a diez, veinte, o más listeners, necesitas una estrategia de organización que se escale. El enfoque recomendado es agrupar listeners por dominio funcional, no por tipo técnico. Esto significa que un módulo de moderación contiene sus listeners, sus servicios y sus commands en conjunto, en vez de tener todos los listeners del proyecto en una carpeta gigante.
 
-<FolderStructure title="Organizacion por dominio funcional">
+<FolderStructure title="Organización por dominio funcional">
   <Folder name="src" open>
     <Folder name="modules" open>
       <Folder name="moderation" open>
@@ -87,11 +87,11 @@ Cuando tu bot tiene solo dos o tres listeners, la estructura del proyecto es sim
   </Folder>
 </FolderStructure>
 
-En esta estructura, el modulo de moderacion posee sus listeners de eventos y sus servicios juntos. El modulo de leveling posee los suyos. Cada dominio es un modulo auto-contenido que puedes agregar o quitar del modulo raiz sin afectar otros dominios. Cuando necesitas debuguear por que un evento de eliminacion de mensaje no esta siendo manejado, sabes exactamente donde buscar: la carpeta de listeners del modulo de moderacion.
+En esta estructura, el módulo de moderación posee sus listeners de eventos y sus servicios juntos. El módulo de leveling posee los suyos. Cada dominio es un módulo auto-contenido que puedes agregar o quitar del módulo raiz sin afectar otros dominios. Cuando necesitas debuguear por qué un evento de eliminación de mensaje no está siendo manejado, sabes exactamente dónde buscar: la carpeta de listeners del módulo de moderación.
 
-## Registro de modulo con servicios
+## Registro de módulo con servicios
 
-El modulo que contiene listeners tambien necesita registrar cualquier servicio que esos listeners inyectan. El array *providers* del modulo es donde registras los servicios, y el array *listeners* es donde registras las clases listener. El framework resuelve las dependencias del constructor del listener desde los providers del modulo.
+El módulo que contiene listeners también necesita registrar cualquier servicio que esos listeners inyectan. El array *providers* del módulo es donde registras los servicios, y el array *listeners* es donde registras las clases listener. El framework resuelve las dependencias del constructor del listener desde los providers del módulo.
 
 ```typescript filename="src/leveling/leveling.module.ts"
 import { Module } from '@spraxium/common';
@@ -106,21 +106,21 @@ import { XpService } from './services/xp.service';
 export class LevelingModule {}
 ```
 
-Si un servicio necesita ser compartido entre multiples modulos, exportalo desde el modulo que lo posee y luego importa ese modulo desde los demas. No registres el mismo servicio en el array *providers* de multiples modulos porque eso crea instancias separadas que no comparten estado. El sistema de modulos de Spraxium sigue las mismas reglas de import y export que se aplican a commands y otros inyectables.
+Si un servicio necesita ser compartido entre múltiples módulos, exportalo desde el módulo que lo posee y luego importa ese módulo desde los demas. No registres el mismo servicio en el array *providers* de múltiples módulos porque eso crea instancias separadas que no comparten estado. El sistema de módulos de Spraxium sigue las mismas reglas de import y export que se aplican a commands y otros inyectables.
 
 ## El patron de tres pasos
 
-Cuando construyes un listener que va mas alla de un simple log, un patron probado es pensar en tres pasos: filtrar, delegar, responder. Este patron mantiene tus handlers claros y predecibles sin importar que tan complejo sea el evento que estan manejando.
+Cuando construyes un listener que va más allá de un simple log, un patron probado es pensar en tres pasos: filtrar, delegar, responder. Este patron mantiene tus handlers claros y predecibles sin importar que tan complejo sea el evento que están manejando.
 
 <Steps>
   <Step title="Filtrar el payload">
-    Lo primero que tu metodo handler deberia hacer es verificar si el evento le interesa en absoluto. Muchos eventos de Discord disparan con mucha frecuencia y tu listener no necesita reaccionar a cada uno. Para MessageCreate, probablemente quieres ignorar bots. Para GuildMemberAdd, quizas quieres ignorar cuentas que ya procesaste. Los filtros tempranos evitan trabajo innecesario y mantienen tus logs limpios.
+    Lo primero que tu método handler debería hacer es verificar si el evento le interesa en absoluto. Muchos eventos de Discord disparan con mucha frecuencia y tu listener no necesita reaccionar a cada uno. Para MessageCreate, probablemente quieres ignorar bots. Para GuildMemberAdd, quizás quieres ignorar cuentas que ya procesaste. Los filtros tempranos evitan trabajo innecesario y mantienen tus logs limpios.
   </Step>
   <Step title="Delegar a un servicio">
-    Una vez que sabes que el evento te interesa, extrae los datos que necesitas del payload de Discord.js y pasalos a un metodo de servicio. El servicio maneja la logica de negocio, sea actualizar una base de datos, calcular un score, verificar cooldowns, o cualquier otra operacion. El listener no deberia saber como funciona la logica internamente.
+    Una vez que sabes que el evento te interesa, extrae los datos que necesitas del payload de Discord.js y pasalos a un método de servicio. El servicio maneja la lógica de negocio, sea actualizar una base de datos, calcular un score, verificar cooldowns, o cualquier otra operación. El listener no debería saber como funciona la lógica internamente.
   </Step>
   <Step title="Responder si aplica">
-    No todos los listeners necesitan responder. Un listener de ready solo loguea. Un listener de message-create que trackea XP no necesita responder al usuario. Pero si necesitas enviar un mensaje de bienvenida o un embed de log, hazlo como el ultimo paso despues de que la logica de negocio termino. Si la logica de servicio fallo, puedes manejar el error en vez de enviar una respuesta con datos corruptos.
+    No todos los listeners necesitan responder. Un listener de ready solo loguea. Un listener de message-create que trackea XP no necesita responder al usuario. Pero si necesitas enviar un mensaje de bienvenida o un embed de log, hazlo como el ultimo paso despues de que la lógica de negocio termino. Si la lógica de servicio fallo, puedes manejar el error en vez de enviar una respuesta con datos corruptos.
   </Step>
 </Steps>
 
@@ -160,7 +160,7 @@ export class MessageDeleteListener {
 ```
 
 <Callout tone="info" title="No todo listener necesita los tres pasos">
-  Un listener de ready tipicamente solo loguea y no delega ni responde. Un listener de voice state puede solo filtrar y delegar sin responder. El patron es una guia, no una regla rigida. Usa los pasos que apliquen para tu caso.
+  Un listener de ready típicamente solo loguea y no delega ni responde. Un listener de voice state puede solo filtrar y delegar sin responder. El patron es una guia, no una regla rígida. Usa los pasos que apliquen para tu caso.
 </Callout>
 
 ## Siguiente página

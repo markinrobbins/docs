@@ -1,18 +1,18 @@
 ---
 title: Decorators y Ciclo de Vida
 description: |
-  Los decorators controlan como una clase listener se vincula a eventos y recibe datos.
-  Aprende Listener, On, Once, Ctx y como la inyeccion de dependencias funciona en listeners.
+  Los decorators controlan cómo una clase listener se vincula a eventos y recibe datos.
+  Aprende Listener, On, Once, Ctx y cómo la inyección de dependencias funciona en listeners.
 order: 2
 category: Listeners
 ---
 
 ## El decorator Listener
 
-El decorator *@Listener* se aplica a una clase y le dice al framework a cual evento de Discord pertenece esa clase. Acepta un valor del enum *Events* de Discord.js, que garantiza que usas un nombre de evento valido en vez de escribir un string de texto libre que podria tener un typo. Sin este decorator, una clase es solo una clase normal de TypeScript y el framework la ignora completamente. La primera pestaña muestra un listener dedicado a un solo evento, y la segunda muestra multiples clases listener agrupadas en el mismo archivo cuando estan fuertemente relacionadas.
+El decorator *@Listener* se aplica a una clase y le dice al framework a cual evento de Discord pertenece esa clase. Acepta un valor del enum *Events* de Discord.js, que garantiza que usas un nombre de evento válido en vez de escribir un string de texto libre que podría tener un typo. Sin este decorator, una clase es solo una clase normal de TypeScript y el framework la ignora completamente. La primera pestaña muestra un listener dedicado a un solo evento, y la segúnda muestra múltiples clases listener agrupadas en el mismo archivo cuando están fuertemente relacionadas.
 
 <CodeTabs>
-  <Tab label="Clase Unica" language="typescript">
+  <Tab label="Clase Única" language="typescript">
 ```typescript filename="src/events/listeners/member-join.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
 import type { GuildMember } from 'discord.js';
@@ -29,7 +29,7 @@ export class MemberJoinListener {
 }
 ```
   </Tab>
-  <Tab label="Multiples Clases" language="typescript">
+  <Tab label="Múltiples Clases" language="typescript">
 ```typescript filename="src/events/listeners/member.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
 import type { GuildMember } from 'discord.js';
@@ -56,13 +56,13 @@ export class MemberLeaveListener {
   </Tab>
 </CodeTabs>
 
-Agrupar clases listener en un solo archivo funciona bien cuando los eventos estan logicamente relacionados, como entrada y salida de miembros. Solo asegurate de exportar ambas clases y registrarlas individualmente en el array *listeners* de tu modulo.
+Agrupar clases listener en un solo archivo funciona bien cuando los eventos están lógicamente relacionados, como entrada y salida de miembros. Solo asegurate de exportar ambas clases y registrarlas individualmente en el array *listeners* de tu módulo.
 
 ## On versus Once
 
-Los decorators *@On* y *@Once* se aplican a metodos dentro de una clase listener, y controlan como el metodo se conecta al event emitter de Discord.js. La diferencia entre ellos es simple pero fundamental: *@On* crea un binding persistente que dispara cada vez que el evento ocurre, mientras que *@Once* crea un binding de una sola vez que dispara solo la primera vez que el evento ocurre y luego se desconecta automaticamente.
+Los decorators *@On* y *@Once* se aplican a métodos dentro de una clase listener, y controlan cómo el método se conecta al event emitter de Discord.js. La diferencia entre ellos es simple pero fundamental: *@On* crea un binding persistente que dispara cada vez que el evento ocurre, mientras que *@Once* crea un binding de una sola vez que dispara solo la primera vez que el evento ocurre y luego se desconecta automáticamente.
 
-Usa *@On* para eventos que quieres manejar repetidamente durante la vida del bot, como mensajes entrando, miembros uniendose, o reacciones siendo agregadas. La gran mayoria de tus listeners van a usar *@On* porque quieres que reaccionen cada vez que el evento pasa.
+Usa *@On* para eventos que quieres manejar repetidamente durante la vida del bot, como mensajes entrando, miembros uniéndose, o reacciónes siendo agregadas. La gran mayoria de tus listeners van a usar *@On* porque quieres que reacciónen cada vez que el evento pasa.
 
 ```typescript filename="src/events/listeners/reaction.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
@@ -97,11 +97,11 @@ export class ReadyListener {
 }
 ```
 
-Bajo el capo, el framework llama al metodo *on* del client de Discord.js para bindings de *@On* y al metodo *once* para bindings de *@Once*. Con *once*, Discord.js automaticamente remueve el listener despues de la primera invocacion, asi que tu metodo literalmente no puede ser llamado dos veces.
+Bajo el capo, el framework llama al método *on* del client de Discord.js para bindings de *@On* y al método *once* para bindings de *@Once*. Con *once*, Discord.js automáticamente remueve el listener despues de la primera invocación, así que tu método literalmente no puede ser llamado dos veces.
 
 ## El decorator Ctx
 
-El decorator *@Ctx* es un decorator de parametro que inyecta el contexto de ejecucion en tu metodo handler. En vez de recibir el payload crudo del evento de Discord.js, recibes un objeto *ExecutionContext* de Spraxium que envuelve la interaccion o mensaje y provee metodos de utilidad como *getUserId*, *getGuildId* y *getCommandName*.
+El decorator *@Ctx* es un decorator de parámetro que inyecta el contexto de ejecución en tu método handler. En vez de recibir el payload crudo del evento de Discord.js, recibes un objeto *ExecutionContext* de Spraxium que envuelve la interacción o mensaje y provee métodos de utilidad como *getUserId*, *getGuildId* y *getCommandName*.
 
 ```typescript filename="src/events/listeners/message-log.listener.ts"
 import { Ctx, Events, Listener, On } from '@spraxium/common';
@@ -118,15 +118,15 @@ export class MessageLogListener {
 }
 ```
 
-Cuando usas *@Ctx*, el framework envuelve automaticamente el primer argumento del evento en un *ExecutionContext* antes de llamar a tu metodo. Esto es particularmente util cuando tu listener participa en el pipeline de guards, porque el mismo objeto de contexto que tus guards reciben es el que tu metodo handler recibe. Para eventos simples donde solo necesitas el payload crudo de Discord.js, puedes omitir *@Ctx* y recibir los argumentos del evento directamente.
+Cuando usas *@Ctx*, el framework envuelve automáticamente el primer argumento del evento en un *ExecutionContext* antes de llamar a tu método. Esto es particularmente útil cuando tu listener participa en el pipeline de guards, porque el mismo objeto de contexto que tus guards reciben es el que tu método handler recibe. Para eventos simples donde solo necesitas el payload crudo de Discord.js, puedes omitir *@Ctx* y recibir los argumentos del evento directamente.
 
-<Callout tone="info" title="Ctx no esta disponible para todos los eventos">
-  El decorator Ctx funciona para eventos cuyo primer argumento es una BaseInteraction o un Message. Para otros eventos como ClientReady o GuildMemberAdd, usa los parametros regulares del metodo porque el payload del evento no es un tipo que el framework pueda envolver en un ExecutionContext.
+<Callout tone="info" title="Ctx no está disponible para todos los eventos">
+  El decorator Ctx funciona para eventos cuyo primer argumento es una BaseInteraction o un Message. Para otros eventos como ClientReady o GuildMemberAdd, usa los parámetros regulares del método porque el payload del evento no es un tipo que el framework pueda envolver en un ExecutionContext.
 </Callout>
 
-## Inyeccion de dependencias en listeners
+## Inyección de dependencias en listeners
 
-El decorator *@Listener* automaticamente marca la clase como inyectable, lo que significa que no necesitas agregar un decorator *@Injectable* separado. El contenedor de DI de Spraxium resuelve dependencias de constructor cuando instancia el listener, asi que puedes inyectar servicios, repositorios u otros providers directamente en el constructor del listener.
+El decorator *@Listener* automáticamente marca la clase como inyectable, lo que significa que no necesitas agregar un decorator *@Injectable* separado. El contenedor de DI de Spraxium resuelve dependencias de constructor cuando instancia el listener, así que puedes inyectar servicios, repositorios u otros providers directamente en el constructor del listener.
 
 ```typescript filename="src/events/listeners/message-create.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
@@ -145,7 +145,7 @@ export class MessageCreateListener {
 }
 ```
 
-Para que la inyeccion funcione, el servicio que estas inyectando debe estar registrado como un provider en el mismo modulo que contiene el listener, o debe ser exportado desde un modulo que es importado por el modulo del listener. El framework usa el mismo contenedor de DI y las mismas reglas de resolucion para listeners que para commands y todos los demas inyectables. Si el contenedor no puede resolver una dependencia, vas a recibir un error durante el bootstrap antes de que el bot se conecte a Discord.
+Para que la inyección funcione, el servicio que estas inyectando debe estar registrado como un provider en el mismo módulo que contiene el listener, o debe ser exportado desde un módulo que es importado por el módulo del listener. El framework usa el mismo contenedor de DI y las mismas reglas de resolución para listeners que para commands y todos los demas inyectables. Si el contenedor no puede resolver una dependencia, vas a recibir un error durante el bootstrap antes de que el bot se conecte a Discord.
 
 ```typescript filename="src/events/events.module.ts"
 import { Module } from '@spraxium/common';
@@ -160,7 +160,9 @@ export class EventsModule {}
 ```
 
 <Callout tone="warning" title="No dupliques providers">
-  Si un servicio ya esta exportado desde otro modulo, importa ese modulo en vez de registrar el servicio de nuevo en providers. Registrar el mismo servicio en multiples modulos crea instancias separadas, lo que puede causar estado inconsistente y bugs dificiles de rastrear.
+  Si un servicio ya esta exportado desde otro módulo, importa ese módulo en vez de registrar el servicio de nuevo en providers. Registrar el mismo servicio en múltiples módulos crea instancias separadas, lo que puede causar estado inconsistente y bugs difíciles de rastrear.
 </Callout>
+
 ## Siguiente página
-Contin�a con [Arquitectura y Patrones](/listeners-architecture-patterns).
+
+Continúa con [Arquitectura y Patrones](/listeners-architecture-patterns).

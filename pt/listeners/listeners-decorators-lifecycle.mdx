@@ -2,19 +2,19 @@
 title: Decorators e Ciclo de Vida
 description: |
   Entenda como Listener, On, Once e Ctx funcionam juntos no pipeline de eventos.
-  Aprenda semantica de binding, injecao de parametros e suporte a injecao de dependencia pra listeners.
+  Aprenda semantica de binding, injeção de parâmetros e suporte a injeção de dependencia pra listeners.
 order: 2
 category: Listeners
 ---
 
 ## O decorator @Listener na classe
 
-O decorator *@Listener* e o que transforma uma classe comum em um listener. Ele recebe um unico argumento: o nome do evento Discord do enum *Events* do Discord.js. Esse decorator faz duas coisas internamente. Ele armazena o nome do evento como metadata na classe, e marca a classe como injetavel pra que o container de DI possa resolver suas dependencias de construtor durante o bootstrap.
+O decorator *@Listener* é o que transforma uma classe comum em um listener. Ele recebe um único argumento: o nome do evento Discord do enum *Events* do Discord.js. Esse decorator faz duas coisas internamente. Ele armazena o nome do evento como metadata na classe, e marca a classe como injetável pra que o container de DI possa resolver suas dependencias de construtor durante o bootstrap.
 
-Cada classe listener e vinculada a exatamente um evento. Se voce precisa reagir a *GuildMemberAdd* e *GuildMemberRemove*, crie duas classes listener separadas. Isso mantem cada classe focada em um evento e evita confusao sobre quais metodos tratam quais eventos. Voce pode definir multiplas classes listener no mesmo arquivo se elas forem relacionadas, como um *MemberJoinListener* e um *MemberLeaveListener* que lidam com o mesmo conceito. So lembre que cada classe ainda precisa do seu proprio decorator *@Listener* com o evento correto.
+Cada classe listener é vinculada a exatamente um evento. Se você precisa reagir a *GuildMemberAdd* e *GuildMemberRemove*, crie duas classes listener separadas. Isso mantem cada classe focada em um evento e evita confusao sobre quais métodos tratam quais eventos. Você pode definir múltiplas classes listener no mesmo arquivo se elas forem relacionadas, como um *MemberJoinListener* e um *MemberLeaveListener* que lidam com o mesmo conceito. So lembre que cada classe ainda precisa do seu próprio decorator *@Listener* com o evento correto.
 
 <CodeTabs>
-  <Tab label="Classe Unica" language="typescript">
+  <Tab label="Classe Única" language="typescript">
 ```typescript filename="member-join.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
 import type { GuildMember } from 'discord.js';
@@ -31,7 +31,7 @@ export class MemberJoinListener {
 }
 ```
   </Tab>
-  <Tab label="Multiplas Classes" language="typescript">
+  <Tab label="Múltiplas Classes" language="typescript">
 ```typescript filename="member.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
 import { Logger } from '@spraxium/core';
@@ -63,9 +63,9 @@ export class MemberLeaveListener {
 
 ## @On versus @Once
 
-O decorator *@On* cria um binding de evento persistente. Toda vez que o evento Discord dispara, o metodo decorado roda. E isso que voce quer pra maioria dos eventos como *MessageCreate*, *InteractionCreate*, *GuildMemberAdd* e qualquer outra coisa que pode acontecer repetidamente. O binding fica ativo durante toda a vida do processo do bot.
+O decorator *@On* cria um binding de evento persistente. Toda vez que o evento Discord dispara, o método decorado roda. É isso que você quer pra maioria dos eventos como *MessageCreate*, *InteractionCreate*, *GuildMemberAdd* e qualquer outra coisa que pode acontecer repetidamente. O binding fica ativo durante toda a vida do processo do bot.
 
-O decorator *@Once* cria um binding de evento unico. Ele dispara apenas na primeira vez que o evento ocorre apos o bot iniciar, e entao o binding e removido automaticamente. Tipicamente e usado pro evento *ClientReady*, que voce so precisa tratar uma vez quando o bot termina de conectar. Voce tambem pode usa-lo pra qualquer logica de inicializacao que deve rodar exatamente uma vez em resposta a um evento especifico.
+O decorator *@Once* cria um binding de evento único. Ele dispara apenas na primeira vez que o evento ocorre após o bot iniciar, e então o binding é removido automaticamente. Tipicamente é usado pro evento *ClientReady*, que você só precisa tratar uma vez quando o bot termina de conectar. Você também pode usá-lo pra qualquer lógica de inicialização que deve rodar exatamente uma vez em resposta a um evento específico.
 
 ```typescript filename="ready.listener.ts"
 import { Events, Listener, Once } from '@spraxium/common';
@@ -80,11 +80,11 @@ export class ReadyListener {
 }
 ```
 
-Um detalhe importante: *@Once* e sobre semantica de binding de evento, nao semantica de instancia de classe. Significa "vincule esse handler com client.once() em vez de client.on()". O client do Discord.js remove o listener automaticamente apos a primeira invocacao. Essa e uma distincao sutil mas importante porque significa que o comportamento e controlado pelo sistema de eventos do Discord.js, nao pelo framework rastreando contagem de invocacoes.
+Um detalhe importante: *@Once* e sobre semantica de binding de evento, não semantica de instancia de classe. Significa "vincule esse handler com client.once() em vez de client.on()". O client do Discord.js remove o listener automaticamente após a primeira invocação. Essa e uma distincao sutil mas importante porque significa que o comportamento é controlado pelo sistema de eventos do Discord.js, não pelo framework rastreando contagem de invocações.
 
-## O decorator de parametro @Ctx
+## O decorator de parâmetro @Ctx
 
-O decorator *@Ctx* e um decorator de parametro que injeta os argumentos crus do evento Discord em um parametro do metodo. Na maioria das vezes voce nao precisa desse decorator porque o payload do evento ja esta disponivel como parametros regulares do metodo. Porem, *@Ctx* e util quando voce quer tornar a intencao de injecao explicita no seu codigo ou quando trabalha com eventos que fornecem multiplos argumentos.
+O decorator *@Ctx* é um decorator de parâmetro que injeta os argumentos crus do evento Discord em um parâmetro do método. Na maioria das vezes você não precisa desse decorator porque o payload do evento ja esta disponível como parâmetros regulares do método. Porem, *@Ctx* é útil quando você quer tornar a intencao de injeção explicita no seu código ou quando trabalha com eventos que fornecem múltiplos argumentos.
 
 ```typescript filename="interaction.listener.ts"
 import { Ctx, Events, Listener, On } from '@spraxium/common';
@@ -100,9 +100,9 @@ export class InteractionListener {
 }
 ```
 
-## Injecao de dependencia em listeners
+## Injeção de dependencia em listeners
 
-Como *@Listener* automaticamente marca a classe como injetavel, seu listener pode receber dependencias de construtor assim como qualquer outra classe injetavel no Spraxium. E assim que voce conecta listeners a servicos, repositorios e outras partes da sua aplicacao sem criar acoplamento forte ou wiring manual.
+Como *@Listener* automaticamente marca a classe como injetável, seu listener pode receber dependencias de construtor assim como qualquer outra classe injetável no Spraxium. É assim que você conecta listeners a serviços, repositorios e outras partes da sua aplicacao sem criar acoplamento forte ou wiring manual.
 
 ```typescript filename="message-create.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
@@ -125,12 +125,12 @@ export class MessageCreateListener {
 }
 ```
 
-O *LeaderboardService* deve ser registrado como provider no mesmo modulo ou exportado de um modulo importado. O container de DI o resolve no momento da instanciacao, antes de qualquer evento comecar a disparar. Se a dependencia nao pode ser resolvida, o framework lanca um erro claro durante o bootstrap explicando qual token nao foi encontrado e sugerindo onde registra-lo.
+O *LeaderboardService* deve ser registrado como provider no mesmo módulo ou exportado de um módulo importado. O container de DI o resolve no momento da instanciação, antes de qualquer evento comecar a disparar. Se a dependencia não pode ser resolvida, o framework lança um erro claro durante o bootstrap explicando qual token não foi encontrado e sugerindo onde registrá-lo.
 
-Mantenha metodos de listener finos. O listener recebe o evento, faz filtragem basica como ignorar mensagens de bot, e entao delega o trabalho real pra um servico injetado. Esse padrao torna sua logica de negocio testavel independentemente do sistema de eventos e previne que listeners cresçam em classes grandes cheias de logica de dominio.
+Mantenha métodos de listener finos. O listener recebe o evento, faz filtragem básica como ignorar mensagens de bot, e então delega o trabalho real pra um serviço injetado. Esse padrão torna sua lógica de negócio testável independentemente do sistema de eventos e previne que listeners cresçam em classes grandes cheias de lógica de dominio.
 
 <Callout tone="warning" title="Gateway intents importam">
-  Se seu listener esta registrado corretamente mas nunca dispara, a causa mais comum e falta de gateway intents na configuracao do bot. Por exemplo, MessageCreate requer o intent GuildMessages ou DirectMessages, e GuildMemberAdd requer o intent GuildMembers.
+  Se seu listener esta registrado corretamente mas nunca dispara, a causa mais comum e falta de gateway intents na configuração do bot. Por exemplo, MessageCreate requer o intent GuildMessages ou DirectMessages, e GuildMemberAdd requer o intent GuildMembers.
 </Callout>
 
 ## Próxima página
