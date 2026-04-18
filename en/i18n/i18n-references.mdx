@@ -1,0 +1,227 @@
+---
+title: References and Locale Files
+description: |
+  References are named pointers to locale directories that become key namespaces at load time.
+  Understand how multiple reference paths combine into a single flat registry without conflicts.
+order: 2
+category: i18n
+---
+
+## What a reference is and why it exists
+
+A reference is the bridge between a directory on disk and a namespace in the translation key space.
+You declare a reference by giving it a name and a path. The name becomes the first segment of every
+key that comes from that directory. The path points to a directory whose structure follows one of
+two conventions: flat JSON files per locale, or subdirectories per locale containing multiple JSON
+files. Either structure is valid and both can coexist across different references in the same bot.
+
+The reason references exist as a concept, rather than a single flat locale directory, is that
+real bots have different translation concerns that belong in different places. Slash command names
+and descriptions are domain objects in the same category as code. Error messages used across the
+entire bot share a namespace. UI strings for modals, select menus, and embeds are another layer.
+Mixing all of these into a single file per locale creates maintenance overhead and makes it hard to
+identify what is missing where. References give each concern its own directory and its own prefix,
+while still serving all lookups from the same in-memory flat map.
+
+The separation is a developer experience decision, not a runtime performance decision. At runtime,
+all references are merged into the same flat map per locale. The reference name becomes a key prefix
+that prevents collisions, but there is no separate lookup per reference and no directory path
+traversal at request time.
+
+## Declaring multiple references
+
+```typescript filename="config/i18n.config.ts"
+import { defineI18n } from '@spraxium/i18n';
+
+export const i18nConfig = defineI18n({
+  defaultLocale: 'en-US',
+  references: [
+    { name: 'slash',    path: './locales/slash'    },
+    { name: 'ui',       path: './locales/ui'       },
+    { name: 'errors',   path: './locales/errors'   },
+    { name: 'embeds',   path: './locales/embeds'   },
+  ],
+});
+```
+
+There is no limit on the number of references. Each one loads independently and is merged into the
+same registry. As long as each `name` value is unique, there can be no key collisions between
+references.
+
+## The flat file structure
+
+In this layout, each locale is a single JSON file at the root of the reference directory. The file
+name is the locale identifier and its content is the translation object for that locale.
+
+<FolderStructure>
+  <Folder name="locales" open>
+    <Folder name="errors" open>
+      <File name="en-US.json" />
+      <File name="pt-BR.json" />
+      <File name="es-ES.json" />
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+```json filename="locales/errors/en-US.json"
+{
+  "notFound": "Resource not found",
+  "forbidden": "You do not have permission to do this",
+  "timeout": "The operation timed out after {{seconds}} seconds"
+}
+```
+
+After loading the reference `{ name: 'errors', path: './locales/errors' }`, the keys available in
+the registry for `en-US` are:
+
+- `errors.notFound`
+- `errors.forbidden`
+- `errors.timeout`
+
+The nesting level inside the JSON file does not matter. Deeply nested structures are flattened
+recursively with dot notation joining each level.
+
+## The nested directory structure
+
+When a reference contains many files or when you want to organize translations by feature within
+a locale, you can use subdirectories instead. Each subdirectory is named after a locale and contains
+multiple JSON files. The file name (without `.json`) becomes an additional namespace segment.
+
+<FolderStructure>
+  <Folder name="locales" open>
+    <Folder name="slash" open>
+      <Folder name="en-US" open>
+        <File name="ping.json" />
+        <File name="help.json" />
+        <File name="settings.json" />
+      </Folder>
+      <Folder name="pt-BR" open>
+        <File name="ping.json" />
+        <File name="help.json" />
+        <File name="settings.json" />
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+```json filename="locales/slash/en-US/ping.json"
+{
+  "name": "ping",
+  "description": "Check the bot's response time",
+  "options": {
+    "target": {
+      "name": "target",
+      "description": "The server or service to ping"
+    }
+  }
+}
+```
+
+After loading the reference `{ name: 'slash', path: './locales/slash' }`, the keys available for
+`en-US` include:
+
+- `slash.ping.name`
+- `slash.ping.description`
+- `slash.ping.options.target.name`
+- `slash.ping.options.target.description`
+- `slash.help.name`
+- `slash.settings.name`
+- (and all other keys from all other files)
+
+The file name `ping` becomes the second segment after `slash`, and the JSON keys become subsequent
+segments. The full path is always: `referenceName.fileName.jsonKeyPath`.
+
+## Mixing both structures
+
+You can freely mix flat and nested layouts across different references in the same config.
+`ReferenceLoader` detects which layout to use at the reference level by checking whether the
+entries inside the reference directory are files or subdirectories.
+
+```typescript filename="config/i18n.config.ts"
+import { defineI18n } from '@spraxium/i18n';
+
+export const i18nConfig = defineI18n({
+  defaultLocale: 'en-US',
+  references: [
+    // Nested layout: many files per locale, organized by feature
+    { name: 'slash',   path: './locales/slash'   },
+    // Flat layout: simple key-value pairs in a single file per locale
+    { name: 'errors',  path: './locales/errors'  },
+    { name: 'system',  path: './locales/system'  },
+  ],
+});
+```
+
+## Accessing keys across references
+
+All references are accessible through the same service API without specifying which reference a key
+belongs to. The reference name is part of the key itself.
+
+```typescript filename="multi-ref.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { I18nService } from '@spraxium/i18n';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { StatusCommand } from '../commands/status.command';
+
+@SlashCommandHandler(StatusCommand)
+export class StatusHandler {
+  constructor(private readonly i18n: I18nService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const locale  = interaction.locale;
+    const userId  = interaction.user.id;
+    const guildId = interaction.guildId ?? undefined;
+
+    // Keys from 'slash' reference
+    const title = this.i18n.t('slash.status.embed.title', locale);
+
+    // Keys from 'errors' reference, used when an upstream check fails
+    const permError = this.i18n.t('errors.forbidden', locale);
+
+    // Async resolution through user/guild preference chain
+    const footer = await this.i18n.tUser(userId, 'slash.status.embed.footer', {}, guildId);
+
+    await interaction.reply({ content: `${title}: ${footer}` });
+  }
+}
+```
+
+## Using reference keys in slash decorators
+
+When you add an *i18n* field to a slash decorator, the key paths point into the loaded flat map.
+They use the reference name as their first segment, exactly as they would in a *t()* call.
+
+```typescript filename="settings.command.ts"
+import { SlashCommand } from '@spraxium/common';
+
+@SlashCommand({
+  name: 'settings',
+  description: 'Manage bot settings',
+  i18n: {
+    name:        'slash.settings.name',
+    description: 'slash.settings.description',
+  },
+})
+export class SettingsCommand {}
+```
+
+The i18n lifecycle has already loaded the flat map by the time the slash registrar runs. The bridge
+reads the registry for every supported Discord locale your bot has a translation for and passes the
+results to the discord.js builder methods. The command then appears in Discord's UI with native
+localized names for every locale you have provided.
+
+## What happens when a locale is missing
+
+When a key is requested for a locale that the bot has no file for, the registry falls back to the
+default locale's map silently. If the key does not exist in the default locale either, the raw key
+string is returned. The system never throws on missing translations at request time. It degrades gracefully in
+production and emits a trace-level log to help catch gaps during development.
+
+The practical implication is that you can ship partial translations. If you have English and
+Portuguese and want to add Spanish in a future release, you can add the `es-ES` files incrementally.
+Users with a Spanish locale preference will receive English responses (the default) until the
+Spanish files are complete. Nothing breaks. The fallback is simply visible to those users.
+
+## Next page
+
+Continue with [Store API](/guide/i18n-store).

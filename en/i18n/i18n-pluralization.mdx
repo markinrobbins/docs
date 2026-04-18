@@ -1,0 +1,293 @@
+---
+title: Pluralization
+description: |
+  Pluralization is not a simple singular-vs-plural check. It is a mathematical rule that varies significantly across languages.
+  Understand how the engine selects the correct plural form and why the CLDR category system is the right model.
+order: 4
+category: i18n
+---
+
+## Why pluralization is not a simple condition
+
+The first instinct when handling plural text is to write something like:
+
+```typescript filename="naive-plural.ts"
+const message = count === 1 ? 'One item' : `${count} items`;
+```
+
+This works for English. It fails for Polish, where "2 items" is `2 elementy`, "5 items" is
+`5 elementów`, and "21 items" is `21 elementów` again. It fails for Arabic, which has six plural
+forms. It fails for Russian, which distinguishes between one item, two-to-four items, and five-or-more
+items. It fails for zero. In French, zero takes the singular form (`0 élément`), while in English
+zero takes the plural form (`0 items`).
+
+The core insight is that plural selection is a function of both the language and the number. Every
+major language has rules documented in the Unicode CLDR (Common Locale Data Repository) project,
+and those rules map any integer to one of five named categories: `zero`, `one`, `two`, `few`,
+`many`, and `other`. Every language uses a subset of these categories, and `other` is always the
+mandatory catch-all.
+
+Spraxium's pluralization engine delegates category selection to *Intl.PluralRules*, the V8 engine
+built into Node.js that implements the CLDR rules, and then looks up the keyed variant from the
+flat translation map.
+
+## The naming convention for plural variants
+
+Plural keys follow the pattern `baseKey_category`. The base key is the same key you would use for
+*t()*. The category is one of the six CLDR names appended with an underscore separator.
+
+```json filename="locales/commands/en-US/items.json"
+{
+  "items": {
+    "_zero":  "No items in your inventory",
+    "_one":   "One item in your inventory",
+    "_other": "{{count}} items in your inventory"
+  }
+}
+```
+
+After flattening with reference name `commands` and file name `items`, the full keys become:
+
+- `commands.items._zero`
+- `commands.items._one`
+- `commands.items._other`
+
+The engine constructs the lookup key by appending `_` plus the resolved category to the base key
+you pass to `tp()`.
+
+## The six categories and when each applies
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Category</TableCell>
+      <TableCell header>Applies to</TableCell>
+      <TableCell header>Example languages and rules</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*zero*</TableCell>
+      <TableCell>Specific zero form</TableCell>
+      <TableCell>Arabic (0), Welsh (0)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*one*</TableCell>
+      <TableCell>Singular</TableCell>
+      <TableCell>English (1), Spanish (1), Portuguese (1)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*two*</TableCell>
+      <TableCell>Dual form</TableCell>
+      <TableCell>Arabic (2), Welsh (2), Hebrew (2)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*few*</TableCell>
+      <TableCell>Paucal / small plural</TableCell>
+      <TableCell>Russian (2–4), Polish (2, 3, 4 not ending in teen), Arabic (3–10)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*many*</TableCell>
+      <TableCell>Large plural or irregular</TableCell>
+      <TableCell>Russian (5+, 11–14), Polish (5+), Arabic (11–99)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*other*</TableCell>
+      <TableCell>General plural, mandatory catch-all</TableCell>
+      <TableCell>English (0, 2+), Chinese (all), Japanese (all)</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+Languages that do not have a dedicated zero form (most Western European languages) map zero to
+*other*. This means English `0 items` resolves to `_other`, which is why the zero variant in the
+example above says "No items." You need to provide a `_zero` entry specifically for that phrasing.
+
+## The resolution algorithm
+
+<Steps>
+  <Step title="Category determination">
+    Check whether a custom plural rule has been registered for the requested locale in the
+    *pluralRules* config field. If a custom rule exists, run that function with the numeric count
+    and use the returned category string. If no custom rule is registered, delegate to
+    *Intl.PluralRules(locale).select(count)*, which implements the Unicode CLDR rules built into
+    Node.js and returns one of the six named category strings.
+  </Step>
+  <Step title="Candidate key construction">
+    Build the lookup key by concatenating the base key, an underscore character, and the resolved
+    category. For example, a base key of `commands.items` with the resolved category *few* produces
+    the candidate key `commands.items_few`. This constructed string is the first key the registry
+    will search for when looking up the translated plural form.
+  </Step>
+  <Step title="Primary locale lookup">
+    Search for the candidate key in the flat map for the requested locale by calling
+    *LocaleRegistry.get(locale)*. The registry holds one *Map&lt;string, string&gt;* per loaded locale
+    and returns the translated string instantly if the key exists. If the key is found at this
+    step, execution skips ahead to interpolation immediately.
+  </Step>
+  <Step title="Fallback to the _other category">
+    If the primary lookup returned nothing and the resolved category is not already *other*, build
+    a second candidate key using `_other` as the suffix and search the same locale map again. This
+    fallback is what allows you to provide only `_one` and `_other` for most languages without
+    needing to define every possible CLDR category, since *other* is the mandatory catch-all.
+  </Step>
+  <Step title="Default locale fallback">
+    If neither the category key nor the `_other` key was found in the requested locale, and the
+    requested locale is not already the configured default locale, repeat steps three and four
+    against the default locale's flat map. This tier enables partial translations: a language that
+    only covers some keys will silently produce the default locale's text for missing entries
+    rather than breaking the response.
+  </Step>
+  <Step title="Safe raw key return">
+    If all previous lookups failed, return the raw base key string as-is rather than throwing an
+    error. The pluralization engine never throws a missing key exception at request time, which
+    means a missing translation surfaces as visible placeholder text in the UI without crashing the
+    bot or leaving the interaction unanswered. This behavior makes it safe to ship partial
+    translations to production while work on remaining locales is still in progress.
+  </Step>
+  <Step title="Variable interpolation">
+    Merge the numeric count into the vars object under the key `count`, making it available as
+    `{{count}}` in the translated string without any extra work from the caller. Replace every
+    `{{varName}}` placeholder in the resolved string with its corresponding value from the merged
+    vars object. The fully interpolated string is returned to the handler that called *tp()* or
+    *tpUser()*.
+  </Step>
+</Steps>
+
+## Providing translations for a language with complex plural rules
+
+Russian requires four entries to be correct. If you skip `_few` or `_many`, the engine falls back
+to `_other` for those counts, which may be grammatically incorrect for your specific string.
+
+```json filename="locales/commands/ru/items.json"
+{
+  "items": {
+    "_one":   "{{count}} предмет",
+    "_few":   "{{count}} предмета",
+    "_many":  "{{count}} предметов",
+    "_other": "{{count}} предмета"
+  }
+}
+```
+
+```typescript filename="test the russian plural"
+i18n.tp('commands.items', 'ru', 1)   // "1 предмет"    (one)
+i18n.tp('commands.items', 'ru', 2)   // "2 предмета"   (few)
+i18n.tp('commands.items', 'ru', 5)   // "5 предметов"  (many)
+i18n.tp('commands.items', 'ru', 11)  // "11 предметов" (many, teen numbers are always many in Russian)
+i18n.tp('commands.items', 'ru', 21)  // "21 предмет"   (one, 21 ends in 1)
+```
+
+## Using pluralization in handlers
+
+<CodeTabs>
+  <Tab label="Explicit locale" language="typescript">
+```typescript filename="inventory.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { I18nService } from '@spraxium/i18n';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { InventoryCommand } from '../commands/inventory.command';
+
+@SlashCommandHandler(InventoryCommand)
+export class InventoryHandler {
+  constructor(private readonly i18n: I18nService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const count  = await getInventoryCount(interaction.user.id);
+    const locale = interaction.locale;
+
+    const message = this.i18n.tp('commands.items', locale, count, { count });
+    await interaction.reply(message);
+  }
+}
+```
+  </Tab>
+  <Tab label="User-resolved locale" language="typescript">
+```typescript filename="inventory.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { I18nService } from '@spraxium/i18n';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { InventoryCommand } from '../commands/inventory.command';
+
+@SlashCommandHandler(InventoryCommand)
+export class InventoryHandler {
+  constructor(private readonly i18n: I18nService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const userId  = interaction.user.id;
+    const guildId = interaction.guildId ?? undefined;
+    const count   = await getInventoryCount(userId);
+
+    // Resolves locale via user > guild > default priority
+    const message = await this.i18n.tpUser(
+      userId,
+      'commands.items',
+      count,
+      { count },
+      guildId,
+    );
+
+    await interaction.reply(message);
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Custom plural rules for edge cases
+
+When `Intl.PluralRules` gives wrong results for a specific locale identifier (this is uncommon but
+can happen with custom locale strings or locale variants not covered by the CLDR data in the current
+Node.js version), you can override the rule at config time:
+
+```typescript filename="config/i18n.config.ts"
+import { defineI18n } from '@spraxium/i18n';
+
+export const i18nConfig = defineI18n({
+  defaultLocale: 'en-US',
+  references: [{ name: 'commands', path: './locales/commands' }],
+  pluralRules: {
+    'pt-BR': (count) => count === 1 ? 'one' : 'other',
+    'ar': (count) => {
+      if (count === 0) return 'zero';
+      if (count === 1) return 'one';
+      if (count === 2) return 'two';
+      if (count % 100 >= 3 && count % 100 <= 10) return 'few';
+      if (count % 100 >= 11 && count % 100 <= 99) return 'many';
+      return 'other';
+    },
+  },
+});
+```
+
+Custom rules receive the numeric count and must return one of the six category strings. They run
+before `Intl.PluralRules` and override it completely for the specified locale. Locales without a
+custom rule continue using `Intl.PluralRules` as normal.
+
+## The `{{count}}` variable
+
+The count passed to *tp()* or *tpUser()* is automatically available as `{{count}}` in the
+translated string. You do not need to pass it explicitly in the vars object. The engine merges it
+in automatically so that every plural variant can reference the count without extra boilerplate.
+
+```json filename="items translation showing count use"
+{
+  "items": {
+    "_one":   "You have one item remaining",
+    "_other": "You have {{count}} items remaining"
+  }
+}
+```
+
+If you pass additional vars, they are merged with `count` and all are available as `{{varName}}`
+placeholders:
+
+```typescript filename="using extra vars with count"
+i18n.tp('commands.items', 'en-US', 5, { maxCapacity: 10 });
+// Translation: "You have {{count}} of {{maxCapacity}} item slots used"
+// Result:      "You have 5 of 10 item slots used"
+```
+
+## Next study
+
+Continue with [Slash Commands Overview](/guide/slash-commands-overview).
