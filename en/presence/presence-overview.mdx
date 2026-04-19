@@ -1,0 +1,148 @@
+---
+title: Presence Overview
+description: |
+  The PresenceManager controls the bot status indicator and activity text across all shards.
+  Learn how to set activities, configure placeholders, and manage the online status.
+order: 1
+category: Presence
+---
+
+## What the presence system solves
+
+Discord bots display a status indicator (online, idle, do not disturb, invisible) and an activity line below their name (Playing, Watching, Listening, Streaming, Competing). These presence fields are the first thing users see when they check the bot in the member list. The *PresenceManager* provides a static API for setting and updating these fields from anywhere in your application, including support for per-shard overrides and dynamic placeholder interpolation.
+
+Without a presence manager, you would call `client.user.setPresence()` directly, which means you need a reference to the client instance, you must guard against calling it before the client is ready, and you have no built-in support for rotating activities or shard-specific text. The *PresenceManager* handles all of these concerns through a centralized static class that the framework initializes automatically when the bot connects.
+
+The presence system integrates with the sharding system. When your bot runs across multiple shards, each shard can display its own activity text with shard-specific information like the shard number or the guild count on that shard. Built-in placeholders like `{{totalServers}}` and `{{shardNumber}}` are resolved automatically from the live client state on every presence update.
+
+## Setting a static activity
+
+The simplest use case is setting a fixed activity that stays until you change it. Call *PresenceManager.setActivity* with a name and a type. The name is the text that appears in the member list, and the type determines the prefix Discord adds (Playing, Watching, Listening, Streaming, or Competing).
+
+```typescript filename="src/listeners/ready.listener.ts"
+import { Listener, On } from '@spraxium/core';
+import { PresenceManager } from '@spraxium/core';
+
+@Listener()
+export class ReadyListener {
+  @On('clientReady')
+  onReady() {
+    PresenceManager.setActivity({
+      name: 'your commands',
+      type: 'Listening',
+    });
+  }
+}
+```
+
+The *setActivity* method only changes the activity. It does not touch the status indicator. If you want to change both at once, use *setPresence* which accepts a *status* and an *activities* array. The first activity in the array becomes the current one.
+
+```typescript filename="src/listeners/ready.listener.ts"
+PresenceManager.setPresence({
+  status: 'dnd',
+  activities: [{ name: 'maintenance mode', type: 'Playing' }],
+});
+```
+
+## Changing only the status
+
+The *setStatus* method updates the colored indicator without touching the activity text. Four values are available: `'online'` (green), `'idle'` (yellow), `'dnd'` (red), and `'invisible'` (gray, appears offline). This is useful for signaling maintenance windows or degraded states without changing what the activity says.
+
+```typescript filename="src/services/health.service.ts"
+import { PresenceManager } from '@spraxium/core';
+
+PresenceManager.setStatus('idle');
+```
+
+## Placeholder interpolation
+
+Activity names support `{{key}}` placeholders that are resolved from the live client state every time the presence updates. Five built-in variables are available without any extra configuration. They refresh automatically, so a counter like `{{totalServers}}` stays accurate as guilds are added or removed.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Placeholder</TableCell>
+      <TableCell header>Value</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`{{shardId}}`</TableCell>
+      <TableCell>Current shard ID (0-based)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`{{shardNumber}}`</TableCell>
+      <TableCell>Current shard number (1-based, shardId + 1)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`{{totalShards}}`</TableCell>
+      <TableCell>Total number of shards</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`{{totalServers}}`</TableCell>
+      <TableCell>Number of guilds on this shard</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`{{ping}}`</TableCell>
+      <TableCell>WebSocket heartbeat latency in milliseconds</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+Placeholders work everywhere activities are used: in *setActivity*, *setPresence*, *startRotation*, boot configuration, and shard overrides. If a placeholder key does not resolve, it stays as-is in the output (e.g. `{{unknownKey}}`), which makes typos easy to spot.
+
+```typescript filename="src/listeners/ready.listener.ts"
+PresenceManager.setActivity({
+  name: '{{totalServers}} servers · {{ping}}ms',
+  type: 'Watching',
+});
+```
+
+## Boot configuration
+
+Instead of calling *PresenceManager* methods in a listener, you can declare the initial presence as a typed constant in the `config/` folder and pass it to *initPresence* on the application builder in `main.ts`. The framework applies it automatically after the client connects, before any listener fires.
+
+<CodeTabs>
+  <Tab label="config/presence.config.ts">
+```typescript filename="config/presence.config.ts"
+import type { PresenceOptions } from '@spraxium/core';
+
+export const presenceConfig: PresenceOptions = {
+  status: 'online',
+  activities: [
+    { name: '{{totalServers}} servers', type: 'Watching' },
+  ],
+};
+```
+  </Tab>
+  <Tab label="src/main.ts">
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { presenceConfig } from '../config/presence.config';
+import { AppModule } from './app.module';
+
+async function main() {
+  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  app.useModule(AppModule);
+  app.initPresence(presenceConfig);
+  await app.listen();
+}
+
+main();
+```
+  </Tab>
+</CodeTabs>
+
+*initPresence* accepts a *PresenceOptions* object: a *status*, an *activities* array, a *rotateInterval* for automatic cycling, and a *perShard* record for shard-specific overrides at boot time.
+
+## Resetting to boot state
+
+The *reset* method restores the exact presence that was configured at boot time. It stops any active rotation, resets the status and activity, and restarts rotation if the boot configuration specified one. Per-shard runtime overrides are not cleared by *reset*, so call *clearShardPresence* for each shard first if you want a full reset.
+
+```typescript filename="src/commands/reset-presence.command.ts"
+PresenceManager.reset();
+```
+
+## Next page
+
+Continue with [Rotation and Shards](/presence-rotation-shards).

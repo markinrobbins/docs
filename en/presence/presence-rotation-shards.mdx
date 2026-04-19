@@ -1,0 +1,201 @@
+---
+title: Rotation and Shards
+description: |
+  Rotate activities on a timer and customize presence per shard with custom placeholders.
+  Learn startRotation, stopRotation, setShardActivity, per-shard boot config, and custom interpolation variables.
+order: 2
+category: Presence
+---
+
+## Activity rotation
+
+When your bot has multiple things to say, you can cycle through activities on a fixed interval. The *startRotation* method accepts an array of activities and a millisecond interval. It sets the first activity immediately, then advances to the next one every time the interval fires. The rotation wraps around when it reaches the end of the array.
+
+```typescript filename="src/listeners/ready.listener.ts"
+import { Listener, On } from '@spraxium/core';
+import { PresenceManager } from '@spraxium/core';
+
+@Listener()
+export class ReadyListener {
+  @On('clientReady')
+  onReady() {
+    PresenceManager.startRotation([
+      { name: '{{totalServers}} servers', type: 'Watching' },
+      { name: '/help for commands', type: 'Playing' },
+      { name: 'feedback from users', type: 'Listening' },
+    ], 30_000);
+  }
+}
+```
+
+Calling *startRotation* stops any existing rotation before starting the new one. The timer is unref'd, meaning it does not prevent the Node.js process from exiting cleanly during shutdown. Placeholders in activity names are re-resolved on every tick, so values like `{{totalServers}}` stay current.
+
+You can also configure rotation at boot time by setting *rotateInterval* in your presence config and providing more than one activity. Define the config in the `config/` folder and pass it to *initPresence* in `main.ts`. The framework starts the rotation automatically after the client connects, without any listener code.
+
+<CodeTabs>
+  <Tab label="config/presence.config.ts">
+```typescript filename="config/presence.config.ts"
+import type { PresenceOptions } from '@spraxium/core';
+
+export const presenceConfig: PresenceOptions = {
+  status: 'online',
+  activities: [
+    { name: '{{totalServers}} servers', type: 'Watching' },
+    { name: '/help', type: 'Playing' },
+    { name: '{{ping}}ms latency', type: 'Competing' },
+  ],
+  rotateInterval: 20_000,
+};
+```
+  </Tab>
+  <Tab label="src/main.ts">
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { presenceConfig } from '../config/presence.config';
+import { AppModule } from './app.module';
+
+async function main() {
+  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  app.useModule(AppModule);
+  app.initPresence(presenceConfig);
+  await app.listen();
+}
+
+main();
+```
+  </Tab>
+</CodeTabs>
+
+## Stopping rotation
+
+The *stopRotation* method clears the interval timer. The last active activity remains visible until you set a new one or call *reset*. This is useful for temporarily freezing the presence during a maintenance window or when the bot enters a special state.
+
+```typescript filename="src/commands/freeze.command.ts"
+import { PresenceManager } from '@spraxium/core';
+
+PresenceManager.stopRotation();
+PresenceManager.setActivity({ name: 'maintenance in progress', type: 'Playing' });
+```
+
+## Per-shard presence at boot
+
+When your bot runs multiple shards, each shard process resolves built-in placeholders independently. A single `{{totalServers}}` placeholder shows different numbers on different shards because each shard only knows about its own guilds. This happens automatically without any special configuration.
+
+For deeper customization, the *PresenceOptions* object supports a *perShard* record. Each key is a shard ID, and the value overrides the global presence for that specific shard. Overrides merge with the global config, so you only need to specify the fields you want to change.
+
+<CodeTabs>
+  <Tab label="config/presence.config.ts">
+```typescript filename="config/presence.config.ts"
+import type { PresenceOptions } from '@spraxium/core';
+
+export const presenceConfig: PresenceOptions = {
+  status: 'online',
+  activities: [
+    { name: 'Shard {{shardNumber}}/{{totalShards}}', type: 'Playing' },
+  ],
+  perShard: {
+    0: {
+      status: 'dnd',
+      activities: [{ name: 'Primary shard · {{totalServers}} guilds', type: 'Watching' }],
+    },
+  },
+};
+```
+  </Tab>
+  <Tab label="src/main.ts">
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { presenceConfig } from '../config/presence.config';
+import { AppModule } from './app.module';
+
+async function main() {
+  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  app.useModule(AppModule);
+  app.initPresence(presenceConfig);
+  await app.listen();
+}
+
+main();
+```
+  </Tab>
+</CodeTabs>
+
+## Runtime shard overrides
+
+The static methods *setShardPresence*, *setShardActivity*, *clearShardPresence*, and *clearShardActivity* let you change per-shard presence at runtime. These overrides take priority over the global presence for the matching shard on every subsequent *applyPresence* call.
+
+*setShardPresence* accepts a shard ID and a partial presence object with optional *status* and *activities*. It merges with any existing override for that shard. *setShardActivity* is a shortcut that only changes the activity for a shard, optionally injecting custom placeholder variables.
+
+```typescript filename="src/services/shard-status.service.ts"
+import { Injectable } from '@spraxium/core';
+import { PresenceManager } from '@spraxium/core';
+
+@Injectable()
+export class ShardStatusService {
+  updateShardActivity(shardId: number, version: string) {
+    PresenceManager.setShardActivity(shardId, {
+      name: 'v{{version}} · {{totalServers}} guilds on shard {{shardNumber}}',
+      type: 'Playing',
+    }, { version });
+  }
+
+  resetShard(shardId: number) {
+    PresenceManager.clearShardPresence(shardId);
+  }
+}
+```
+
+The third argument of *setShardActivity* is a record of custom placeholder variables. These are merged on top of the built-in ones, so `{{version}}` in the example above resolves to whatever string you pass. Built-in placeholders like `{{totalServers}}` and `{{shardNumber}}` are always available and do not need to be passed manually.
+
+## API reference
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Method</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*setActivity(activity)*</TableCell>
+      <TableCell>Replaces the current activity without touching the status.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*setStatus(status)*</TableCell>
+      <TableCell>Updates only the status indicator (online, idle, dnd, invisible).</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*setPresence(options)*</TableCell>
+      <TableCell>Sets status and activities in one call.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*startRotation(activities, intervalMs)*</TableCell>
+      <TableCell>Starts automatic activity cycling. Stops any existing rotation.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*stopRotation()*</TableCell>
+      <TableCell>Clears the rotation interval. The last activity is kept.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*reset()*</TableCell>
+      <TableCell>Restores the boot-time presence. Does not clear shard overrides.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*setShardPresence(shardId, options)*</TableCell>
+      <TableCell>Overrides presence for a specific shard at runtime.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*setShardActivity(shardId, activity, customProps?)*</TableCell>
+      <TableCell>Sets the activity for a shard with optional custom placeholders.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*clearShardPresence(shardId)*</TableCell>
+      <TableCell>Removes all overrides for a shard, falling back to global.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*clearShardActivity(shardId)*</TableCell>
+      <TableCell>Removes only the activity override, keeping any status override.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
