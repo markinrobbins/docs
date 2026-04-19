@@ -1,0 +1,114 @@
+---
+title: Schedule Overview
+description: |
+  The schedule module runs background jobs using cron expressions, intervals, and timeouts.
+  Learn the job types, runtime lifecycle, and how the scheduler integrates with the framework.
+order: 1
+category: Schedule
+---
+
+## What the schedule module solves
+
+Most Discord bots need to run tasks on a timer. Clearing expired warnings, syncing member counts, posting daily summaries, and rotating status messages are all operations that happen independently of user input. The schedule module provides a decorator-driven API for defining these background jobs so you can declare timing logic alongside your service methods instead of managing raw timers.
+
+The module supports four job types that cover different timing patterns. Cron jobs run on calendar-based schedules using standard cron expressions. Intervals repeat at fixed millisecond offsets. Timeouts fire once after a delay. After-online jobs fire once after the bot has fully connected to Discord. Together, these four types handle every common scheduling scenario.
+
+The schedule module is a separate package (`@spraxium/schedule`) that plugs into the framework through the standard module system. It scans your providers for decorated methods at boot time, registers them in a central registry, and manages their lifecycle automatically. You do not need to manually start or stop timers.
+
+## Job types at a glance
+
+Each job type maps to a decorator that you place on a method inside an injectable service. The decorator tells the scheduler when and how to run that method. All four decorators accept an options object for naming, disabling, and controlling startup behavior.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Trigger</TableCell>
+      <TableCell header>Repeats</TableCell>
+      <TableCell header>Use case</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*@Cron*</TableCell>
+      <TableCell>Cron expression</TableCell>
+      <TableCell>Yes</TableCell>
+      <TableCell>Calendar-based recurring tasks</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@Interval*</TableCell>
+      <TableCell>Fixed milliseconds</TableCell>
+      <TableCell>Yes</TableCell>
+      <TableCell>Polling, heartbeats, periodic syncs</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@Timeout*</TableCell>
+      <TableCell>Delay in milliseconds</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>One-time delayed initialization</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@AfterOnline*</TableCell>
+      <TableCell>Delay after bot ready</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Post-connection setup tasks</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Runtime lifecycle
+
+The schedule module operates in two phases that align with the framework boot sequence. Understanding these phases helps you predict when each job type starts executing and why *@AfterOnline* exists as a separate decorator instead of being a cron variant.
+
+<Steps>
+  <Step title="Boot phase">
+    At application startup, the framework scans all providers and registers every method decorated with *@Cron*, *@Interval*, or *@Timeout*. Jobs with *runOnInit* enabled execute immediately during this phase. Interval and timeout timers begin counting from this moment.
+  </Step>
+  <Step title="Ready phase">
+    After the Discord client emits its *ready* event, the framework registers all *@AfterOnline* jobs and starts their delay timers. The separation exists because some tasks need an active Discord connection, like fetching guild data or sending welcome messages. Running these during boot would fail because the client is not connected yet.
+  </Step>
+  <Step title="Runtime management">
+    Once all jobs are registered, the *ScheduleService* provides a public API for pausing, resuming, destroying, and manually triggering jobs by name. You can inject *ScheduleService* into any provider to control jobs programmatically from slash commands, prefix commands, or HTTP endpoints.
+  </Step>
+</Steps>
+
+## Minimum setup
+
+To use the schedule module, install the `@spraxium/schedule` package, create a configuration file using *defineSchedule*, and register *ScheduleModule* in your application. The module is global by default, so you only need to register it once. Any provider in any module can then use the schedule decorators.
+
+```typescript filename="config/schedule.config.ts"
+import { defineSchedule } from '@spraxium/schedule';
+
+export default defineSchedule({
+  timezone: 'America/Sao_Paulo',
+});
+```
+
+<Callout type="info">
+  The schedule module uses the *MemoryDriver* by default, which stores job state in memory. For distributed bots running multiple shards or processes, switch to the *RedisScheduleDriver* to prevent duplicate executions.
+</Callout>
+
+## Project structure
+
+A typical bot with scheduled tasks organizes them as service providers inside feature modules. Each service groups related jobs, and the configuration file lives in the project config directory alongside prefix and other plugin configs.
+
+<FolderStructure>
+  <Folder name="config" open>
+    <File name="schedule.config.ts" />
+  </Folder>
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="tasks" open>
+        <File name="tasks.module.ts" />
+        <Folder name="services" open>
+          <File name="cleanup.service.ts" />
+          <File name="sync.service.ts" />
+        </Folder>
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+## Next page
+
+Continue with [Decorators and Jobs](/guide/schedule-decorators-jobs).

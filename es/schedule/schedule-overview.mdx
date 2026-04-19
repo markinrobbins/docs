@@ -1,0 +1,105 @@
+---
+title: "Visi\u00f3n General del Schedule"
+description: |
+  Introduce el m\u00f3dulo de schedule de Spraxium para ejecutar jobs temporizados con decorators.
+  Cubre los cuatro tipos de jobs, el ciclo de vida del runtime y la estructura del m\u00f3dulo.
+order: 1
+category: Schedule
+---
+
+## Qu\u00e9 es el m\u00f3dulo schedule
+
+El m\u00f3dulo *schedule* proporciona un sistema basado en decorators para ejecutar jobs temporizados en tu bot. En lugar de configurar temporizadores manuales con *setInterval* o bibliotecas cron externas, declaras el comportamiento de scheduling directamente en tus m\u00e9todos usando *@Cron*, *@Interval*, *@Timeout* y *@AfterOnline*. El framework se encarga de la creaci\u00f3n de timers, gesti\u00f3n del ciclo de vida y limpieza.
+
+El m\u00f3dulo se instala como un paquete separado *@spraxium/schedule* y se registra como un m\u00f3dulo de Spraxium. Soporta zonas horarias, drivers de bloqueo distribuido para despliegues multi-instancia y control de jobs en runtime. El API es intencional y peque\u00f1o, cubre los cuatro patrones de scheduling que los bots de Discord realmente necesitan.
+
+Cada tipo de job cumple un rol diferente en el ciclo de vida del bot. Los jobs cron ejecutan tareas repetitivas en horarios predecibles, los jobs de intervalo producen operaciones de alta frecuencia, los timeouts disparan l\u00f3gica diferida una \u00fanica vez, y los planificadores post-online esperan a que el bot est\u00e9 listo en Discord antes de ejecutarse. La tabla siguiente resume los cuatro tipos.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Tipo de job</TableCell>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Comportamiento</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Cron</TableCell>
+      <TableCell>*@Cron*</TableCell>
+      <TableCell>Se ejecuta seg\u00fan una expresi\u00f3n cron (ej. cada d\u00eda a medianoche)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Intervalo</TableCell>
+      <TableCell>*@Interval*</TableCell>
+      <TableCell>Se ejecuta cada N milisegundos continuamente</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Timeout</TableCell>
+      <TableCell>*@Timeout*</TableCell>
+      <TableCell>Se ejecuta una vez despu\u00e9s de N milisegundos desde el inicio</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Post-online</TableCell>
+      <TableCell>*@AfterOnline*</TableCell>
+      <TableCell>Se ejecuta una vez N milisegundos despu\u00e9s de que el bot est\u00e9 listo en Discord</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Ciclo de vida del runtime
+
+El sistema de schedule se inicializa en tres fases durante el inicio del bot. Comprender estas fases te ayuda a razonar sobre cu\u00e1ndo tus jobs comienzan a ejecutarse y por qu\u00e9 ciertos decorators esperan al evento ready de Discord. Las fases est\u00e1n dise\u00f1adas para asegurar que los jobs nunca se ejecuten antes de que sus dependencias est\u00e9n disponibles.
+
+<Steps>
+  <Step title="Fase de escaneo">
+    El framework recorre todas las clases del módulo y descubre los métodos decorados con *@Cron*, *@Interval*, *@Timeout* y *@AfterOnline*. Por cada método encontrado, registra el nombre, tipo, expresión de schedule y opciones configuradas. Este registro ocurre una única vez durante el arranque del bot.
+  </Step>
+  <Step title="Fase de inicio">
+    Durante el arranque, el framework programa los jobs *@Cron*, *@Interval* y *@Timeout* con su temporización correspondiente. Si *runOnInit* está habilitado en algún job, se ejecuta inmediatamente en esta fase. Los intervalos y timeouts empiezan a contar desde este momento.
+  </Step>
+  <Step title="Fase de ready">
+    Después de que el bot emite el evento *ready* de Discord, el framework programa los jobs *@AfterOnline*. Estos jobs esperan el delay especificado en milisegundos después de que el bot esté online antes de ejecutar su lógica. Esto es útil para tareas que necesitan del cliente de Discord completamente conectado, como obtener recuentos de servidores o sincronizar datos de canales.
+  </Step>
+</Steps>
+
+## Configuraci\u00f3n b\u00e1sica
+
+La configuraci\u00f3n m\u00ednima requiere registrar el m\u00f3dulo schedule en tu configuraci\u00f3n de Spraxium. Todos los campos de configuraci\u00f3n son opcionales e incluyen valores predeterminados. El driver predeterminado es *MemoryDriver*, que funciona para despliegues de instancia \u00fanica sin configuraci\u00f3n adicional.
+
+```typescript filename="config/schedule.config.ts"
+import { defineSchedule } from '@spraxium/schedule';
+
+export default defineSchedule();
+```
+
+<Callout type="info">
+  El m\u00f3dulo de schedule usa el *MemoryDriver* por defecto, que almacena el estado de los jobs en memoria. Para bots distribuidos con m\u00faltiples shards o procesos, cambia al *RedisScheduleDriver* para prevenir ejecuciones duplicadas.
+</Callout>
+
+## Estructura del m\u00f3dulo
+
+Los jobs de schedule se declaran como m\u00e9todos dentro de clases de servicio regulares en tu estructura de m\u00f3dulos. No necesitas una estructura de carpetas especial, los m\u00e9todos de job pueden coexistir junto con otra l\u00f3gica de servicio. Sin embargo, agrupar jobs relacionados en archivos de servicio dedicados mantiene el c\u00f3digo organizado a medida que crece el n\u00famero de tareas planificadas.
+
+<FolderStructure>
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="analytics" open>
+        <Folder name="services" open>
+          <File name="analytics-jobs.service.ts" />
+          <File name="analytics.service.ts" />
+        </Folder>
+      </Folder>
+      <Folder name="moderation" open>
+        <Folder name="services" open>
+          <File name="cleanup-jobs.service.ts" />
+          <File name="moderation.service.ts" />
+        </Folder>
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+## Siguiente página
+
+Continúa con [Decorators y Jobs](/guide/schedule-decorators-jobs).

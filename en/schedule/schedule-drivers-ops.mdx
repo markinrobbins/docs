@@ -1,0 +1,166 @@
+---
+title: Drivers and Operations
+description: |
+  The schedule module supports pluggable drivers for single-process and distributed environments.
+  Learn how to use the MemoryDriver, RedisScheduleDriver, and the ScheduleService runtime API.
+order: 3
+category: Schedule
+---
+
+## Why drivers matter
+
+In a single-process bot, every scheduled job runs exactly once because there is only one instance of the scheduler. When you scale to multiple shards or processes, the same cron job might fire simultaneously in every instance, causing duplicate executions. The driver system solves this by introducing a locking mechanism that ensures only one instance acquires the right to execute a given job at each trigger.
+
+Drivers are pluggable. You configure the driver once in your schedule config and the framework handles the rest transparently. Your job methods do not need to know which driver is active. This means you can develop locally with the *MemoryDriver* and switch to the *RedisScheduleDriver* in production without changing any service code.
+
+The locking model is optimistic. When a job triggers, the driver attempts to acquire a lock using the job name as the key. If the lock is acquired, the job runs. If another process already holds the lock, the job is silently skipped on that instance. The lock has a configurable TTL that auto-releases after the expected execution window.
+
+## Available drivers
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Driver</TableCell>
+      <TableCell header>Package</TableCell>
+      <TableCell header>Lock mechanism</TableCell>
+      <TableCell header>Best for</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*MemoryDriver*</TableCell>
+      <TableCell>`@spraxium/schedule`</TableCell>
+      <TableCell>Always acquires (no-op)</TableCell>
+      <TableCell>Single-process bots, local development</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*RedisScheduleDriver*</TableCell>
+      <TableCell>`@spraxium/schedule`</TableCell>
+      <TableCell>Redis `SET NX` + Lua release</TableCell>
+      <TableCell>Multi-shard, multi-process production</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Configuring drivers
+
+The default *MemoryDriver* requires no configuration. It always acquires the lock, so every job runs every time it triggers. This is the correct behavior for single-process bots.
+
+For distributed environments, switch to the *RedisScheduleDriver* by passing Redis connection options and an optional lock TTL. The driver uses `SET key NX EX ttl` to acquire locks atomically and a Lua script to release them safely without race conditions.
+
+<CodeTabs>
+  <Tab label="Memory (default)" language="typescript">
+```typescript filename="config/schedule.config.ts"
+import { defineSchedule } from '@spraxium/schedule';
+
+export default defineSchedule({
+  timezone: 'UTC',
+});
+```
+  </Tab>
+  <Tab label="Redis" language="typescript">
+```typescript filename="config/schedule.config.ts"
+import { defineSchedule, RedisScheduleDriver } from '@spraxium/schedule';
+
+export default defineSchedule({
+  timezone: 'UTC',
+  defaultLockTtlMs: 30_000,
+  driver: new RedisScheduleDriver({
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: Number(process.env.REDIS_PORT ?? 6379),
+  }),
+});
+```
+  </Tab>
+</CodeTabs>
+
+## ScheduleService API
+
+The *ScheduleService* is an injectable provider that gives you full runtime control over registered jobs. Inject it into any service, command handler, or controller to pause, resume, destroy, or manually trigger jobs by name. The service is exported from the global *ScheduleModule*, so it is available in every module without explicit imports.
+
+Every method takes the job *name* as defined in the decorator options. If you did not set an explicit name, the framework uses a generated name based on the class and method. Explicit names are strongly recommended for any job you plan to manage at runtime.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Method</TableCell>
+      <TableCell header>Return</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*pause(name)*</TableCell>
+      <TableCell>`void`</TableCell>
+      <TableCell>Stops a running job so it can be resumed later</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*resume(name)*</TableCell>
+      <TableCell>`void`</TableCell>
+      <TableCell>Resumes a previously paused job</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*destroy(name)*</TableCell>
+      <TableCell>`void`</TableCell>
+      <TableCell>Permanently removes a job and its timer</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*get(name)*</TableCell>
+      <TableCell>*JobStatus* or `null`</TableCell>
+      <TableCell>Retrieves a registered job by name</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getAll()*</TableCell>
+      <TableCell>`JobStatus[]`</TableCell>
+      <TableCell>Lists all registered jobs with their state</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*runNow(name)*</TableCell>
+      <TableCell>`Promise<void>`</TableCell>
+      <TableCell>Immediately executes a job outside its normal schedule</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Using ScheduleService in a command
+
+A practical use case for the *ScheduleService* is building admin commands that let guild owners or bot administrators control background tasks without restarting the bot. The example below shows a prefix command handler that pauses or resumes a job by name. The same pattern works with slash commands or dashboard endpoints.
+
+```typescript filename="src/modules/admin/handlers/schedule-admin.handler.ts"
+import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
+import { ScheduleService } from '@spraxium/schedule';
+import type { Message } from 'discord.js';
+import { ScheduleAdminCommand } from '../commands/schedule-admin.command';
+
+@PrefixCommandHandler(ScheduleAdminCommand)
+export class ScheduleAdminHandler {
+  constructor(private readonly scheduleService: ScheduleService) {}
+
+  async handle(
+    @Ctx() message: Message,
+    @PrefixArg('action') action: string,
+    @PrefixArg('jobName') jobName: string,
+  ): Promise<void> {
+    const job = this.scheduleService.get(jobName);
+    if (!job) {
+      await message.reply(`Job \`${jobName}\` not found.`);
+      return;
+    }
+
+    if (action === 'pause') {
+      this.scheduleService.pause(jobName);
+      await message.reply(`Job \`${jobName}\` paused.`);
+    } else if (action === 'resume') {
+      this.scheduleService.resume(jobName);
+      await message.reply(`Job \`${jobName}\` resumed.`);
+    } else if (action === 'run') {
+      await this.scheduleService.runNow(jobName);
+      await message.reply(`Job \`${jobName}\` triggered manually.`);
+    }
+  }
+}
+```
+
+## Next page
+
+Continue with [Configuration and Patterns](/guide/schedule-config-pattern).

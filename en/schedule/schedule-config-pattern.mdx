@@ -1,0 +1,180 @@
+---
+title: Configuration and Patterns
+description: |
+  The schedule config uses the split-config pattern with defineSchedule for type-safe setup.
+  Learn the full ScheduleConfig reference, best practices, and common job patterns.
+order: 4
+category: Schedule
+---
+
+## Split config pattern
+
+Like other Spraxium plugins, the schedule module uses the split-config pattern where configuration lives in a dedicated file inside the `config/` directory. The *defineSchedule* helper provides full type safety and auto-completion for all config fields. Your main `spraxium.config.ts` references the config file, keeping the root config clean and each plugin configuration isolated.
+
+This pattern scales well as your bot grows. Each plugin has its own config file with its own type definitions, and the root config simply imports and composes them. You never end up with a monolithic config object that mixes prefix settings, schedule settings, and HTTP settings in one place.
+
+The framework automatically discovers and loads the schedule config during bootstrap. You do not need to call any registration function manually. Just export the config from the file and reference it in the imports array of your root config.
+
+<CodeTabs>
+  <Tab label="Schedule config" language="typescript">
+```typescript filename="config/schedule.config.ts"
+import { defineSchedule } from '@spraxium/schedule';
+
+export default defineSchedule({
+  timezone: 'America/Sao_Paulo',
+  defaultLockTtlMs: 30_000,
+  disableAll: false,
+});
+```
+  </Tab>
+  <Tab label="Root config" language="typescript">
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import schedule from './config/schedule.config';
+
+export default defineConfig({
+  plugins: [schedule],
+});
+```
+  </Tab>
+</CodeTabs>
+
+## ScheduleConfig reference
+
+The *ScheduleConfig* interface controls global behavior for all scheduled jobs. Most fields are optional with sensible defaults that work for single-process bots.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Field</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Default</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*driver*</TableCell>
+      <TableCell>`ScheduleDriver`</TableCell>
+      <TableCell>*MemoryDriver*</TableCell>
+      <TableCell>Lock driver for distributed execution</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*timezone*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>System default</TableCell>
+      <TableCell>IANA timezone for cron jobs</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*defaultLockTtlMs*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>`30000`</TableCell>
+      <TableCell>Default lock TTL in milliseconds for the driver</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*disableAll*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>`false`</TableCell>
+      <TableCell>Disable all jobs globally (useful for maintenance)</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Project organization
+
+Schedule services are regular injectable providers that you register in any module. A common pattern is creating a dedicated tasks module that groups all background jobs, but you can also place schedule-decorated methods in domain-specific services. The choice depends on whether your jobs are cross-cutting (like cleanup and sync) or tightly coupled to a specific feature.
+
+For cross-cutting tasks, a centralized tasks module keeps things organized. For feature-specific tasks, placing the schedule decorator on a method in the feature service avoids unnecessary indirection. Both approaches are valid and the framework treats them identically.
+
+<FolderStructure>
+  <Folder name="config" open>
+    <File name="schedule.config.ts" />
+  </Folder>
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="tasks" open>
+        <File name="tasks.module.ts" />
+        <Folder name="services" open>
+          <File name="cleanup.service.ts" />
+          <File name="sync.service.ts" />
+          <File name="status.service.ts" />
+        </Folder>
+      </Folder>
+      <Folder name="moderation" open>
+        <File name="moderation.module.ts" />
+        <Folder name="services" open>
+          <File name="warning-expiry.service.ts" />
+        </Folder>
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+## Common patterns
+
+### Combining multiple job types in one service
+
+A single service can have methods decorated with different job types. This is useful when related tasks have different timing requirements but share the same dependencies. The scheduler treats each decorated method as an independent job with its own name and lifecycle.
+
+```typescript filename="src/modules/tasks/services/maintenance.service.ts"
+import { Injectable } from '@spraxium/common';
+import { Cron, CronExpression, Interval, IntervalExpression, AfterOnline } from '@spraxium/schedule';
+
+@Injectable()
+export class MaintenanceService {
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, { name: 'daily-cleanup' })
+  async dailyCleanup(): Promise<void> {
+    // Archive old logs, clear temp data
+  }
+
+  @Interval(IntervalExpression.EVERY_10_MINUTES, { name: 'health-ping' })
+  async healthPing(): Promise<void> {
+    // Report bot health to monitoring service
+  }
+
+  @AfterOnline(10_000, { name: 'restore-presences' })
+  async restorePresences(): Promise<void> {
+    // Restore bot status from database after reconnection
+  }
+}
+```
+
+### Conditional job execution with feature flags
+
+Sometimes you want to define a job but only enable it based on environment variables or runtime conditions. The *disabled* option in decorator options lets you control this at registration time. For runtime control, use the *ScheduleService.pause* and *ScheduleService.resume* methods instead.
+
+```typescript filename="src/modules/tasks/services/analytics.service.ts"
+import { Injectable } from '@spraxium/common';
+import { Cron, CronExpression } from '@spraxium/schedule';
+
+@Injectable()
+export class AnalyticsService {
+  @Cron(CronExpression.EVERY_HOUR, {
+    name: 'hourly-analytics',
+    disabled: process.env.ENABLE_ANALYTICS !== 'true',
+  })
+  async collectAnalytics(): Promise<void> {
+    // Collect and aggregate usage analytics
+  }
+}
+```
+
+### Module registration
+
+Register your task services as providers in a module. The *ScheduleModule* is global and does not need to be imported into your feature module. Just add your services to the providers array and the scheduler will discover their decorated methods automatically.
+
+```typescript filename="src/modules/tasks/tasks.module.ts"
+import { Module } from '@spraxium/common';
+import { CleanupService } from './services/cleanup.service';
+import { SyncService } from './services/sync.service';
+import { MaintenanceService } from './services/maintenance.service';
+
+@Module({
+  providers: [CleanupService, SyncService, MaintenanceService],
+})
+export class TasksModule {}
+```
+
+## Next study
+
+Continue with [HTTP Package Overview](/guide/http-overview).

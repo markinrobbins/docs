@@ -1,0 +1,165 @@
+---
+title: Decorators and Jobs
+description: |
+  Four decorators define schedule jobs with cron expressions, intervals, timeouts, and post-connection delays.
+  Learn each decorator's options, enum helpers, and how to combine multiple jobs in one service.
+order: 2
+category: Schedule
+---
+
+## @Cron and @Interval
+
+The two repeating job types handle the vast majority of scheduling needs. *@Cron* runs on calendar-based schedules using standard 5-field or 6-field cron expressions. *@Interval* repeats at a fixed millisecond offset from the previous execution. Both decorators accept an options object for naming, disabling, and controlling whether the job runs immediately on startup.
+
+The *name* option is important because it is the key you use to pause, resume, or destroy the job at runtime through the *ScheduleService*. If you omit the name, the framework generates one automatically from the class and method name, but explicit names are easier to reference in admin commands and dashboards. The *disabled* option lets you define a job in code but prevent it from starting, which is useful for feature flags.
+
+The *@Cron* decorator also accepts a *timezone* option that overrides the global timezone from the schedule config. This is useful when a single bot serves communities in different time zones and you need a daily summary to go out at 9 AM local time in each region.
+
+<CodeTabs>
+  <Tab label="Cron job" language="typescript">
+```typescript filename="src/modules/tasks/services/cleanup.service.ts"
+import { Injectable } from '@spraxium/common';
+import { Cron, CronExpression } from '@spraxium/schedule';
+
+@Injectable()
+export class CleanupService {
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+    name: 'cleanup-expired-warnings',
+    timezone: 'UTC',
+  })
+  async cleanExpiredWarnings(): Promise<void> {
+    // Remove warnings older than 30 days
+  }
+}
+```
+  </Tab>
+  <Tab label="Interval job" language="typescript">
+```typescript filename="src/modules/tasks/services/sync.service.ts"
+import { Injectable } from '@spraxium/common';
+import { Interval, IntervalExpression } from '@spraxium/schedule';
+
+@Injectable()
+export class SyncService {
+  @Interval(IntervalExpression.EVERY_5_MINUTES, {
+    name: 'sync-member-count',
+  })
+  async syncMemberCount(): Promise<void> {
+    // Update cached member counts from the API
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## @Timeout and @AfterOnline
+
+The two one-shot job types handle deferred initialization patterns. *@Timeout* fires once after a fixed delay from application boot. *@AfterOnline* fires once after the Discord client emits its *ready* event plus an optional additional delay. Neither job repeats, they execute exactly once and then the framework removes them from the registry.
+
+The key difference between *@Timeout* and *@AfterOnline* is the starting point of the delay. A timeout starts counting from the moment the application boots, which means the Discord client might not be connected yet. An after-online job starts counting from the *ready* event, guaranteeing that the client, guilds, and channels are available when the method runs. Use *@AfterOnline* whenever your job needs to call Discord API methods.
+
+Both decorators accept the same *name* and *disabled* options. The *@Timeout* decorator does not support *runOnInit* because it is inherently a one-shot timer that always runs once. The delay value is in milliseconds for both decorators.
+
+<CodeTabs>
+  <Tab label="Timeout" language="typescript">
+```typescript filename="src/modules/tasks/services/init.service.ts"
+import { Injectable } from '@spraxium/common';
+import { Timeout, TimeoutExpression } from '@spraxium/schedule';
+
+@Injectable()
+export class InitService {
+  @Timeout(TimeoutExpression.AFTER_30_SECONDS, {
+    name: 'deferred-cache-warmup',
+  })
+  async warmCache(): Promise<void> {
+    // Populate caches 30 seconds after boot
+  }
+}
+```
+  </Tab>
+  <Tab label="After online" language="typescript">
+```typescript filename="src/modules/tasks/services/welcome.service.ts"
+import { Injectable } from '@spraxium/common';
+import { AfterOnline } from '@spraxium/schedule';
+
+@Injectable()
+export class WelcomeService {
+  @AfterOnline(5000, {
+    name: 'post-online-announcement',
+  })
+  async announceOnline(): Promise<void> {
+    // Send "bot is online" message 5 seconds after ready
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Decorator options reference
+
+All four decorators share a common base options interface with additional fields for specific job types. The table below lists every available option and which decorators support it.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Option</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Decorators</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*name*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>All</TableCell>
+      <TableCell>Unique identifier for runtime management</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*disabled*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>All</TableCell>
+      <TableCell>Skip registration (useful for feature flags)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*runOnInit*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>*@Cron*, *@Interval*</TableCell>
+      <TableCell>Execute immediately during boot phase</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*timezone*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>*@Cron*</TableCell>
+      <TableCell>Override global timezone for this job</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Enum helpers
+
+The schedule module provides three enum-like objects with named constants for common timing values. Using these constants makes your code more readable than raw numbers and cron strings. Each helper covers the most frequent values you would use in a Discord bot context.
+
+*CronExpression* provides over 45 presets like `EVERY_DAY_AT_MIDNIGHT`, `EVERY_HOUR`, `EVERY_MONDAY_AT_MIDNIGHT`, and `EVERY_5_MINUTES`. *IntervalExpression* provides over 25 presets in milliseconds like `EVERY_MINUTE`, `EVERY_5_MINUTES`, and `EVERY_HOUR`. *TimeoutExpression* provides over 20 presets like `AFTER_10_SECONDS`, `AFTER_5_MINUTES`, and `AFTER_1_HOUR`.
+
+You can always pass raw values instead of enum constants. The enum helpers are just convenience re-exports that improve readability and prevent typos in cron expressions.
+
+```typescript filename="src/modules/tasks/services/example.service.ts"
+import { Injectable } from '@spraxium/common';
+import { Cron, CronExpression, Interval, IntervalExpression } from '@spraxium/schedule';
+
+@Injectable()
+export class ExampleService {
+  @Cron(CronExpression.EVERY_WEEKDAY)
+  async weekdayReport(): Promise<void> {}
+
+  @Cron('0 */6 * * *')
+  async customCron(): Promise<void> {}
+
+  @Interval(IntervalExpression.EVERY_30_SECONDS)
+  async frequentPoll(): Promise<void> {}
+}
+```
+
+## Next page
+
+Continue with [Drivers and Operations](/guide/schedule-drivers-ops).

@@ -1,0 +1,185 @@
+---
+title: "Configuraci\u00f3n y Patrones"
+description: |
+  Aprende c\u00f3mo configurar el m\u00f3dulo schedule con ScheduleConfig y combinar tipos de jobs.
+  Cubre configuraci\u00f3n dividida, flags de features, patrones combinados y registro del m\u00f3dulo.
+order: 4
+category: Schedule
+---
+
+## ScheduleConfig
+
+El objeto *ScheduleConfig* controla el comportamiento global del m\u00f3dulo de schedule. Se pasa a la f\u00e1brica *defineSchedule* cuando registras el m\u00f3dulo en tu configuraci\u00f3n de Spraxium. Todos los campos son opcionales con valores predeterminados razonables, as\u00ed que la configuraci\u00f3n m\u00ednima es una llamada sin argumentos.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Predeterminado</TableCell>
+      <TableCell header>Prop\u00f3sito</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*driver*</TableCell>
+      <TableCell>`ScheduleDriver`</TableCell>
+      <TableCell>`MemoryDriver`</TableCell>
+      <TableCell>Driver de bloqueo para prevenir ejecuciones duplicadas</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*timezone*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>UTC</TableCell>
+      <TableCell>Zona horaria IANA predeterminada para todos los jobs cron</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*defaultLockTtlMs*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>`30000`</TableCell>
+      <TableCell>Tiempo de expiraci\u00f3n del bloqueo en milisegundos</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*disableAll*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>`false`</TableCell>
+      <TableCell>Desactiva todos los jobs globalmente durante pruebas o mantenimiento</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Configuraci\u00f3n dividida
+
+Para proyectos grandes, es \u00fatil extraer la configuraci\u00f3n del schedule a un archivo separado. Esto mantiene el archivo principal de configuraci\u00f3n limpio y te permite cambiar la configuraci\u00f3n del schedule seg\u00fan el entorno sin modificar la configuraci\u00f3n ra\u00edz. La separaci\u00f3n tambi\u00e9n facilita compartir la configuraci\u00f3n del schedule entre m\u00faltiples bots si es necesario.
+
+<CodeTabs>
+  <Tab label="Archivo de configuraci\u00f3n" language="typescript">
+```typescript filename="config/schedule.config.ts"
+import { defineSchedule, MemoryDriver, RedisScheduleDriver } from '@spraxium/schedule';
+
+const isProduction = process.env.NODE_ENV === 'production';
+
+export default defineSchedule({
+  driver: isProduction
+    ? new RedisScheduleDriver({
+        host: process.env.REDIS_HOST ?? 'localhost',
+        port: Number(process.env.REDIS_PORT ?? 6379),
+      })
+    : new MemoryDriver(),
+  timezone: 'America/Sao_Paulo',
+  defaultLockTtlMs: 30_000,
+  disableAll: process.env.DISABLE_JOBS === 'true',
+});
+```
+  </Tab>
+  <Tab label="Configuraci\u00f3n principal" language="typescript">
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import schedule from './config/schedule.config';
+
+export default defineConfig({
+  plugins: [
+    schedule,
+  ],
+});
+```
+  </Tab>
+</CodeTabs>
+
+## Estructura de carpetas
+
+Los archivos de configuraci\u00f3n de schedule siguen el mismo patr\u00f3n que otros archivos de configuraci\u00f3n del framework. El archivo de configuraci\u00f3n del schedule vive en la carpeta *config* junto con los dem\u00e1s archivos de configuraci\u00f3n. Los servicios de jobs viven dentro de sus respectivas carpetas de m\u00f3dulos.
+
+<FolderStructure>
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="analytics" open>
+        <Folder name="services" open>
+          <File name="analytics-jobs.service.ts" />
+        </Folder>
+      </Folder>
+    </Folder>
+  </Folder>
+  <Folder name="config" open>
+    <File name="schedule.config.ts" />
+  </Folder>
+</FolderStructure>
+
+## Patrones combinados de jobs
+
+Un \u00fanico servicio puede combinar m\u00faltiples tipos de jobs cuando estos est\u00e1n l\u00f3gicamente relacionados. Por ejemplo, un servicio de moderaci\u00f3n podr\u00eda tener un job cron para limpieza diaria, un job de intervalo para monitoreo de spam y un job post-online para cargar la configuraci\u00f3n de moderaci\u00f3n desde la base de datos. Agrupar jobs relacionados en un solo servicio mantiene la cohesi\u00f3n y facilita el testing.
+
+Los nombres de job deben ser \u00fanicos dentro de toda la aplicaci\u00f3n, no solo dentro del servicio. El framework lanza un error en tiempo de inicio si detecta nombres de job duplicados. Usa un prefijo espec\u00edfico del m\u00f3dulo en los nombres de tus jobs para evitar colisiones, como `moderation:cleanup` o `analytics:daily-report`.
+
+Cuando un servicio tiene m\u00faltiples jobs, puedes controlarlos independientemente a trav\u00e9s del *ScheduleService*. Pausar un job no afecta a los dem\u00e1s jobs en el mismo servicio. Esta granularidad te permite deshabilitar jobs espec\u00edficos en runtime sin afectar a otros jobs.
+
+```typescript filename="src/modules/moderation/services/moderation-jobs.service.ts"
+import { Injectable } from '@spraxium/common';
+import { AfterOnline, Cron, CronExpression, Interval, IntervalExpression } from '@spraxium/schedule';
+
+@Injectable()
+export class ModerationJobsService {
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    name: 'moderation:cleanup',
+    timezone: 'America/New_York',
+  })
+  async cleanupExpiredBans(): Promise<void> {
+    // Eliminar bans expirados de la base de datos
+  }
+
+  @Interval(IntervalExpression.EVERY_10_SECONDS, {
+    name: 'moderation:spam-check',
+  })
+  async checkSpamQueues(): Promise<void> {
+    // Procesar mensajes en cola para detecci\u00f3n de spam
+  }
+
+  @AfterOnline(5000, {
+    name: 'moderation:load-config',
+  })
+  async loadModerationConfig(): Promise<void> {
+    // Cargar configuraci\u00f3n de moderaci\u00f3n al estar online
+  }
+}
+```
+
+## Flags de features
+
+La opci\u00f3n *disabled* en los decorators de jobs y el campo *disableAll* en la configuraci\u00f3n proporcionan feature flags integrados para el sistema de schedule. Los feature flags te permiten deshabilitar jobs en entornos espec\u00edficos sin eliminar el c\u00f3digo, lo cual es \u00fatil durante pruebas, mantenimiento o despliegue gradual de nuevos jobs.
+
+Puedes vincular las opciones *disabled* a variables de entorno para controlar qu\u00e9 jobs se ejecutan en cada despliegue. Esto es especialmente \u00fatil cuando quieres deshabilitar jobs intensivos en recursos en entornos de staging o deshabilitar todos los jobs temporalmente durante una ventana de mantenimiento de base de datos.
+
+El campo *disableAll* en la configuraci\u00f3n act\u00faa como un interruptor maestro que impide que cualquier job sea planificado al inicio. Esto es diferente a pausar jobs individualmente con *ScheduleService.pause*, porque *disableAll* previene completamente que los jobs se creen en el registro.
+
+```typescript filename="src/modules/analytics/services/analytics-jobs.service.ts"
+import { Injectable } from '@spraxium/common';
+import { Cron, CronExpression } from '@spraxium/schedule';
+
+@Injectable()
+export class AnalyticsJobsService {
+  @Cron(CronExpression.EVERY_HOUR, {
+    name: 'analytics:hourly',
+    disabled: process.env.DISABLE_ANALYTICS === 'true',
+  })
+  async hourlyReport(): Promise<void> {
+    // Generar reporte por hora
+  }
+}
+```
+
+## Registro del m\u00f3dulo
+
+La configuraci\u00f3n final registra el m\u00f3dulo de schedule en el array de plugins del config ra\u00edz. El orden de los plugins no afecta a la ejecuci\u00f3n de jobs, los jobs siempre se planifican despu\u00e9s de que todos los m\u00f3dulos hayan completado su inicializaci\u00f3n. Esto garantiza que la inyecci\u00f3n de dependencias est\u00e9 completamente resuelta antes de que cualquier job se ejecute.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import schedule from './config/schedule.config';
+
+export default defineConfig({
+  plugins: [schedule],
+});
+```
+
+## Siguiente estudio
+
+Continúa con [Visión General del Paquete HTTP](/guide/http-overview).

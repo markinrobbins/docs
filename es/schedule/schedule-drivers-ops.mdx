@@ -1,0 +1,155 @@
+---
+title: Drivers y Operaciones
+description: |
+  Comprende los drivers de schedule para bloqueo distribuido y el API de ScheduleService.
+  Cubre MemoryDriver, RedisScheduleDriver y m\u00e9todos de control de jobs en runtime.
+order: 3
+category: Schedule
+---
+
+## Drivers de bloqueo
+
+Cuando ejecutas m\u00faltiples instancias de tu bot (por ejemplo, detr\u00e1s de un balanceador de carga o en shards separados), cada instancia intentar\u00e1 ejecutar cada job planificado. Sin un mecanismo de bloqueo, el mismo job se ejecutar\u00eda m\u00faltiples veces simult\u00e1neamente. Los drivers de schedule resuelven esto adquiriendo un bloqueo temporal antes de cada ejecuci\u00f3n de job, solo la instancia que adquiere el bloqueo ejecuta el job.
+
+El framework incluye dos drivers. El *MemoryDriver* es el predeterminado y simplemente adquiere siempre el bloqueo, lo que significa que no hay protecci\u00f3n contra ejecuciones duplicadas. Es adecuado para despliegues de instancia \u00fanica donde la ejecuci\u00f3n duplicada no es posible. El *RedisScheduleDriver* usa Redis SET NX con TTL para bloqueo distribuido y scripts Lua para liberaci\u00f3n at\u00f3mica.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Driver</TableCell>
+      <TableCell header>Caso de uso</TableCell>
+      <TableCell header>Requiere</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*MemoryDriver*</TableCell>
+      <TableCell>Instancia \u00fanica, desarrollo</TableCell>
+      <TableCell>Nada</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*RedisScheduleDriver*</TableCell>
+      <TableCell>Multi-instancia, producci\u00f3n</TableCell>
+      <TableCell>Conexi\u00f3n a Redis</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Configuraci\u00f3n de drivers
+
+El driver se configura en el archivo de configuraci\u00f3n del schedule. El *MemoryDriver* no necesita par\u00e1metros, funciona inmediatamente. El *RedisScheduleDriver* necesita las opciones de conexión a Redis que proporcionas desde tu capa de infraestructura. Ambos drivers implementan la misma interfaz, as\u00ed que cambiar de uno a otro solo requiere modificar una l\u00ednea de configuraci\u00f3n.
+
+<CodeTabs>
+  <Tab label="Memory (predeterminado)" language="typescript">
+```typescript filename="config/schedule.config.ts"
+import { defineSchedule } from '@spraxium/schedule';
+
+export default defineSchedule({
+  timezone: 'UTC',
+});
+```
+  </Tab>
+  <Tab label="Redis (producci\u00f3n)" language="typescript">
+```typescript filename="config/schedule.config.ts"
+import { defineSchedule, RedisScheduleDriver } from '@spraxium/schedule';
+
+export default defineSchedule({
+  timezone: 'UTC',
+  defaultLockTtlMs: 30_000,
+  driver: new RedisScheduleDriver({
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: Number(process.env.REDIS_PORT ?? 6379),
+  }),
+});
+```
+  </Tab>
+</CodeTabs>
+
+## API de ScheduleService
+
+El *ScheduleService* es la fachada p\u00fablica para el control de jobs en runtime. Puedes inyectarlo en cualquier servicio o handler para pausar, reanudar, destruir o ejecutar manualmente jobs planificados. Todos los m\u00e9todos usan el nombre del job como identificador, que corresponde al campo *name* en las opciones del decorator o al nombre del m\u00e9todo si no se especific\u00f3 un nombre.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>M\u00e9todo</TableCell>
+      <TableCell header>Retorna</TableCell>
+      <TableCell header>Descripci\u00f3n</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*pause(name)*</TableCell>
+      <TableCell>`void`</TableCell>
+      <TableCell>Detiene un job en ejecución para que pueda ser reanudado después</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*resume(name)*</TableCell>
+      <TableCell>`void`</TableCell>
+      <TableCell>Reanuda un job previamente pausado</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*destroy(name)*</TableCell>
+      <TableCell>`void`</TableCell>
+      <TableCell>Detiene y elimina permanentemente el job del registro</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*get(name)*</TableCell>
+      <TableCell>*JobStatus* o `null`</TableCell>
+      <TableCell>Retorna la definici\u00f3n y estado del job</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getAll()*</TableCell>
+      <TableCell>`JobStatus[]`</TableCell>
+      <TableCell>Retorna todos los jobs registrados</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*runNow(name)*</TableCell>
+      <TableCell>`Promise<void>`</TableCell>
+      <TableCell>Ejecuta el job inmediatamente, ignorando su schedule</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Comando de administraci\u00f3n de ejemplo
+
+Un caso de uso com\u00fan es exponer el control de jobs a trav\u00e9s de un prefix command o slash command para que los administradores del bot puedan gestionar jobs planificados sin reiniciar el bot. El siguiente ejemplo muestra un handler de prefix command que pausa, reanuda o dispara un job por nombre.
+
+```typescript filename="src/modules/admin/handlers/schedule-admin.handler.ts"
+import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
+import { ScheduleService } from '@spraxium/schedule';
+import type { Message } from 'discord.js';
+import { ScheduleAdminCommand } from '../commands/schedule-admin.command';
+
+@PrefixCommandHandler(ScheduleAdminCommand)
+export class ScheduleAdminHandler {
+  constructor(private readonly schedule: ScheduleService) {}
+
+  async handle(
+    @Ctx() message: Message,
+    @PrefixArg('action') action: string,
+    @PrefixArg('jobName') jobName: string,
+  ): Promise<void> {
+    switch (action) {
+      case 'pause':
+        this.schedule.pause(jobName);
+        await message.reply(`Job "${jobName}" paused.`);
+        break;
+      case 'resume':
+        this.schedule.resume(jobName);
+        await message.reply(`Job "${jobName}" resumed.`);
+        break;
+      case 'run':
+        await this.schedule.runNow(jobName);
+        await message.reply(`Job "${jobName}" executed.`);
+        break;
+      default:
+        await message.reply('Valid actions: pause, resume, run');
+    }
+  }
+}
+```
+
+## Siguiente página
+
+Continúa con [Configuración y Patrones](/guide/schedule-config-pattern).
