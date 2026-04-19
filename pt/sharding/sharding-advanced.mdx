@@ -1,0 +1,145 @@
+---
+title: Tratamento de Erros e Avançado
+description: |
+  Lide com rate limits, erros HTTP e shutdowns graciosos em bots com sharding.
+  Aprenda sobre parent hooks, processos filhos TypeScript, broadcastEval e integração com presença e logging.
+order: 2
+category: Sharding
+---
+
+## Tratamento de erros durante o spawn
+
+O *SpraxiumShardManager* captura erros durante a fase de spawn e os traduz em mensagens claras e acionáveis. As duas falhas mais comuns são rate limits e tokens inválidos. Em vez de um stack trace bruto, o framework imprime um erro estruturado com descrição e correção sugerida, depois encerra o processo.
+
+Uma resposta 429 (Too Many Requests) acontece quando você reinicia o bot com muita frequência e o Discord aplica rate limit no endpoint `/gateway/bot`. Isso é especialmente comum com `totalShards: 'auto'` porque o framework precisa consultar o Discord para a contagem recomendada de shards em cada inicialização. A mensagem de erro inclui o valor do header `Retry-After` quando disponível, e sugere mudar para uma contagem fixa de shards durante o desenvolvimento.
+
+Qualquer outro erro HTTP (401, 403, etc.) é capturado e impresso com o código de status e uma dica para verificar o token do bot. Erros não-HTTP mostram a mensagem bruta. Todos os erros de spawn são fatais, o processo encerra após imprimir porque um bot sem shards não pode funcionar.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { AppModule } from './app.module';
+
+async function main() {
+  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  app.useModule(AppModule);
+  app.useSharding({ totalShards: 2, spawnDelay: 6000 });
+  await app.listen();
+}
+
+main();
+```
+
+## Shutdown gracioso
+
+O processo pai registra handlers de shutdown para `SIGINT`, `SIGTERM` e `SIGHUP` (em plataformas não-Windows). Quando qualquer um desses sinais é recebido, o pai itera sobre todos os shards gerenciados, mata cada processo filho, loga o shutdown e encerra de forma limpa. Isso garante que processos de shard não fiquem órfãos quando você para o bot com Ctrl+C ou quando um gerenciador de processos envia um sinal de terminação.
+
+A sequência de shutdown é intencionalmente simples. Ela chama `shard.kill()` em cada shard sem esperar por desconexões graciosas, porque conexões de gateway do Discord fecham imediatamente quando o processo morre. Se você precisa de lógica de limpeza personalizada antes do shutdown, registre seu próprio handler antes do handler do framework.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+
+const app = await SpraxiumFactory.create();
+app.useSharding({ totalShards: 'auto' });
+
+process.once('SIGINT', async () => {
+  console.log('Custom cleanup before shutdown');
+  process.exit(0);
+});
+
+await app.listen();
+```
+
+## Parent hooks
+
+O *ParentHookRegistry* permite registrar funções que rodam no processo pai após todos os shards terem sido criados e reportado prontos. Isso é útil para tarefas que devem acontecer exatamente uma vez em todo o bot, como registrar slash commands globais, rodar uma migração de banco de dados ou iniciar um servidor HTTP de health-check.
+
+Cada hook recebe a instância do *ShardingManager* do discord.js, que você pode usar para chamar *broadcastEval* ou inspecionar o estado dos shards. Os hooks rodam sequencialmente na ordem de registro.
+
+```typescript filename="src/main.ts"
+import { ParentHookRegistry, SpraxiumFactory } from '@spraxium/core';
+
+ParentHookRegistry.register(async (manager) => {
+  const guilds = await manager.broadcastEval((c) => c.guilds.cache.size);
+  const total = (guilds as number[]).reduce((sum, n) => sum + n, 0);
+  console.log(`All shards ready. Total guilds: ${total}`);
+});
+
+const app = await SpraxiumFactory.create();
+app.useSharding({ totalShards: 'auto' });
+await app.listen();
+```
+
+## BroadcastEval
+
+O método *broadcastEval* no *ShardingManager* executa uma função em cada processo filho de shard e retorna os resultados como um array. É assim que o pai coleta dados como contagem de guilds, tags de usuário ou métricas customizadas de todos os shards. A função roda no contexto de cada filho com acesso à instância do *Client* do discord.js.
+
+Mantenha callbacks de broadcastEval simples e serializáveis. Eles não podem referenciar variáveis do escopo do pai porque são serializados, enviados para cada filho e avaliados lá. Se você precisa passar dados para o callback, use a opção *context*.
+
+```typescript filename="src/services/stats.service.ts"
+import { ParentHookRegistry } from '@spraxium/core';
+
+ParentHookRegistry.register(async (manager) => {
+  const memberCounts = await manager.broadcastEval((c) =>
+    c.guilds.cache.reduce((sum, g) => sum + g.memberCount, 0),
+  );
+  const totalMembers = (memberCounts as number[]).reduce((a, b) => a + b, 0);
+  console.log(`Total members across all shards: ${totalMembers}`);
+});
+```
+
+## Processos filhos TypeScript
+
+Quando o *SpraxiumShardManager* detecta que o arquivo de entrada tem extensão `.ts`, `.mts` ou `.cts`, ele automaticamente adiciona `--import tsx` aos argumentos exec dos processos filhos. Isso significa que filhos de shard podem rodar TypeScript diretamente sem uma etapa de build separada. Se seus argumentos exec já incluem `tsx` ou `ts-node`, o framework pula a adição para evitar duplicatas.
+
+Essa detecção automática funciona tanto para projetos CommonJS quanto ESM. O arquivo de entrada é resolvido a partir de `require.main.filename` (CJS), `process.argv[1]` (ESM), ou retorna para `dist/main.js` no diretório de trabalho atual.
+
+Para deploys em produção onde você pré-compila para JavaScript, nenhuma configuração especial é necessária. Os filhos receberão arquivos `.js` e os argumentos exec permanecem inalterados.
+
+## Integração com presença
+
+O sistema de presença funciona perfeitamente com sharding. Cada filho de shard roda sua própria instância do *PresenceManager*, e placeholders embutidos como `{{shardId}}`, `{{shardNumber}}` e `{{totalServers}}` resolvem para os valores específicos daquele shard. Isso significa que o mesmo template de atividade produz saída diferente em cada shard.
+
+Overrides de presença por shard (tanto no boot quanto em runtime) permitem atribuir atividades distintas a shards específicos. A página de visão geral na categoria *Presence* cobre a API completa. Ao combinar sharding com rotação de presença, cada shard rotaciona independentemente em seu próprio temporizador.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import type { PresenceOptions } from '@spraxium/core';
+import { AppModule } from './app.module';
+
+const presenceConfig: PresenceOptions = {
+  status: 'online',
+  activities: [
+    { name: 'Shard {{shardNumber}}/{{totalShards}} · {{totalServers}} guilds', type: 'Watching' },
+  ],
+};
+
+async function main() {
+  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  app.useModule(AppModule);
+  app.useSharding({ totalShards: 'auto' });
+  app.initPresence(presenceConfig);
+  await app.listen();
+}
+
+main();
+```
+
+## Integração com logging
+
+O *ConsoleTransport* no sistema de logger inclui um indicador de shard nas linhas de log quando o processo é um filho de shard. Isso facilita rastrear qual shard produziu uma determinada entrada de log ao revisar a saída de múltiplos processos. O *DiscordTransport* também funciona por shard, enviando logs de cada filho para o canal ou webhook configurado independentemente.
+
+O processo pai usa o logger para reportar eventos de ciclo de vida dos shards: progresso do spawn, desconexões, reconexões, mortes e sinais de shutdown. Esses logs do nível pai não incluem dados de guild por shard porque o pai não se conecta ao gateway.
+
+```typescript filename="src/listeners/ready.listener.ts"
+import { Logger, Listener, On } from '@spraxium/core';
+
+const logger = new Logger('ReadyListener');
+
+@Listener()
+export class ReadyListener {
+  @On('clientReady')
+  onReady() {
+    logger.info('Shard is ready and accepting events');
+  }
+}
+```

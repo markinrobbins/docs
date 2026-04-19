@@ -1,0 +1,158 @@
+---
+title: Descripción General del Sharding
+description: |
+  El sharding distribuye tu bot en múltiples procesos para escalar más allá del límite de guilds de un solo proceso.
+  Aprende a configurar el SpraxiumShardManager, definir opciones de spawn y detectar procesos hijos de shard.
+order: 1
+category: Sharding
+---
+
+## Qué resuelve el sharding
+
+Discord requiere que los bots con más de 2,500 guilds usen sharding. Cada shard es una conexión WebSocket separada que maneja un subconjunto de guilds. Sin sharding, la conexión única se convierte en un cuello de botella y Discord rechaza la conexión del bot cuando supera el límite. Incluso por debajo de 2,500 guilds, el sharding puede mejorar la confiabilidad aislando crashes en un shard en lugar de tumbar el bot entero.
+
+El *SpraxiumShardManager* envuelve el *ShardingManager* de discord.js y agrega logging de ciclo de vida, manejo de errores para rate limits, soporte automático de TypeScript en procesos hijos, handlers de shutdown gracioso y una tabla de resumen impresa después de que todos los shards estén listos. Configuras el sharding llamando a *useSharding* en `main.ts`, y el framework se encarga de todo lo demás.
+
+Cuando el sharding está habilitado, el proceso principal (el padre) no se conecta al gateway. En su lugar, crea procesos hijos, uno por shard. Cada proceso hijo ejecuta tu código completo del bot, incluyendo listeners, comandos y servicios. El proceso padre solo gestiona los hijos y recopila información de estado de ellos.
+
+## Habilitando el sharding
+
+Llama a *useSharding* en el builder de la aplicación en `main.ts` con al menos un valor *totalShards*. Configurarlo como `'auto'` permite que Discord decida la cantidad óptima de shards basándose en la cantidad de guilds del bot y el valor recomendado del endpoint `/gateway/bot`. Para bots pequeños o desarrollo, define un número fijo como `1` o `2`.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { AppModule } from './app.module';
+
+async function main() {
+  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  app.useModule(AppModule);
+  app.useSharding({ totalShards: 'auto' });
+  await app.listen();
+}
+
+main();
+```
+
+También puedes pasar las opciones de sharding condicionalmente basándote en una verificación en runtime. Esto es útil cuando quieres que el mismo archivo de entrada se ejecute como proceso único en desarrollo y como proceso shardado en producción.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { AppModule } from './app.module';
+
+async function main() {
+  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  app.useModule(AppModule);
+
+  if (process.env.ENABLE_SHARDING === 'true') {
+    app.useSharding({ totalShards: 'auto' });
+  }
+
+  await app.listen();
+}
+
+main();
+```
+
+## Opciones de shard
+
+La interfaz *ShardOptions* acepta cuatro campos. Solo *totalShards* es obligatorio. Los valores por defecto están diseñados para funcionar de inmediato en la mayoría de los bots, respetando el rate limit de identify de Discord con un retraso seguro de 5.5 segundos entre spawns.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Opción</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Por defecto</TableCell>
+      <TableCell header>Descripción</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*totalShards*</TableCell>
+      <TableCell>`number | 'auto'`</TableCell>
+      <TableCell>(obligatorio)</TableCell>
+      <TableCell>Número de shards a crear, o `'auto'` para que Discord decida.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*shardList*</TableCell>
+      <TableCell>`number[]`</TableCell>
+      <TableCell>todos los shards</TableCell>
+      <TableCell>Subconjunto de IDs de shard a crear. Útil para ejecutar shards específicos en máquinas específicas.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*respawn*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>`true`</TableCell>
+      <TableCell>Si debe reiniciar un shard automáticamente cuando se cae.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*spawnDelay*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>`5500`</TableCell>
+      <TableCell>Milisegundos de espera entre la creación de cada shard, respetando el rate limit de identify.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Ciclo de vida del spawn
+
+Cuando tu bot inicia con sharding habilitado, el proceso padre sigue una secuencia específica. Primero crea un *ShardingManager* de discord.js apuntando a tu archivo de entrada. Luego crea procesos hijos uno por uno con el retraso configurado. Cada hijo se conecta al gateway de Discord, dispara el evento `clientReady` y reporta su cantidad de guilds de vuelta al padre. Después de que todos los shards estén listos, el padre imprime una tabla de resumen.
+
+El proceso padre escucha tres eventos en cada shard: *disconnect*, *reconnecting* y *death*. Desconexiones y reconexiones se registran como warnings. Muertes se registran como errores, y si *respawn* está habilitado, discord.js automáticamente crea un proceso de reemplazo. El proceso padre continúa ejecutándose mientras al menos un shard esté vivo.
+
+La salida de consola durante el spawning se ve así. Cada shard imprime su estado y cantidad de guilds cuando está listo, seguido de una línea de resumen con el tag del bot, total de shards, total de guilds y tiempo de inicio.
+
+```text filename="terminal"
+  ★  spraxium  v1.0.0  discord.js v14.x
+
+  ⟳ Sharding   spawning 3 shards...
+
+  › Shard 0    ready (1200 guilds)
+  › Shard 1    ready (1150 guilds)
+  › Shard 2    ready (980 guilds)
+
+  ◆  MyBot#1234  ·  3 shards  ·  3330 total guilds  ·  ready in 18200ms
+```
+
+## Detectando procesos hijos de shard
+
+La función utilitaria *isShardChild* retorna `true` cuando el proceso actual fue creado por el *ShardingManager*. Discord.js inyecta una variable de entorno `SHARDS` en cada proceso hijo, e *isShardChild* verifica su presencia. Esto es útil para saltar configuraciones que solo deben ejecutarse una vez en el padre, como imprimir un banner o registrar slash commands globales.
+
+```typescript filename="src/services/startup.service.ts"
+import { Injectable } from '@spraxium/core';
+import { isShardChild } from '@spraxium/core';
+
+@Injectable()
+export class StartupService {
+  async onApplicationBoot() {
+    if (isShardChild()) return;
+    console.log('Running parent-only initialization');
+  }
+}
+```
+
+El framework usa *isShardChild* internamente para saltar el banner de inicio en procesos hijos (evitando salida duplicada en N shards) y para suprimir el mensaje "Logged in as" que de otra forma se imprimiría N veces.
+
+## Advertencia de desarrollo
+
+Cuando el sharding está habilitado en modo de desarrollo (`NODE_ENV=development`), el framework registra una advertencia. Múltiples procesos de shard hacen que los reinicios sean más lentos, aumentan el uso de memoria y tienen mayor probabilidad de alcanzar los rate limits de Discord al reiniciar frecuentemente. Para desarrollo, usa una instancia única no configurando *sharding* o configurando *totalShards* como `1`.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { AppModule } from './app.module';
+
+async function main() {
+  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  app.useModule(AppModule);
+  app.useSharding({
+    totalShards: process.env.NODE_ENV === 'production' ? 'auto' : 1,
+  });
+  await app.listen();
+}
+
+main();
+```
+
+## Siguiente página
+
+Continúa con [Manejo de Errores y Avanzado](/sharding-advanced).

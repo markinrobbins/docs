@@ -1,0 +1,145 @@
+---
+title: Error Handling and Advanced
+description: |
+  Handle rate limits, HTTP errors, and graceful shutdowns in sharded bots.
+  Learn about parent hooks, TypeScript child processes, broadcastEval, and integration with presence and logging.
+order: 2
+category: Sharding
+---
+
+## Error handling during spawn
+
+The *SpraxiumShardManager* catches errors during the spawn phase and translates them into clear, actionable messages. The two most common failures are rate limits and invalid tokens. Instead of a raw stack trace, the framework prints a structured error with a description and suggested fix, then exits the process.
+
+A 429 (Too Many Requests) response happens when you restart the bot too frequently and Discord rate-limits the `/gateway/bot` endpoint. This is especially common with `totalShards: 'auto'` because the framework must query Discord for the recommended shard count on every startup. The error message includes the `Retry-After` header value when available, and suggests switching to a fixed shard count during development.
+
+Any other HTTP error (401, 403, etc.) is caught and printed with the status code and a hint to check the bot token. Non-HTTP errors surface the raw message. All spawn errors are fatal, the process exits after printing because a bot without shards cannot function.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { AppModule } from './app.module';
+
+async function main() {
+  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  app.useModule(AppModule);
+  app.useSharding({ totalShards: 2, spawnDelay: 6000 });
+  await app.listen();
+}
+
+main();
+```
+
+## Graceful shutdown
+
+The parent process registers shutdown handlers for `SIGINT`, `SIGTERM`, and `SIGHUP` (on non-Windows platforms). When any of these signals is received, the parent iterates over all managed shards, kills each child process, logs the shutdown, and exits cleanly. This ensures that shard processes do not become orphaned when you stop the bot with Ctrl+C or when a process manager sends a termination signal.
+
+The shutdown sequence is intentionally simple. It calls `shard.kill()` on every shard without waiting for graceful disconnects, because Discord gateway connections close immediately when the process dies. If you need custom cleanup logic before shutdown, register your own handler before the framework's.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+
+const app = await SpraxiumFactory.create();
+app.useSharding({ totalShards: 'auto' });
+
+process.once('SIGINT', async () => {
+  console.log('Custom cleanup before shutdown');
+  process.exit(0);
+});
+
+await app.listen();
+```
+
+## Parent hooks
+
+The *ParentHookRegistry* lets you register functions that run in the parent process after all shards have spawned and reported ready. This is useful for tasks that should happen exactly once across the entire bot, like registering global slash commands, running a database migration, or starting an HTTP health-check server.
+
+Each hook receives the discord.js *ShardingManager* instance, which you can use to call *broadcastEval* or inspect shard state. Hooks run sequentially in registration order.
+
+```typescript filename="src/main.ts"
+import { ParentHookRegistry, SpraxiumFactory } from '@spraxium/core';
+
+ParentHookRegistry.register(async (manager) => {
+  const guilds = await manager.broadcastEval((c) => c.guilds.cache.size);
+  const total = (guilds as number[]).reduce((sum, n) => sum + n, 0);
+  console.log(`All shards ready. Total guilds: ${total}`);
+});
+
+const app = await SpraxiumFactory.create();
+app.useSharding({ totalShards: 'auto' });
+await app.listen();
+```
+
+## BroadcastEval
+
+The *broadcastEval* method on the *ShardingManager* executes a function on every shard child process and returns the results as an array. This is how the parent collects data like guild counts, user tags, or custom metrics from all shards. The function runs in each child's context with access to the discord.js *Client* instance.
+
+Keep broadcastEval callbacks simple and serializable. They cannot reference variables from the parent scope because they are serialized, sent to each child, and evaluated there. If you need to pass data into the callback, use the *context* option.
+
+```typescript filename="src/services/stats.service.ts"
+import { ParentHookRegistry } from '@spraxium/core';
+
+ParentHookRegistry.register(async (manager) => {
+  const memberCounts = await manager.broadcastEval((c) =>
+    c.guilds.cache.reduce((sum, g) => sum + g.memberCount, 0),
+  );
+  const totalMembers = (memberCounts as number[]).reduce((a, b) => a + b, 0);
+  console.log(`Total members across all shards: ${totalMembers}`);
+});
+```
+
+## TypeScript child processes
+
+When the *SpraxiumShardManager* detects that the entry file has a `.ts`, `.mts`, or `.cts` extension, it automatically adds `--import tsx` to the exec arguments for child processes. This means shard children can run TypeScript directly without a separate build step. If your exec arguments already include `tsx` or `ts-node`, the framework skips adding it to avoid duplicates.
+
+This automatic detection works for both CommonJS and ESM projects. The entry file is resolved from `require.main.filename` (CJS), `process.argv[1]` (ESM), or falls back to `dist/main.js` in the current working directory.
+
+For production deployments where you pre-compile to JavaScript, no special configuration is needed. The children will receive `.js` files and the exec arguments remain untouched.
+
+## Integration with presence
+
+The presence system works seamlessly with sharding. Each shard child runs its own *PresenceManager* instance, and built-in placeholders like `{{shardId}}`, `{{shardNumber}}`, and `{{totalServers}}` resolve to that shard's specific values. This means the same activity template produces different output on each shard.
+
+Per-shard presence overrides (both boot-time and runtime) let you assign distinct activities to specific shards. The overview page in the *Presence* category covers the full API. When combining sharding with presence rotation, each shard rotates independently on its own timer.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import type { PresenceOptions } from '@spraxium/core';
+import { AppModule } from './app.module';
+
+const presenceConfig: PresenceOptions = {
+  status: 'online',
+  activities: [
+    { name: 'Shard {{shardNumber}}/{{totalShards}} · {{totalServers}} guilds', type: 'Watching' },
+  ],
+};
+
+async function main() {
+  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  app.useModule(AppModule);
+  app.useSharding({ totalShards: 'auto' });
+  app.initPresence(presenceConfig);
+  await app.listen();
+}
+
+main();
+```
+
+## Integration with logging
+
+The *ConsoleTransport* in the logger system includes a shard indicator in log lines when the process is a shard child. This makes it easy to trace which shard produced a given log entry when reviewing output from multiple processes. The *DiscordTransport* also works per-shard, sending logs from each child to the configured channel or webhook independently.
+
+The parent process uses the logger to report shard lifecycle events: spawn progress, disconnects, reconnections, deaths, and shutdown signals. These parent-level logs do not include per-shard guild data because the parent does not connect to the gateway.
+
+```typescript filename="src/listeners/ready.listener.ts"
+import { Logger, Listener, On } from '@spraxium/core';
+
+const logger = new Logger('ReadyListener');
+
+@Listener()
+export class ReadyListener {
+  @On('clientReady')
+  onReady() {
+    logger.info('Shard is ready and accepting events');
+  }
+}
+```
