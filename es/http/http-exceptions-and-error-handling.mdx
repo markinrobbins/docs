@@ -1,0 +1,303 @@
+---
+title: Excepciones y Manejo de Errores
+description: |
+  Modela fallos HTTP predecibles con la jerarquía HttpError y detalles de validación.
+  Mantén respuestas de error estables entre controllers, middleware y endpoints basados en bridge.
+order: 7
+category: '@spraxium/http'
+---
+
+## Por qué importan las excepciones explícitas
+
+Los clientes HTTP dependen de status codes y formatos de respuesta estables. Lanzar clases *HttpError* explícitas vuelve los fallos observables, testeables y más fáciles de monitorear en producción. Cada clase de error exportada por el paquete lleva un status code semántico y un mensaje por defecto, permitiendo que el servidor normalice respuestas sin lógica condicional en cada handler.
+
+Cuando los controllers retornan errores genéricos, los clientes pierden contexto semántico y las estrategias de retry se vuelven frágiles. El paquete evita esto ofreciendo una clase dedicada para cada escenario de fallo, todas extendiendo la misma base, garantizando serialización consistente en toda la superficie de la API.
+
+## Clase base HttpError
+
+Cada error de la jerarquía extiende *HttpError*, que a su vez extiende la clase nativa *Error*. Agrega la propiedad read-only *statusCode* y sobreescribe el constructor para aceptar un mensaje y un status HTTP numérico. Este contrato es la única interfaz que lee la capa de normalización del servidor, así que cualquier clase que extienda *HttpError* participa automáticamente en el manejo centralizado sin configuración adicional.
+
+La clase base también define `this.name` con el nombre concreto de la clase, haciendo stack traces y dashboards de monitoreo inmediatamente distinguibles entre tipos de error. Las subclases solo necesitan llamar `super(message, statusCode)` con sus propios defaults para mantener el contrato.
+
+## Jerarquía de errores exportada por el paquete
+
+<DropdownGroup>
+<Dropdown title="BadRequestError: 400 — Semántica de request inválida">
+  Mensaje por defecto: "Bad request". Úsalo para semántica de request inválida o combinaciones malformadas de input.
+</Dropdown>
+
+<Dropdown title="ValidationError: 400 — Fallo de validación DTO">
+  Mensaje por defecto: "Validation failed". Incluye un array *details* con entradas por campo. Producido automáticamente por *ValidationPipe*.
+</Dropdown>
+
+<Dropdown title="UnauthorizedError: 401 — Autenticación ausente o inválida">
+  Mensaje por defecto: "Unauthorized". Úsalo cuando el contexto de autenticación está ausente o es inválido.
+</Dropdown>
+
+<Dropdown title="ForbiddenError: 403 — Sin permiso suficiente">
+  Mensaje por defecto: "Forbidden". Request autenticado sin el permiso requerido para el recurso.
+</Dropdown>
+
+<Dropdown title="NotFoundError: 404 — Recurso inexistente">
+  Mensaje por defecto: "Not found". Recurso solicitado inexistente o no disponible según el contrato.
+</Dropdown>
+
+<Dropdown title="MethodNotAllowedError: 405 — Método no soportado">
+  Mensaje por defecto: "Method not allowed". El método HTTP del request no es soportado por el endpoint destino.
+</Dropdown>
+
+<Dropdown title="ConflictError: 409 — Conflicto de estado">
+  Mensaje por defecto: "Conflict". Conflicto de estado durante operaciones de mutación (ej.: valor ya existe).
+</Dropdown>
+
+<Dropdown title="UnprocessableEntityError: 422 — Restricciones semánticas no aceptables">
+  Mensaje por defecto: "Unprocessable entity". Request parseado con restricciones semánticas que no pueden cumplirse.
+</Dropdown>
+
+<Dropdown title="TooManyRequestsError: 429 — Violación de rate limit">
+  Mensaje por defecto: "Too many requests". Violación de política de rate limit o cuota.
+</Dropdown>
+
+<Dropdown title="InternalServerError: 500 — Fallo interno inesperado">
+  Mensaje por defecto: "Internal server error". Úsalo cuando aún se requiere respuesta controlada pese al fallo interno.
+</Dropdown>
+
+<Dropdown title="NotImplementedError: 501 — Funcionalidad no implementada">
+  Mensaje por defecto: "Not implemented". Funcionalidad reconocida pero aún no disponible en la versión actual.
+</Dropdown>
+
+<Dropdown title="ServiceUnavailableError: 503 — Dependencia temporalmente no disponible">
+  Mensaje por defecto: "Service unavailable". Indisponibilidad temporal de infraestructura o dependencia.
+</Dropdown>
+</DropdownGroup>
+
+## ValidationError y detalles estructurados
+
+*ValidationError* es la única clase de error que lleva más que un mensaje. Incluye un array *details* donde cada entrada mapea un nombre de propiedad a las constraints que fallaron. Esta estructura es producida automáticamente por *ValidationPipe* cuando la validación de body ejecuta reglas de *class-validator*.
+
+La interfaz *ValidationDetail* expone dos campos: *property* (nombre del campo en el DTO) y *constraints* (registro de nombres de regla a mensajes legibles). Como el pipeline usa `whitelist: true` y `forbidNonWhitelisted: true`, cualquier campo inesperado en el body también dispara error de validación, impidiendo que payloads contaminados alcancen la lógica de negocio.
+
+Los clientes reciben una estructura predecible donde `details` siempre es un array, incluso para un solo campo inválido. Esto permite que consumidores de la API iteren el array y mapeen cada entrada a errores inline de formulario o resúmenes de error sin condiciones especiales en la forma de respuesta.
+
+## Patrones de excepción en controllers
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
+```typescript filename="http/controllers/guild-http.controller.ts"
+import {
+  HttpBody,
+  HttpController,
+  HttpGet,
+  HttpParam,
+  HttpPatch,
+  HttpStatus,
+} from '@spraxium/http';
+import {
+  NotFoundError,
+  ForbiddenError,
+  ConflictError,
+  ServiceUnavailableError,
+} from '@spraxium/http';
+import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
+
+@HttpController('/guilds')
+export class GuildHttpController {
+  @HttpGet('/:guildId')
+  async getGuild(@HttpParam('guildId') guildId: string) {
+    const guild = await this.findGuild(guildId);
+
+    if (!guild) {
+      throw new NotFoundError('Guild no encontrada');
+    }
+
+    if (!guild.available) {
+      throw new ServiceUnavailableError('Guild temporalmente no disponible');
+    }
+
+    return { ok: true, guildId: guild.id, name: guild.name };
+  }
+
+  @HttpPatch('/:guildId/config')
+  @HttpStatus(200)
+  async updateConfig(
+    @HttpParam('guildId') guildId: string,
+    @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+  ) {
+    const guild = await this.findGuild(guildId);
+    if (!guild) throw new NotFoundError('Guild no encontrada');
+
+    if (guild.locked) {
+      throw new ForbiddenError('Configuración del guild bloqueada por admin');
+    }
+
+    if (guild.prefix === body.prefix) {
+      throw new ConflictError('El prefix ya tiene ese valor');
+    }
+
+    return { ok: true, guildId, applied: body };
+  }
+
+  private async findGuild(_guildId: string) {
+    return null;
+  }
+}
+```
+  </Tab>
+  <Tab label="dto/update-guild-config.dto.ts" language="typescript">
+```typescript filename="dto/update-guild-config.dto.ts"
+import { IsBoolean, IsOptional, IsString, Length } from 'class-validator';
+
+export class UpdateGuildConfigDto {
+  @IsString()
+  @Length(1, 5)
+  prefix!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  maintenanceMode?: boolean;
+}
+```
+  </Tab>
+  <Tab label="src/app.module.ts" language="typescript">
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import { HttpClientModule, HttpModule } from '@spraxium/http';
+import { GuildHttpController } from './http/controllers/guild-http.controller';
+
+@HttpClientModule({
+  controllers: [GuildHttpController],
+})
+@Module({
+  imports: [HttpModule],
+  providers: [GuildHttpController],
+})
+export class AppModule {}
+```
+  </Tab>
+</CodeTabs>
+
+## Comportamiento de normalización en servidor
+
+*HttpServer* registra dos handlers terminales al final del pipeline Hono: *notFound* y *onError*. Juntos garantizan que toda salida posible produce una respuesta JSON con la misma estructura.
+
+El handler *notFound* se activa para cualquier request sin ruta registrada y retorna `{ ok: false, error: 'Not Found' }` con status 404. El handler *onError* cubre excepciones lanzadas con esta precedencia:
+
+1. *ValidationError* retorna status 400 con `{ ok: false, error: 'Validation failed', details: [...] }`;
+2. cualquier otra subclase de *HttpError* retorna su propio status code con `{ ok: false, error: message }`;
+3. excepciones desconocidas se loguean y retornan `{ ok: false, error: 'Internal server error' }` con status 500.
+
+Como este mapeo es centralizado, los controllers deben lanzar la clase de error más específica disponible y nunca construir payloads JSON de error manuales en el código del handler. La capa de normalización se encarga del resto.
+
+## Contrato de formato de respuesta
+
+Toda respuesta de error sigue el mismo envelope sin importar el status code. El campo `ok` siempre es `false`, el campo `error` lleva la string de mensaje, y `details` aparece únicamente en respuestas de *ValidationError*. Esto permite que consumidores de la API verifiquen `ok` primero y luego ramifiquen por `error` o `details` sin tratamiento especial por endpoint.
+
+<DropdownGroup>
+<Dropdown title="Ruta sin coincidencia: 404">
+  Cuerpo: `{ ok: false, error: "Not Found" }`
+</Dropdown>
+
+<Dropdown title="Fallo de validación DTO: 400">
+  Cuerpo: `{ ok: false, error: "Validation failed", details: [{ property, constraints }] }`
+</Dropdown>
+
+<Dropdown title="Cualquier subclase HttpError: varía">
+  Cuerpo: `{ ok: false, error: "Mensaje por defecto o personalizado" }`
+</Dropdown>
+
+<Dropdown title="Excepción desconocida: 500">
+  Cuerpo: `{ ok: false, error: "Internal server error" }`
+</Dropdown>
+</DropdownGroup>
+
+## Clases de error personalizadas
+
+Puedes crear clases de error propias extendiendo *HttpError* o cualquier subclase existente. El único requisito es llamar `super` con mensaje y status code. Cualquier clase personalizada que extienda *HttpError* es automáticamente capturada y serializada por la capa de normalización del servidor sin cambios en middleware o configuración.
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="http/errors/guild-locked.error.ts" language="typescript">
+```typescript filename="http/errors/guild-locked.error.ts"
+import { ForbiddenError } from '@spraxium/http';
+
+export class GuildLockedError extends ForbiddenError {
+  constructor(guildId: string) {
+    super(`Guild ${guildId} está bloqueado y no puede modificarse`);
+    this.name = 'GuildLockedError';
+  }
+}
+```
+  </Tab>
+  <Tab label="http/errors/bridge-unavailable.error.ts" language="typescript">
+```typescript filename="http/errors/bridge-unavailable.error.ts"
+import { ServiceUnavailableError } from '@spraxium/http';
+
+export class BridgeUnavailableError extends ServiceUnavailableError {
+  constructor() {
+    super('El bot bridge no responde, reintenta en unos segundos');
+    this.name = 'BridgeUnavailableError';
+  }
+}
+```
+  </Tab>
+  <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
+```typescript filename="http/controllers/guild-http.controller.ts"
+import { HttpController, HttpPatch, HttpParam, HttpBody } from '@spraxium/http';
+import { GuildLockedError } from '../errors/guild-locked.error';
+import { BridgeUnavailableError } from '../errors/bridge-unavailable.error';
+import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
+
+@HttpController('/guilds')
+export class GuildHttpController {
+  @HttpPatch('/:guildId/config')
+  async updateConfig(
+    @HttpParam('guildId') guildId: string,
+    @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+  ) {
+    const guild = await this.fetchGuild(guildId);
+    if (!guild) throw new BridgeUnavailableError();
+    if (guild.locked) throw new GuildLockedError(guildId);
+
+    return { ok: true, guildId, applied: body };
+  }
+
+  private async fetchGuild(_guildId: string) {
+    return null;
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Rechazo de guard como frontera de error
+
+*GuardExecutor* ejecuta guards globales en secuencia antes de cualquier handler de controller. Cuando un guard retorna `false`, el executor interrumpe la ejecución y retorna `{ ok: false, error: 'Unauthorized' }` con status 401. Esta respuesta se inyecta directamente, no a través del handler *onError*, lo que significa que rechazos de guard son finales y no pueden capturarse o modificarse por middleware posterior.
+
+Como el comportamiento de guard está fuera del camino de normalización de *HttpError*, las implementaciones de guard deben mantener semántica de rechazo simple. El formato de respuesta 401 sigue el mismo envelope que todos los demás errores, así que los clientes no necesitan manejo especial para fallos de guard.
+
+## Checklist de diseño de excepciones
+
+<Steps>
+  <Step title="Lanzar errores semánticos cerca de la regla de negocio">
+    Usa clases *HttpError* específicas en el punto donde se toma la decisión de dominio, no solo en el borde del controller. Lanzar *ConflictError* dentro de la lógica de service es más claro que retornar un flag y convertirlo en error en el handler después.
+  </Step>
+  <Step title="Mantener mensajes accionables y estables">
+    Los mensajes de error deben orientar a clientes y operaciones sin exponer detalles internos sensibles. Redacción estable también mejora deduplicación de alertas y lectura de dashboards a lo largo del tiempo.
+  </Step>
+  <Step title="Usar validación DTO para garantía de forma">
+    Deja que *ValidationPipe* y *class-validator* impongan garantías estructurales antes de la lógica de dominio. El pipeline usa `whitelist: true` y `forbidNonWhitelisted: true` por defecto, rechazando propiedades inesperadas automáticamente.
+  </Step>
+  <Step title="Preferir subclases personalizadas a HttpError directo">
+    Crea subclases con nombres descriptivos como *GuildLockedError* o *BridgeUnavailableError* en lugar de lanzar *ForbiddenError* con un string. Clases con nombre son más fáciles de buscar en logs, testear en aserciones y filtrar en dashboards.
+  </Step>
+  <Step title="Confiar en el mapeo centralizado de respuesta">
+    Permite que *HttpServer* normalice errores en JSON de forma consistente en lugar de crear payloads ad-hoc por handler. Un mapeo unificado es más fácil de testear y evolucionar entre equipos, reduciendo drift accidental en el formato de respuesta.
+  </Step>
+</Steps>
+
+<Callout tone="warning" title="Nunca expongas detalles internos de error a los clientes">
+  Las excepciones desconocidas son capturadas por la capa de normalización y retornadas como respuesta genérica 500. El mensaje original del error solo se loguea en el servidor. No sobreescribas este comportamiento para reenviar stack traces o mensajes internos, ya que eso filtra detalles de implementación a consumidores externos.
+</Callout>
+
+## Siguiente estudio
+
+Continúa con [Fundamentos de Signal](/guide/signal-overview).

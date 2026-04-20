@@ -1,0 +1,328 @@
+---
+title: Security, Guards, and Middleware
+description: |
+  Understand the default hardening stack and how to extend it safely.
+  Apply global and route-level guards or middleware with predictable execution order.
+order: 5
+category: '@spraxium/http'
+---
+
+## Security starts before controllers
+
+*HttpServer* applies security middleware before any controller handler is invoked. This startup-time wiring gives every endpoint the same baseline policy from the first request without requiring explicit decoration on each route. The security stack runs in a fixed order that cannot be reordered by user code, ensuring that header hardening and body limits are always the first line of defense.
+
+When HTTP is enabled, the runtime wires these protections in this exact sequence:
+
+1. Optional removal of `X-Powered-By` and `Server` headers (*hidePoweredBy*, defaults to `true`).
+2. *SecurityHeadersMiddleware* wrapping Hono *secureHeaders* (unless `headers` is set to `false`).
+3. *CorsMiddleware* wrapping Hono *cors* (only when `security.cors` is configured).
+4. *BodyLimitMiddleware* wrapping Hono *bodyLimit* (unless `bodyLimit` is set to `false`).
+5. Global middleware instances from *@HttpClientModule({ middleware })*.
+6. Global guards from *@HttpClientModule({ guards })* through *GuardExecutor*.
+7. Per-controller and per-route guards from *@HttpGuards* through *GuardExecutor*.
+
+After this stack, route-level middleware from *@HttpUseMiddleware* decorators runs, and finally the handler itself executes. This layered model means your guard decisions happen after baseline hardening, and your middleware decisions happen after security headers are already set.
+
+## Default security values
+
+Every security header and limit has a safe default from *SECURITY_DEFAULTS*. You only need to override values when your deployment requires different behavior. When a subfield is omitted, the default applies. When set to `false`, that layer is disabled entirely.
+
+<DropdownGroup>
+<Dropdown title="hidePoweredBy: true">
+  Removes the `X-Powered-By` and `Server` headers from every response. This prevents framework and runtime fingerprinting that attackers use to identify known vulnerabilities in specific software versions. Keep this enabled unless you have a specific reason to advertise your server stack.
+</Dropdown>
+
+<Dropdown title="X-Frame-Options: DENY">
+  Prevents the response page from being embedded inside an iframe on any domain. This blocks clickjacking attacks where a malicious site overlays transparent frames to trick users into clicking hidden elements. Set to `SAMEORIGIN` if your own pages need to embed each other.
+</Dropdown>
+
+<Dropdown title="X-Content-Type-Options: nosniff">
+  Prevents browsers from MIME-sniffing responses away from the declared `Content-Type` header. Without this header, browsers may interpret a JSON response as HTML, which opens the door to XSS through content-type confusion. This header has no configuration variants and should always be enabled.
+</Dropdown>
+
+<Dropdown title="Strict-Transport-Security: max-age=31536000; includeSubDomains">
+  Forces HTTPS at the user-agent level for one year with subdomain coverage. After the first HTTPS response, browsers refuse to connect over plain HTTP until the max-age expires. Adjust *hstsMaxAge* and *hstsIncludeSubDomains* in the security config if your deployment requires different values.
+</Dropdown>
+
+<Dropdown title="Content-Security-Policy: default-src 'none'">
+  Applies a zero-trust default for content loading, blocking all scripts, styles, images, and media unless explicitly allowed. This is the strictest possible CSP and is appropriate for API-only servers that never serve HTML pages. Override *contentSecurityPolicy* with a custom directive string if your endpoints serve browser-rendered content.
+</Dropdown>
+
+<Dropdown title="Referrer-Policy: no-referrer">
+  Suppresses the `Referer` header on all outbound requests originating from the response page. This prevents leaking URL paths and query parameters to third-party services. Use `strict-origin-when-cross-origin` if your analytics or CDN requires referrer information.
+</Dropdown>
+
+<Dropdown title="X-XSS-Protection: 1; mode=block">
+  Enables legacy browser XSS filters in blocking mode, instructing the browser to stop rendering the page if a reflected XSS attack is detected. Modern browsers rely on CSP instead, but this header provides defense-in-depth for older user agents. There is no downside to keeping it enabled.
+</Dropdown>
+
+<Dropdown title="Permissions-Policy: camera=(), microphone=(), geolocation=()">
+  Denies access to sensitive browser APIs like camera, microphone, and geolocation by default. This prevents malicious scripts from accessing device hardware even if they bypass CSP restrictions. Expand the policy list if your API responses are consumed by browser pages that need specific permissions.
+</Dropdown>
+
+<Dropdown title="Cross-Origin-Opener-Policy: same-origin">
+  Isolates the browsing context to prevent cross-origin attacks like Spectre that exploit shared process memory. When set to `same-origin`, the page cannot share a browsing context group with cross-origin documents. This is the recommended default for any server that handles sensitive data.
+</Dropdown>
+
+<Dropdown title="Body limit: 102400 bytes (100 KB)">
+  Rejects request payloads exceeding the configured maximum size with a 413 status code and a structured error response. The default of 100 KB is appropriate for most API endpoints that accept JSON. Override *bodyLimit.maxSize* in the security config for endpoints that handle file uploads or large payloads.
+</Dropdown>
+</DropdownGroup>
+
+## Security and middleware configuration
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="config/http.config.ts" language="typescript">
+```typescript filename="config/http.config.ts"
+import { defineHttp } from '@spraxium/http';
+import { AppModule } from '../src/app.module';
+
+export const httpPlugin = defineHttp({
+  enabled: true,
+  host: process.env.HTTP_HOST ?? '0.0.0.0',
+  port: Number(process.env.HTTP_PORT ?? 3000),
+  apiKey: process.env.HTTP_API_KEY ?? '',
+  sharding: false,
+  security: {
+    hidePoweredBy: true,
+    headers: {
+      frameOptions: 'DENY',
+      contentSecurityPolicy: "default-src 'none'",
+      referrerPolicy: 'no-referrer',
+      hstsMaxAge: 31_536_000,
+      hstsIncludeSubDomains: true,
+    },
+    cors: {
+      origins: ['https://admin.example.com'],
+      methods: ['GET', 'POST', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
+      credentials: true,
+      maxAge: 600,
+    },
+    bodyLimit: { maxSize: 256_000 },
+  },
+  module: AppModule,
+});
+```
+  </Tab>
+  <Tab label="src/app.module.ts" language="typescript">
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import {
+  HttpClientModule,
+  HttpModule,
+  LoggerMiddleware,
+  RateLimitMiddleware,
+} from '@spraxium/http';
+import { GuildHttpController } from './http/controllers/guild-http.controller';
+import { GuildHttpService } from './http/services/guild-http.service';
+
+class GuildBurstLimitMiddleware extends RateLimitMiddleware {
+  constructor() {
+    super({ windowMs: 15_000, max: 25 });
+  }
+}
+
+@HttpClientModule({
+  services: [GuildHttpService],
+  controllers: [GuildHttpController],
+  middleware: [new LoggerMiddleware()],
+  middlewareProviders: new Map([
+    [GuildBurstLimitMiddleware, new GuildBurstLimitMiddleware()],
+  ]),
+})
+@Module({
+  imports: [HttpModule],
+  providers: [GuildHttpController, GuildHttpService],
+})
+export class AppModule {}
+```
+  </Tab>
+  <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
+```typescript filename="http/controllers/guild-http.controller.ts"
+import { HttpController, HttpGet, HttpParam, HttpUseMiddleware } from '@spraxium/http';
+import { GuildBurstLimitMiddleware } from '../../app.module';
+
+@HttpController('/guilds')
+export class GuildHttpController {
+  @HttpUseMiddleware(GuildBurstLimitMiddleware)
+  @HttpGet('/:guildId/members')
+  async listMembers(@HttpParam('guildId') guildId: string) {
+    return { ok: true, guildId };
+  }
+
+  @HttpGet('/:guildId')
+  async getGuild(@HttpParam('guildId') guildId: string) {
+    return { ok: true, guildId };
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Guard pipeline and the HttpGuard interface
+
+Guards are the authentication and authorization boundary. Every guard implements the *HttpGuard* interface, which defines a single method: `canActivate(ctx: Context): Promise<boolean>`. Guards declared in *@HttpClientModule({ guards })* are instantiated via the dependency injection system at startup and execute sequentially through *GuardExecutor* on every request after the security middleware stack. No manual `new` call is required when declaring guards in the module.
+
+When *GuardExecutor* encounters a guard that returns `false`, it stops execution immediately and sets the response to `{ ok: false, error: 'Unauthorized' }` with status 401. No further guards, middleware, or handlers run. This short-circuit behavior means guard order matters: place your most common rejection case first to avoid running expensive checks on unauthenticated requests.
+
+The 401 response from guard rejection is injected directly, not through the *onError* handler. This means guard failures are final and cannot be caught or modified by downstream middleware. The response shape matches the same envelope used by all other error responses, so clients do not need special handling for guard rejections.
+
+## @HttpGuards for per-controller and per-route protection
+
+*@HttpGuards* is a class or method decorator that narrows guard scope to a specific controller or individual route. Unlike global guards that protect every endpoint, *@HttpGuards* targets a single point in the routing surface. The decorator accepts one or more guard classes whose instances are resolved through the same DI system as services and controllers.
+
+Class-level *@HttpGuards* runs on every route in the controller. Method-level *@HttpGuards* runs only on that specific handler. When both levels are present, class guards execute first, followed by method guards. This layering means you can protect an entire controller with a shared policy and add extra validation per route without repeating the common guard.
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="http/controllers/admin-http.controller.ts" language="typescript">
+```typescript filename="http/controllers/admin-http.controller.ts"
+import {
+  HttpController,
+  HttpGet,
+  HttpPost,
+  HttpGuards,
+  HttpParam,
+  HttpBody,
+} from '@spraxium/http';
+import { AdminGuard } from '../guards/admin.guard';
+import { SuperAdminGuard } from '../guards/super-admin.guard';
+
+@HttpGuards(AdminGuard)
+@HttpController('/admin')
+export class AdminHttpController {
+  @HttpGet('/stats')
+  getStats() {
+    return { ok: true, activeUsers: 42 };
+  }
+
+  @HttpGuards(SuperAdminGuard)
+  @HttpPost('/reset')
+  reset(@HttpParam('confirm') _confirm: string) {
+    return { ok: true };
+  }
+}
+```
+  </Tab>
+  <Tab label="http/guards/admin.guard.ts" language="typescript">
+```typescript filename="http/guards/admin.guard.ts"
+import type { HttpGuard } from '@spraxium/http';
+import type { Context } from 'hono';
+import { AppEnv } from '../../app.env';
+
+export class AdminGuard implements HttpGuard {
+  constructor(private readonly env: AppEnv) {}
+
+  async canActivate(ctx: Context): Promise<boolean> {
+    const token = ctx.req.header('x-admin-token');
+    return token === this.env.adminToken;
+  }
+}
+```
+  </Tab>
+  <Tab label="src/app.module.ts" language="typescript">
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import { HttpClientModule, HttpModule } from '@spraxium/http';
+import { AdminHttpController } from './http/controllers/admin-http.controller';
+import { AdminHttpService } from './http/services/admin-http.service';
+
+@HttpClientModule({
+  services: [AdminHttpService],
+  controllers: [AdminHttpController],
+})
+@Module({
+  imports: [HttpModule],
+  providers: [AdminHttpController, AdminHttpService],
+})
+export class AppModule {}
+```
+  </Tab>
+</CodeTabs>
+
+## ApiKeyGuard in detail
+
+*ApiKeyGuard* is the built-in guard shipped with the package. It reads the `x-api-key` header from the request and compares it against the value provided at construction time. The comparison uses `timingSafeEqual` from Node's `crypto` module to prevent timing attacks that could leak information about the key length or prefix.
+
+The guard rejects requests in three scenarios: missing header (returns `false` immediately), different buffer length (returns `false` without comparison to avoid the `timingSafeEqual` requirement for equal lengths), and mismatched values (returns `false` after constant-time comparison). This layered rejection strategy avoids exposing key length through response timing differences.
+
+*ApiKeyGuard* is activated automatically when `apiKey` is set in *defineHttp*. The runtime creates and registers the guard instance internally so you do not need to declare it in *@HttpClientModule({ guards })*. The `guards` array is reserved for custom guards that require your own DI-resolved dependencies.
+
+## Middleware execution model
+
+The package supports two middleware entry points with different scopes and registration mechanisms.
+
+Global middleware instances are declared in *@HttpClientModule({ middleware })* as an array of *HttpMiddleware* objects. They are registered on the `'*'` Hono path, which means they run on every request after the security stack but before guard execution. Use global middleware for cross-cutting concerns that apply unconditionally, such as request logging via *LoggerMiddleware*.
+
+Route-level middleware uses class tokens and the *@HttpUseMiddleware* decorator. The class token must be mapped to a concrete instance in *@HttpClientModule({ middlewareProviders })*. *RouteBuilder* resolves the token during route binding and inserts the middleware handler before the route handler in the Hono chain. Class-level *@HttpUseMiddleware* runs before method-level *@HttpUseMiddleware*, and both run after global middleware and guards.
+
+Every middleware implements the *HttpMiddleware* interface: `handle(ctx: Context, next: Next): Promise<undefined | Response>`. Calling `await next()` passes control to the next middleware or handler. Not calling `next()` terminates the request at that middleware, which is how *RateLimitMiddleware* rejects over-limit requests.
+
+## Built-in middleware reference
+
+<DropdownGroup>
+<Dropdown title="SecurityHeadersMiddleware: Automatic">
+  Wraps Hono *secureHeaders* and applies all header defaults from *SECURITY_DEFAULTS.headers*. This middleware is part of the automatic security stack and runs on every request before any controller handler. Configure individual headers through *SecurityHeadersConfig* in the *security.headers* block.
+</Dropdown>
+
+<Dropdown title="CorsMiddleware: Automatic">
+  Wraps Hono *cors* and handles preflight `OPTIONS` requests along with `Access-Control-*` headers. This middleware only activates when `security.cors` is configured in the HTTP plugin definition. It supports origin arrays, wildcard, credentials, and max-age for preflight caching.
+</Dropdown>
+
+<Dropdown title="BodyLimitMiddleware: Automatic">
+  Wraps Hono *bodyLimit* and rejects payloads exceeding *maxSize* with status 413 and a structured error response. The response body follows the same `{ ok: false, error: 'Payload too large', maxSize }` envelope as all other error responses. Disable it by setting `bodyLimit` to `false` in the security config.
+</Dropdown>
+
+<Dropdown title="RateLimitMiddleware: Manual (global or route)">
+  Implements an in-memory sliding window rate limiter that accepts `{ windowMs, max }` configuration. Client identification uses the `x-forwarded-for` header, falling back to `'unknown'` when the header is absent. Over-limit requests receive status 429, and stale entries are evicted periodically.
+</Dropdown>
+
+<Dropdown title="LoggerMiddleware: Manual (global or route)">
+  Logs `METHOD path status durationMs` for each request that passes through it. Requests with status codes 400 or above are logged at `warn` level for easier filtering in observability pipelines. Zero configuration is required, just instantiate and register in *HttpClientModule({ middleware })*.
+</Dropdown>
+</DropdownGroup>
+
+## Rate limiting strategy
+
+*RateLimitMiddleware* implements an in-memory sliding window rate limiter. Each client is identified by the `x-forwarded-for` header value, or `'unknown'` when the header is absent. The middleware maintains a `Map<string, WindowEntry>` where each entry tracks the request count and window start timestamp.
+
+When a request arrives, the middleware checks if the current window has expired. If it has, the entry resets. If the window is still active and the count exceeds *max*, the middleware responds with `{ ok: false, error: 'Too many requests' }` at status 429 without calling `next()`. A periodic cleanup interval evicts entries for clients that have not sent requests within the window duration.
+
+To use rate limiting per-route, extend *RateLimitMiddleware* with your own configuration and register it in *middlewareProviders*. This pattern keeps the rate limit configuration visible at the middleware class level and avoids magic numbers in decorator arguments.
+
+## Proxy trust and IP identification
+
+The rate-limit middleware reads `x-forwarded-for` directly without verifying the source. In production behind reverse proxies or load balancers, this means you must ensure your proxy infrastructure sets the header correctly. If the header is missing, all requests are grouped under the `'unknown'` key, which effectively creates a single global rate-limit bucket. If the header is spoofable because the proxy does not overwrite it, attackers can bypass rate limits by sending fake IP headers.
+
+The *SecurityConfig* interface includes a *trustedProxies* field with a *proxies* array (defaulting to `['127.0.0.1', '::1']`). Use this field to document your trusted proxy configuration, and ensure your deployment architecture only allows trusted proxies to set forwarding headers.
+
+## Operational hardening checklist
+
+<Steps>
+  <Step title="Start with secure defaults">
+    Enable baseline headers and body limits unless a clear requirement forces you to relax them. Default-deny posture is easier to audit than a permissive posture patched later. Override individual headers only when your deployment requires it.
+  </Step>
+  <Step title="Wire global guards in AppHttpModule">
+    Declare custom guard classes in *@HttpClientModule({ guards })* to protect every endpoint with the same policy. The framework resolves guard dependencies from the DI container, so guards can inject services like *AppEnv* without any manual wiring. Use `apiKey` in *defineHttp* to activate *ApiKeyGuard* automatically without declaring it in the guards array.
+  </Step>
+  <Step title="Narrow protection with @HttpGuards">
+    Apply *@HttpGuards* at the controller or method level for endpoints that require different or additional authorization logic. This keeps the global guard focused on the baseline policy and moves route-specific checks to the point of declaration. Class-level guards execute before method-level guards within the same controller.
+  </Step>
+  <Step title="Add LoggerMiddleware for observability">
+    Register `new LoggerMiddleware()` in *@HttpClientModule({ middleware })* to get baseline request logging. The middleware logs method, path, status, and duration. Status codes 400 and above are logged at warn level for easier filtering.
+  </Step>
+  <Step title="Scope rate limits to sensitive endpoints">
+    Extend *RateLimitMiddleware* with per-route configurations and register through *middlewareProviders*. Apply via *@HttpUseMiddleware* on endpoints that handle expensive operations or sensitive mutations rather than applying a single global limit.
+  </Step>
+  <Step title="Validate proxy and IP trust settings">
+    If rate limiting or audit logging depends on client IP, verify how your reverse proxy forwards `x-forwarded-for`. Incorrect trust setup can group unrelated users into one bucket or allow malicious clients to spoof their identity.
+  </Step>
+</Steps>
+
+<Callout tone="warning" title="Security posture is still your design responsibility">
+  The package gives primitives and safe defaults, but final policy decisions must be explicit in your AppModule and deployment architecture. Review security headers, CORS origins, and guard configuration during every deployment review.
+</Callout>
+
+## Next page
+
+Continue with [Bot Bridge Runtime Modes](/guide/http-bridge-and-errors).

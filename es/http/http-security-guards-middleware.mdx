@@ -1,0 +1,250 @@
+---
+title: Seguridad, Guards y Middleware
+description: |
+  Entiende la capa de hardening por defecto y cómo extenderla de forma segura.
+  Aplica guards y middleware globales o por ruta con orden de ejecución predecible.
+order: 5
+category: '@spraxium/http'
+---
+
+## La seguridad empieza antes de los controllers
+
+*HttpServer* aplica middleware de seguridad antes de que cualquier handler de controller sea invocado. Este cableado al momento de arranque da a todos los endpoints la misma política base desde el primer request sin requerir decoración explícita en cada ruta. La capa de seguridad se ejecuta en un orden fijo que no puede ser reordenado por código de usuario, asegurando que el hardening de headers y los límites de body sean siempre la primera línea de defensa.
+
+Cuando HTTP está habilitado, el runtime conecta estas protecciones en esta secuencia exacta:
+
+1. Eliminación opcional de headers `X-Powered-By` y `Server` (*hidePoweredBy*, por defecto `true`).
+2. *SecurityHeadersMiddleware* envolviendo Hono *secureHeaders* (salvo que `headers` esté en `false`).
+3. *CorsMiddleware* envolviendo Hono *cors* (solo cuando `security.cors` está configurado).
+4. *BodyLimitMiddleware* envolviendo Hono *bodyLimit* (salvo que `bodyLimit` esté en `false`).
+5. Instancias globales de middleware de *HttpClientModule({ middleware })*.
+6. Guards globales de *HttpClientModule({ guards })* mediante *GuardExecutor*.
+
+Después de esta pila, el middleware a nivel de ruta desde decorators *@UseMiddleware* se ejecuta, y finalmente el handler mismo. Este modelo en capas significa que las decisiones de guard ocurren después del hardening base, y las decisiones de middleware ocurren después de que los headers de seguridad ya estén establecidos.
+
+## Valores de seguridad por defecto
+
+Cada header y límite de seguridad tiene un valor seguro por defecto de *SECURITY_DEFAULTS*. Solo necesitas sobrescribir valores cuando tu despliegue requiere comportamiento diferente. Cuando un subcampo se omite, el default se aplica. Cuando se establece a `false`, esa capa se deshabilita por completo.
+
+<DropdownGroup>
+<Dropdown title="hidePoweredBy: true">
+  Elimina los headers `X-Powered-By` y `Server` de todas las respuestas. Esto previene el fingerprinting del framework y runtime que los atacantes usan para identificar vulnerabilidades conocidas en versiones especificas de software. Mantenlo habilitado a menos que tengas una razon especifica para anunciar tu stack de servidor.
+</Dropdown>
+
+<Dropdown title="X-Frame-Options: DENY">
+  Previene que la pagina de respuesta sea embebida dentro de un iframe en cualquier dominio. Esto bloquea ataques de clickjacking donde un sitio malicioso superpone frames transparentes para engañar a usuarios a hacer clic en elementos ocultos. Establece a `SAMEORIGIN` si tus propias paginas necesitan embeber unas a otras.
+</Dropdown>
+
+<Dropdown title="X-Content-Type-Options: nosniff">
+  Previene que los navegadores hagan MIME-sniffing de respuestas fuera del header `Content-Type` declarado. Sin este header, los navegadores pueden interpretar una respuesta JSON como HTML, lo que abre la puerta a XSS por confusion de content-type. Este header no tiene variantes de configuracion y deberia estar siempre habilitado.
+</Dropdown>
+
+<Dropdown title="Strict-Transport-Security: max-age=31536000; includeSubDomains">
+  Fuerza HTTPS a nivel de user-agent por un año con cobertura de subdominios. Despues de la primera respuesta HTTPS, los navegadores se niegan a conectar via HTTP plano hasta que el max-age expire. Ajusta *hstsMaxAge* y *hstsIncludeSubDomains* en la config de seguridad si tu despliegue requiere valores diferentes.
+</Dropdown>
+
+<Dropdown title="Content-Security-Policy: default-src 'none'">
+  Aplica un default zero-trust para carga de contenido, bloqueando todos los scripts, estilos, imagenes y media a menos que sean explicitamente permitidos. Este es el CSP mas restrictivo posible y es apropiado para servidores solo-API que nunca sirven paginas HTML. Sobrescribe *contentSecurityPolicy* con una string de directiva personalizada si tus endpoints sirven contenido renderizado por navegador.
+</Dropdown>
+
+<Dropdown title="Referrer-Policy: no-referrer">
+  Suprime el header `Referer` en todos los requests salientes originados desde la pagina de respuesta. Esto previene filtrar paths de URL y parametros de query a servicios de terceros. Usa `strict-origin-when-cross-origin` si tus analytics o CDN requieren informacion de referrer.
+</Dropdown>
+
+<Dropdown title="X-XSS-Protection: 1; mode=block">
+  Habilita filtros XSS de navegadores legacy en modo de bloqueo, instruyendo al navegador a parar de renderizar la pagina si se detecta un ataque XSS reflejado. Los navegadores modernos dependen de CSP en su lugar, pero este header proporciona defensa-en-profundidad para user agents mas antiguos. No hay desventaja en mantenerlo habilitado.
+</Dropdown>
+
+<Dropdown title="Permissions-Policy: camera=(), microphone=(), geolocation=()">
+  Deniega acceso a APIs sensibles del navegador como camara, microfono y geolocalizacion por defecto. Esto previene que scripts maliciosos accedan al hardware del dispositivo incluso si eluden restricciones del CSP. Expande la lista de politica si tus respuestas de API son consumidas por paginas de navegador que necesitan permisos especificos.
+</Dropdown>
+
+<Dropdown title="Cross-Origin-Opener-Policy: same-origin">
+  Aisla el contexto de navegacion para prevenir ataques cross-origin como Spectre que explotan memoria de proceso compartida. Cuando se establece a `same-origin`, la pagina no puede compartir un grupo de contexto de navegacion con documentos cross-origin. Este es el default recomendado para cualquier servidor que maneja datos sensibles.
+</Dropdown>
+
+<Dropdown title="Limite de body: 102400 bytes (100 KB)">
+  Rechaza payloads de request que excedan el tamaño maximo configurado con status 413 y una respuesta de error estructurada. El default de 100 KB es apropiado para la mayoria de endpoints de API que aceptan JSON. Sobrescribe *bodyLimit.maxSize* en la config de seguridad para endpoints que manejan uploads de archivos o payloads grandes.
+</Dropdown>
+</DropdownGroup>
+
+## Configuración de seguridad y middleware
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="config/http.config.ts" language="typescript">
+```typescript filename="config/http.config.ts"
+import { defineHttp } from '@spraxium/http';
+import { AppModule } from '../src/app.module';
+
+export const httpPlugin = defineHttp({
+  enabled: true,
+  host: process.env.HTTP_HOST ?? '0.0.0.0',
+  port: Number(process.env.HTTP_PORT ?? 3000),
+  apiKey: process.env.HTTP_API_KEY ?? '',
+  sharding: false,
+  security: {
+    hidePoweredBy: true,
+    headers: {
+      frameOptions: 'DENY',
+      contentSecurityPolicy: "default-src 'none'",
+      referrerPolicy: 'no-referrer',
+      hstsMaxAge: 31_536_000,
+      hstsIncludeSubDomains: true,
+    },
+    cors: {
+      origins: ['https://admin.example.com'],
+      methods: ['GET', 'POST', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
+      credentials: true,
+      maxAge: 600,
+    },
+    bodyLimit: { maxSize: 256_000 },
+  },
+  module: AppModule,
+});
+```
+  </Tab>
+  <Tab label="src/app.module.ts" language="typescript">
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import {
+  HttpClientModule,
+  HttpModule,
+  LoggerMiddleware,
+  RateLimitMiddleware,
+} from '@spraxium/http';
+import { GuildHttpController } from './http/controllers/guild-http.controller';
+
+class GuildBurstLimitMiddleware extends RateLimitMiddleware {
+  constructor() {
+    super({ windowMs: 15_000, max: 25 });
+  }
+}
+
+@HttpClientModule({
+  controllers: [GuildHttpController],
+  middleware: [new LoggerMiddleware()],
+  middlewareProviders: new Map([
+    [GuildBurstLimitMiddleware, new GuildBurstLimitMiddleware()],
+  ]),
+})
+@Module({
+  imports: [HttpModule],
+  providers: [GuildHttpController],
+})
+export class AppModule {}
+```
+  </Tab>
+  <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
+```typescript filename="http/controllers/guild-http.controller.ts"
+import { HttpController, HttpGet, HttpParam, HttpUseMiddleware } from '@spraxium/http';
+import { GuildBurstLimitMiddleware } from '../../app.module';
+
+@HttpController('/guilds')
+export class GuildHttpController {
+  @HttpUseMiddleware(GuildBurstLimitMiddleware)
+  @HttpGet('/:guildId/members')
+  async listMembers(@HttpParam('guildId') guildId: string) {
+    return { ok: true, guildId };
+  }
+
+  @HttpGet('/:guildId')
+  async getGuild(@HttpParam('guildId') guildId: string) {
+    return { ok: true, guildId };
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Pipeline de guards y la interfaz HttpGuard
+
+Los guards son la frontera de autenticación y autorización. Cada guard implementa la interfaz *HttpGuard*, que define un único método: `canActivate(ctx: Context): Promise<boolean>`. Los guards globales declarados en *HttpClientModule({ guards })* se ejecutan secuencialmente a través de *GuardExecutor* en cada request después de la pila de middleware de seguridad.
+
+Cuando *GuardExecutor* encuentra un guard que retorna `false`, detiene la ejecución inmediatamente y establece la respuesta a `{ ok: false, error: 'Unauthorized' }` con status 401. Ningún guard, middleware o handler posterior se ejecuta. Este comportamiento de cortocircuito significa que el orden de guards importa: coloca tu caso de rechazo más común primero (como validación de API key) para evitar ejecutar chequeos costosos en requests no autenticados.
+
+La respuesta 401 del rechazo de guard se inyecta directamente, no a través del handler *onError*. Esto significa que las fallas de guard son finales y no pueden ser capturadas ni modificadas por middleware posterior. El shape de respuesta coincide con el mismo envelope usado por todas las demás respuestas de error, así que los clientes no necesitan manejo especial para rechazos de guard.
+
+## ApiKeyGuard en detalle
+
+*ApiKeyGuard* es el guard integrado que viene con el paquete. Lee el header `x-api-key` del request y lo compara contra el valor provisto al momento de construcción. La comparación usa `timingSafeEqual` del módulo `crypto` de Node para prevenir ataques de timing que podrían filtrar información sobre la longitud o prefijo de la clave.
+
+El guard rechaza requests en tres escenarios: header ausente (retorna `false` inmediatamente), longitud de buffer diferente (retorna `false` sin comparación para evitar el requerimiento de `timingSafeEqual` de longitudes iguales), y valores que no coinciden (retorna `false` después de comparación en tiempo constante). Esta estrategia de rechazo en capas evita exponer la longitud de la clave a través de diferencias de timing en la respuesta.
+
+Para usar el guard, instáncialo con tu API key y agrégalo al array de *guards* en la metadata de *HttpClientModule*. La clave debe venir de una variable de entorno, no de un string hardcodeado en el código fuente.
+
+## Modelo de ejecución de middleware
+
+El paquete soporta dos puntos de entrada de middleware con diferentes alcances y mecanismos de registro.
+
+Las instancias globales de middleware se declaran en *HttpClientModule({ middleware })* como un array de objetos *HttpMiddleware*. Se registran en la ruta `'*'` de Hono, lo que significa que se ejecutan en cada request después de la pila de seguridad pero antes de la ejecución de guards. Usa middleware global para concerns transversales que aplican incondicionalmente, como logging de requests vía *LoggerMiddleware*.
+
+El middleware a nivel de ruta usa tokens de clase y el decorator *@HttpUseMiddleware*. El token de clase debe mapearse a una instancia concreta en *HttpClientModule({ middlewareProviders })*. *RouteBuilder* resuelve el token durante el binding de ruta e inserta el handler de middleware antes del handler de ruta en la cadena de Hono. *@UseMiddleware* a nivel de clase se ejecuta antes del nivel de método, y ambos se ejecutan después del middleware global y los guards.
+
+Cada middleware implementa la interfaz *HttpMiddleware*: `handle(ctx: Context, next: Next): Promise<undefined | Response>`. Llamar `await next()` pasa el control al siguiente middleware o handler. No llamar `next()` termina el request en ese middleware, que es cómo *RateLimitMiddleware* rechaza requests que exceden el límite.
+
+## Referencia de middleware integrado
+
+<DropdownGroup>
+<Dropdown title="SecurityHeadersMiddleware: Automatico">
+  Envuelve Hono *secureHeaders* y aplica todos los defaults de headers de *SECURITY_DEFAULTS.headers*. Este middleware es parte de la pila automatica de seguridad y se ejecuta en cada request antes de cualquier handler de controller. Configura headers individuales mediante *SecurityHeadersConfig* en el bloque *security.headers*.
+</Dropdown>
+
+<Dropdown title="CorsMiddleware: Automatico">
+  Envuelve Hono *cors* y maneja requests preflight `OPTIONS` junto con headers `Access-Control-*`. Este middleware solo se activa cuando `security.cors` esta configurado en la definicion del plugin HTTP. Soporta arrays de origin, wildcard, credentials y max-age para cache de preflight.
+</Dropdown>
+
+<Dropdown title="BodyLimitMiddleware: Automatico">
+  Envuelve Hono *bodyLimit* y rechaza payloads que excedan *maxSize* con status 413 y una respuesta de error estructurada. El cuerpo de la respuesta sigue el mismo envelope `{ ok: false, error: 'Payload too large', maxSize }` de todas las demas respuestas de error. Deshabilitalo estableciendo `bodyLimit` a `false` en la config de seguridad.
+</Dropdown>
+
+<Dropdown title="RateLimitMiddleware: Manual (global o ruta)">
+  Implementa un limitador de ventana deslizante en memoria que acepta configuracion `{ windowMs, max }`. La identificacion del cliente usa el header `x-forwarded-for`, cayendo a `'unknown'` cuando el header esta ausente. Requests que exceden el limite reciben status 429, y entradas obsoletas se purgan periodicamente.
+</Dropdown>
+
+<Dropdown title="LoggerMiddleware: Manual (global o ruta)">
+  Registra `METHOD path status durationMs` por cada request que pasa por el. Requests con codigos de status 400 o superiores se registran a nivel `warn` para filtraje mas facil en pipelines de observabilidad. Cero configuracion requerida, solo instanciar y registrar en *HttpClientModule({ middleware })*.
+</Dropdown>
+</DropdownGroup>
+
+## Estrategia de rate limiting
+
+*RateLimitMiddleware* implementa un limitador de tasa de ventana deslizante en memoria. Cada cliente se identifica por el valor del header `x-forwarded-for`, o `'unknown'` cuando el header está ausente. El middleware mantiene un `Map<string, WindowEntry>` donde cada entrada rastrea el conteo de requests y el timestamp de inicio de ventana.
+
+Cuando llega un request, el middleware verifica si la ventana actual ha expirado. Si expiró, la entrada se resetea. Si la ventana sigue activa y el conteo excede *max*, el middleware responde con `{ ok: false, error: 'Too many requests' }` con status 429 sin llamar `next()`. Un intervalo periódico de limpieza purga entradas de clientes que no han enviado requests dentro de la duración de la ventana.
+
+Para usar rate limiting por ruta, extiende *RateLimitMiddleware* con tu propia configuración y regístralo en *middlewareProviders*. Este patrón mantiene la configuración de rate limit visible a nivel de clase de middleware y evita números mágicos en argumentos de decorators.
+
+## Confianza de proxy e identificación de IP
+
+El middleware de rate-limit lee `x-forwarded-for` directamente sin verificar la fuente. En producción detrás de reverse proxies o load balancers, esto significa que debes asegurar que tu infraestructura de proxy establezca el header correctamente. Si el header falta, todos los requests se agrupan bajo la clave `'unknown'`, lo que efectivamente crea un único bucket global de rate-limit. Si el header es spoofeable porque el proxy no lo sobrescribe, atacantes pueden eludir rate limits enviando headers de IP falsos.
+
+La interfaz *SecurityConfig* incluye un campo *trustedProxies* con un array *proxies* (por defecto `['127.0.0.1', '::1']`). Usa este campo para documentar tu configuración de proxy de confianza, y asegura que tu arquitectura de despliegue solo permita a proxies de confianza establecer headers de forwarding.
+
+## Checklist de hardening operacional
+
+<Steps>
+  <Step title="Empezar con defaults seguros">
+    Habilita headers base y límites de body salvo que un requisito claro te obligue a relajarlos. La postura default-deny es más fácil de auditar que una postura permisiva parcheada después. Sobrescribe headers individuales solo cuando tu despliegue lo requiera.
+  </Step>
+  <Step title="Conectar guards globales en AppModule">
+    Registra *ApiKeyGuard* o guards personalizados en *HttpClientModule({ guards })* para que todos los endpoints compartan la misma frontera de autenticación. Excepciones por ruta deben ser explícitas, revisadas y documentadas.
+  </Step>
+  <Step title="Agregar LoggerMiddleware para observabilidad">
+    Registra `new LoggerMiddleware()` en *HttpClientModule({ middleware })* para obtener logging base de requests. El middleware loguea método, ruta, status y duración. Códigos de status 400 o superiores se loguean a nivel warn para filtrado más fácil.
+  </Step>
+  <Step title="Acotar rate limits a endpoints sensibles">
+    Extiende *RateLimitMiddleware* con configuraciones por ruta y registra a través de *middlewareProviders*. Aplica vía *@HttpUseMiddleware* en endpoints que manejan operaciones costosas o mutaciones sensibles en vez de aplicar un único límite global.
+  </Step>
+  <Step title="Validar configuración de proxy y confianza de IP">
+    Si el rate limiting o logging de auditoría depende de IP de cliente, verifica cómo tu reverse proxy reenvía `x-forwarded-for`. Una configuración incorrecta de confianza puede agrupar usuarios no relacionados en un bucket o permitir que clientes maliciosos suplanten su identidad.
+  </Step>
+</Steps>
+
+<Callout tone="warning" title="La postura de seguridad sigue siendo tu responsabilidad de diseño">
+  El paquete aporta primitivas y defaults seguros, pero las decisiones finales de política deben ser explícitas en tu AppModule y arquitectura de despliegue. Revisa headers de seguridad, orígenes CORS y configuración de guards en cada revisión de despliegue.
+</Callout>
+
+## Página siguiente
+
+Continúa con [Modos de Runtime de Bot Bridge](/guide/http-bridge-and-errors).

@@ -1,0 +1,213 @@
+---
+title: HTTP Folder Architecture
+description: |
+  Organize HTTP files with clear transport boundaries and maintainable growth paths.
+  Keep AppModule as the single metadata owner while splitting controllers, services, DTOs, and middleware.
+order: 3
+category: '@spraxium/http'
+---
+
+## Why structure matters early
+
+A clean folder layout keeps transport code understandable as endpoint count grows. Without clear boundaries, controller files accumulate business logic, DTO definitions end up scattered across unrelated directories, and middleware placement becomes unpredictable. Establishing structure early prevents those problems from compounding as the project scales, because the folder hierarchy itself communicates where each concern belongs.
+
+The goal is straightforward: one ownership root in AppModule, predictable file placement for every transport concern, and clear separation between request mapping (controllers) and business logic (services). When a new team member opens the project, the folder tree should answer "where does this go?" without requiring a conversation.
+
+This matters more in HTTP modules than in typical Discord command code because HTTP endpoints are a public contract. Clients depend on path stability, response shapes, and error formats. Disorganized transport code makes it harder to audit what's exposed and easier to introduce breaking changes accidentally.
+
+## Recommended structure
+
+<FolderStructure title="Suggested HTTP architecture">
+  <Folder name="src" open>
+    <File name="app.module.ts" comment="Imports HttpModule, hosts @HttpClientModule with controllers/services/guards/middleware" />
+    <File name="main.ts" comment="Application bootstrap entry point" />
+    <Folder name="http" open>
+      <Folder name="controllers" open>
+        <File name="guild-http.controller.ts" comment="Route contracts, parameter mapping, and response shaping" />
+        <File name="moderation-http.controller.ts" comment="Ban, kick, timeout, and role management endpoints" />
+      </Folder>
+      <Folder name="services" open>
+        <File name="guild-http.service.ts" comment="Business operations shared by guild routes, injects BotBridge and AppEnv" />
+        <File name="moderation-http.service.ts" comment="Moderation logic consuming BotBridge" />
+      </Folder>
+      <Folder name="guards" open>
+        <File name="admin.guard.ts" comment="Custom DI-resolved guard for admin endpoints" />
+      </Folder>
+      <Folder name="dto" open>
+        <File name="update-guild-config.dto.ts" comment="Validation contract for guild config PATCH" />
+        <File name="ban-member.dto.ts" comment="Validation contract for ban POST" />
+      </Folder>
+      <Folder name="middleware" open>
+        <File name="request-audit.middleware.ts" comment="Route-level middleware for audit logging" />
+      </Folder>
+      <Folder name="errors" open>
+        <File name="guild-locked.error.ts" comment="Custom ForbiddenError subclass for locked guilds" />
+      </Folder>
+    </Folder>
+  </Folder>
+  <Folder name="config" open>
+    <File name="http.config.ts" comment="Single defineHttp entry exported as httpPlugin" />
+  </Folder>
+  <File name="spraxium.config.ts" comment="Registers httpPlugin in defineConfig plugins" />
+</FolderStructure>
+
+## Role of each folder
+
+Understanding what each directory owns prevents responsibility leaks across boundaries. Controllers handle request/response mapping, services own business rules, DTOs define validation contracts, middleware provides cross-cutting behavior, and errors model domain-specific failure scenarios.
+
+<DropdownGroup>
+<Dropdown title="controllers/">
+  Contains classes decorated with *@HttpController*. Each file groups related routes under one prefix and delegates all non-trivial logic to services. Controllers should be thin: their job is reading parameters from the request, calling services, and returning response data, not owning business rules or domain logic.
+</Dropdown>
+
+<Dropdown title="services/">
+  Contains classes that hold business rules, *BotBridge* calls, and data transformations. Services are declared in *@HttpClientModule({ services })* and injected into controllers and other services as constructor parameters. *RouteRegistry* resolves them using topological sort before instantiating any controller, so circular dependencies produce an explicit startup error that lists the involved class names.
+</Dropdown>
+
+<Dropdown title="dto/">
+  Contains classes with *class-validator* decorators that define the validation contract for mutation payloads. Each DTO file covers one specific request shape and is referenced as the argument of *@HttpBody(DtoClass)*. DTOs should hold only structural and constraint declarations, not business logic or service calls.
+</Dropdown>
+
+<Dropdown title="middleware/">
+  Contains classes implementing the *HttpMiddleware* interface for route-level concerns. Middleware placed here is registered in *@HttpClientModule({ middleware })* as global instances or in *middlewareProviders* for per-route use with *@HttpUseMiddleware*. Keep middleware stateless where possible so instances can be safely shared across multiple routes.
+</Dropdown>
+
+<Dropdown title="errors/">
+  Contains custom *HttpError* subclasses named after domain conditions rather than HTTP status codes. Naming errors after the domain scenario, such as *GuildLockedError* rather than *ForbiddenError*, makes them easier to search in logs, test in assertions, and filter in monitoring dashboards. Each class inherits its status code from the parent and only needs to pass a descriptive message to `super`.
+</Dropdown>
+</DropdownGroup>
+
+## Focused file responsibilities
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
+```typescript filename="http/controllers/guild-http.controller.ts"
+import { HttpController, HttpGet, HttpParam, HttpPatch, HttpBody, HttpStatus } from '@spraxium/http';
+import { NotFoundError } from '@spraxium/http';
+import { GuildHttpService } from '../services/guild-http.service';
+import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
+
+@HttpController('/guilds')
+export class GuildHttpController {
+  constructor(private readonly service: GuildHttpService) {}
+
+  @HttpGet('/:guildId')
+  async getGuild(@HttpParam('guildId') guildId: string) {
+    const guild = await this.service.getGuildSummary(guildId);
+    if (!guild) throw new NotFoundError('Guild not found');
+    return { ok: true, ...guild };
+  }
+
+  @HttpPatch('/:guildId/config')
+  @HttpStatus(200)
+  async updateConfig(
+    @HttpParam('guildId') guildId: string,
+    @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+  ) {
+    return this.service.updateConfig(guildId, body);
+  }
+}
+```
+  </Tab>
+  <Tab label="http/services/guild-http.service.ts" language="typescript">
+```typescript filename="http/services/guild-http.service.ts"
+import { Injectable } from '@spraxium/common';
+import { BotBridge, ConflictError, ForbiddenError } from '@spraxium/http';
+import type { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
+
+@Injectable()
+export class GuildHttpService {
+  constructor(private readonly bridge: BotBridge) {}
+
+  async getGuildSummary(guildId: string) {
+    const guild = await this.bridge.getGuild(guildId);
+    if (!guild) return null;
+    return { guildId: guild.id, name: guild.name, memberCount: guild.memberCount };
+  }
+
+  async updateConfig(guildId: string, dto: UpdateGuildConfigDto) {
+    const guild = await this.bridge.getGuild(guildId);
+    if (!guild) throw new ForbiddenError('Guild not accessible');
+    return { ok: true, guildId, applied: dto };
+  }
+}
+```
+  </Tab>
+  <Tab label="http/dto/update-guild-config.dto.ts" language="typescript">
+```typescript filename="http/dto/update-guild-config.dto.ts"
+import { IsBoolean, IsOptional, IsString, Length } from 'class-validator';
+
+export class UpdateGuildConfigDto {
+  @IsString()
+  @Length(1, 5)
+  prefix!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  maintenanceMode?: boolean;
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Why controllers should stay thin
+
+Controllers are the boundary between HTTP transport and application logic. Their job is to read parameters from the request, delegate work to services, and shape the response. When controllers accumulate business rules, they become hard to test because you need a full HTTP context to exercise domain behavior. They also become hard to reuse because the same logic cannot be called from a different entry point like a Signal handler or a scheduled task.
+
+The pattern is consistent: the controller calls the service, the service calls *BotBridge* or other dependencies, and errors propagate upward through the *HttpError* hierarchy until the centralized *onError* handler normalizes them. This layering keeps each file focused and each test isolated.
+
+Services are resolved by *RouteRegistry* using topological sort, which means they can depend on each other as long as there are no circular references. If a circular dependency is detected, startup fails immediately with a clear error message listing the involved classes.
+
+## Scaling to bounded contexts
+
+When the API surface grows beyond a few controllers, flat folders become noisy. At that point, split `src/http` into domain-specific subdirectories. Each subdirectory gets its own controllers, services, DTOs, and errors while still registering everything through the same *@HttpClientModule* metadata on AppModule.
+
+<FolderStructure title="Scaled HTTP architecture with domain boundaries">
+  <Folder name="src" open>
+    <File name="app.module.ts" comment="Single metadata owner for all HTTP domains" />
+    <Folder name="http" open>
+      <Folder name="guilds" open>
+        <File name="guild-http.controller.ts" />
+        <File name="guild-http.service.ts" />
+        <File name="update-guild-config.dto.ts" />
+      </Folder>
+      <Folder name="moderation" open>
+        <File name="moderation-http.controller.ts" />
+        <File name="moderation-http.service.ts" />
+        <File name="ban-member.dto.ts" />
+      </Folder>
+      <Folder name="members" open>
+        <File name="member-http.controller.ts" />
+        <File name="member-http.service.ts" />
+      </Folder>
+      <Folder name="shared" open>
+        <File name="request-audit.middleware.ts" comment="Middleware shared across domains" />
+        <File name="guild-locked.error.ts" comment="Custom errors shared across domains" />
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+## Practical evolution steps
+
+<Steps>
+  <Step title="Start from one transport folder">
+    Begin with `src/http` containing controllers, services, and DTO folders even for a small API surface. This gives your team a stable mental map before the project scales. Avoid putting HTTP files directly in `src/` because they will mix with Discord command code.
+  </Step>
+  <Step title="Promote shared logic to services">
+    Keep controllers thin by moving non-trivial business rules into service classes. Route handlers should coordinate request and response concerns, not own domain behavior. Services also get injected with *BotBridge*, which keeps Discord interaction behind a clean abstraction.
+  </Step>
+  <Step title="Create custom error classes early">
+    Define domain-specific *HttpError* subclasses in an `errors/` folder instead of throwing generic errors with string messages. Named errors are easier to find in logs, test in assertions, and filter in monitoring dashboards.
+  </Step>
+  <Step title="Split by bounded context when needed">
+    As endpoint volume grows, split `src/http` into domain folders such as `guilds/`, `moderation/`, and `members/`. Keep `app.module.ts` as the single composition root for all contexts. Each domain folder owns its controllers, services, and DTOs.
+  </Step>
+  <Step title="Protect ownership boundaries">
+    Continue using one *defineHttp* entry and one AppModule metadata source even after refactors. Multiple metadata roots make lifecycle and security policy hard to reason about. All controllers from all domains are listed in the same *HttpClientModule* `controllers` array.
+  </Step>
+</Steps>
+
+## Next page
+
+Continue with [Routing Pipeline and Decorators](/guide/http-routing-runtime-pipeline).

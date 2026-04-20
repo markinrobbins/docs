@@ -1,0 +1,179 @@
+---
+title: Visão Geral da Package HTTP
+description: |
+  Mapeie a arquitetura real de @spraxium/http do startup até a execução de requests.
+  Comece pelo modelo global de integração antes de aprofundar em rotas, segurança, bridge e exceções.
+order: 1
+category: '@spraxium/http'
+---
+
+## O que esta package controla
+
+*@spraxium/http* é a fronteira de transporte entre o bot Discord e clientes HTTP externos. Ela inicia um servidor baseado em Hono, aplica middleware e guards compartilhados, transforma metadata de controllers em rotas executáveis e expõe a abstração *BotBridge* para que controllers interajam com guilds, membros e APIs de moderação sem depender de um modo específico de runtime do Discord. Cada etapa desse pipeline, da resolução do plugin até o shutdown gracioso, é gerenciada por um único serviço chamado *HttpServer*.
+
+A package segue um modelo de três camadas. A configuração do plugin define comportamento como host, porta, modo de sharding e política de segurança. A metadata do módulo declara controllers, services, guards e middleware que formam a superfície da API. O *HttpServer* lê ambas as camadas no startup e produz uma aplicação Hono totalmente conectada e servida via `@hono/node-server`. Essa separação mantém decisões de configuração fora do código, contratos de rota em decorators e a conexão de runtime escondida por trás de um ciclo de vida previsível.
+
+Entender esse modelo de ownership é fundamental para usar a package de forma eficaz. Todas as outras páginas desta categoria se apoiam nessa base, então investir tempo aqui evita confusão quando você chegar em roteamento, segurança ou bridge.
+
+## Mapa interno da package
+
+<DropdownGroup>
+<Dropdown title="Config e entrada: defineHttp · HttpConfig · HttpModule">
+  *defineHttp* é a factory de plugin que envolve *definePlugin* com a chave `'http'` e o tipo *HttpConfig*, produzindo uma entrada tipada consumida pelo *ConfigStore* no boot. *HttpModule* é um módulo global que disponibiliza *HttpServer* como singleton, tornando-o resolvível pelo container de DI sem instanciação manual. Manter a config em um arquivo dedicado e o módulo no AppModule garante que o servidor leia suas instruções de uma única fonte estável.
+</Dropdown>
+
+<Dropdown title="Ciclo de vida do servidor: HttpServer · HttpRegistry">
+  O *HttpServer* gerencia o ciclo de vida completo do *onBoot* ao *onShutdown*, lendo a config do plugin, construindo a aplicação Hono, registrando middleware de segurança e handlers de rota, e fechando o listener do Node.js no encerramento. No modo direto ele inicia durante o *onBoot* com um *Client* do Discord injetado; no modo sharded um hook estático registrado no *ParentHookRegistry* inicia o servidor do processo pai quando o *ShardingManager* está disponível. O *HttpRegistry* é o store estático que preserva a referência ao *ShardingManager* no contexto de inicialização estática do modo sharded.
+</Dropdown>
+
+<Dropdown title="Decorators e metadados">
+  Decorators de classe e método (*@HttpController*, *@HttpGet*, *@HttpPost*, *@HttpPut*, *@HttpPatch*, *@HttpDelete*, *@HttpStatus*, *@HttpGuards*, *@HttpUseMiddleware*, *@HttpClientModule*) escrevem contratos de rota no *reflect-metadata* no carregamento da classe. Decorators de parâmetro (*@HttpParam*, *@HttpQuery*, *@HttpBody*, *@HttpHeader*, *@HttpCtx*) anotam argumentos de handlers para que o *ParamResolver* saiba qual estratégia de extração aplicar em cada posição. Os metadados são imutáveis após a inicialização da classe, tornando as leituras no startup livres de efeitos colaterais.
+</Dropdown>
+
+<Dropdown title="Runtime de roteamento: RouteRegistry · RouteBuilder · ParamResolver · ValidationPipe">
+  O *RouteRegistry* constrói um grafo de dependências a partir dos tipos de parâmetros dos construtores e instancia services em ordem topológica, depois instancia controllers com o mapa resolvido. O *RouteBuilder* lê a metadata de rota de cada controller e registra handlers no Hono, mesclando cadeias de middleware de classe e método antes da vinculação. O *ParamResolver* extrai argumentos de handler por request, e o *ValidationPipe* transforma e valida payloads de *@HttpBody* via *class-transformer* e *class-validator* antes da execução do handler.
+</Dropdown>
+
+<Dropdown title="Camada de segurança: SecurityHeadersMiddleware · CorsMiddleware · BodyLimitMiddleware · RateLimitMiddleware · ApiKeyGuard · GuardExecutor">
+  O stack automático de segurança roda em ordem fixa antes de qualquer lógica de controller: *SecurityHeadersMiddleware* define headers de hardening, *CorsMiddleware* gerencia preflight e access-control, e *BodyLimitMiddleware* rejeita payloads acima do limite. O *ApiKeyGuard* é ativado automaticamente quando `apiKey` está preenchido no *defineHttp*, aplicando comparação timing-safe no header `x-api-key`. O *GuardExecutor* executa guards customizados sequencialmente e curto-circuita a request com 401 quando qualquer guard retorna `false`.
+</Dropdown>
+
+<Dropdown title="Modo bridge: BridgeFactory · DirectBotBridge · ShardedBotBridge · BotBridge">
+  O *BotBridge* é a classe abstrata que define 12 métodos cobrindo leituras de guild, membro e ban, além de ações de moderação e roles. O *BridgeFactory.create()* seleciona *DirectBotBridge* quando um *Client* do Discord está disponível ou *ShardedBotBridge* quando um *ShardingManager* está presente, seguindo precedência estrita. A instância de bridge escolhida é injetada no mapa de DI para que controllers possam declarar *BotBridge* como parâmetro de construtor sem importar a classe concreta.
+</Dropdown>
+
+<Dropdown title="Serializers: GuildSerializer · MemberSerializer · BanSerializer">
+  Essas três classes convertem objetos runtime do discord.js em registros plain tipados seguros para transporte JSON via HTTP. Cada serializer remove referências circulares, normaliza datas para strings ISO e seleciona apenas os campos que clientes externos precisam. Os tipos serializados formam a fronteira estável da API entre a camada de bridge e os payloads de resposta dos controllers.
+</Dropdown>
+
+<Dropdown title="Modelo de erros: HttpError · 12 subclasses · ValidationError · ValidationDetail">
+  *HttpError* é a classe base que todas as 12 subclasses de erro estendem, adicionando um *statusCode* read-only e definindo `this.name` com o nome concreto da classe para logs mais claros. As 11 subclasses nomeadas cobrem cenários comuns de falha HTTP de 400 a 503, enquanto *ValidationError* é a décima-segunda e carrega um array *details* para falhas de constraint por campo produzidas pelo *ValidationPipe*. O handler centralizado *onError* lê apenas *statusCode* e *message* da classe base, então qualquer classe que estenda *HttpError* participa automaticamente.
+</Dropdown>
+
+<Dropdown title="Constantes e defaults: HTTP_DEFAULTS · SECURITY_DEFAULTS · HTTP_METADATA_KEYS">
+  *HTTP_DEFAULTS* contém os valores padrão de host e porta usados quando esses campos são omitidos do *defineHttp*. *SECURITY_DEFAULTS* é a política baseline de headers de segurança aplicada pelo *SecurityHeadersMiddleware* quando nenhum override via *SecurityConfig* é fornecido. *HTTP_METADATA_KEYS* centraliza todas as chaves de *reflect-metadata* para que decorators e serviços de runtime sempre referenciem os mesmos identificadores sem duplicação.
+</Dropdown>
+</DropdownGroup>
+
+## Hono como base HTTP
+
+A package usa Hono como framework HTTP em vez de Express ou Fastify. Hono é um framework web leve e compatível com edge que roda em qualquer runtime JavaScript padrão. O *HttpServer* cria uma instância `new Hono()` durante o startup, registra todos os middleware e handlers de rota e depois passa `app.fetch` para `@hono/node-server` via a função `serve()` com host e porta configurados.
+
+Isso significa que controllers e middleware interagem com os tipos *Context* e *Next* do Hono. Decorators de parâmetro como *@Param*, *@Query* e *@Header* lêem de `ctx.req`, enquanto handlers podem retornar objetos simples (serializados automaticamente em JSON) ou instâncias nativas de `Response` para controle total. Entender essa base Hono ajuda quando você precisa acessar funcionalidades fora da superfície de decorators, como ler body bruto ou definir headers customizados através de `ctx.res`.
+
+## Modelo de ownership global
+
+<Callout tone="warning" title="Use um único caminho de ownership HTTP">
+  Não crie um módulo wrapper local apenas para HTTP. Use o AppModule raiz como fonte de metadata no `defineHttp({ module })` e importe *HttpModule* uma única vez dentro do AppModule. Múltiplas raízes de metadata causam comportamento ambíguo de guards, middleware e ciclo de vida.
+</Callout>
+
+O modelo de ownership única significa uma entrada de plugin em `spraxium.config.ts`, um decorator *@HttpClientModule* no AppModule e um import de *HttpModule* no grafo de módulos. Esse padrão mantém ownership de ciclo de vida explícito: o servidor faz bind uma vez, a política de guards é declarada uma vez e a ordem do middleware é visível em um único lugar. Quando equipes dividem responsabilidades, adicionam controllers e services na mesma metadata do módulo em vez de criar árvores de módulos concorrentes.
+
+Essa restrição existe porque o *HttpServer* lê metadata do *HttpClientModule* a partir da classe referenciada em `defineHttp({ module })`. Se você criar um segundo módulo com seu próprio *HttpClientModule*, o servidor o ignora porque apenas a referência raiz é resolvida. Manter tudo no AppModule evita drift silencioso de configuração.
+
+## Snapshot mínimo de integração
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="config/http.config.ts" language="typescript">
+```typescript filename="config/http.config.ts"
+import { defineHttp } from '@spraxium/http';
+import { AppModule } from '../src/app.module';
+
+export const httpPlugin = defineHttp({
+  enabled: true,
+  host: process.env.HTTP_HOST ?? '0.0.0.0',
+  port: Number(process.env.HTTP_PORT ?? 3000),
+  apiKey: process.env.HTTP_API_KEY ?? '',
+  sharding: false,
+  security: {
+    hidePoweredBy: true,
+    cors: { origins: ['https://admin.example.com'], credentials: true },
+  },
+  module: AppModule,
+});
+```
+  </Tab>
+  <Tab label="src/app.module.ts" language="typescript">
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import { HttpClientModule, HttpModule } from '@spraxium/http';
+import { GuildHttpController } from './http/controllers/guild-http.controller';
+import { GuildHttpService } from './http/services/guild-http.service';
+
+@HttpClientModule({
+  controllers: [GuildHttpController],
+  services: [GuildHttpService],
+})
+@Module({
+  imports: [HttpModule],
+  providers: [GuildHttpController, GuildHttpService],
+})
+export class AppModule {}
+```
+  </Tab>
+  <Tab label="spraxium.config.ts" language="typescript">
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { httpPlugin } from './config/http.config';
+
+export default defineConfig(() => ({
+  plugins: [httpPlugin],
+}));
+```
+  </Tab>
+</CodeTabs>
+
+## Modos de startup: direto vs sharded
+
+O *HttpServer* suporta dois caminhos de startup dependendo do flag `sharding` no *HttpConfig*. Entender a diferença é importante porque afeta quando o servidor inicia, qual implementação de bridge é selecionada e se um *Client* do Discord está disponível no container de DI.
+
+No modo direto (`sharding: false`), o servidor inicia durante o *onBoot* e exige um *Client* do Discord injetado. Se o client estiver ausente, o startup é abortado com um erro no log. O *BridgeFactory* cria um *DirectBotBridge* que acessa guilds, membros e bans através do cache e métodos da API do client diretamente.
+
+No modo sharded (`sharding: true`), o servidor não inicia durante o *onBoot*. Um bloco estático no *HttpServer* registra um hook no *ParentHookRegistry*. Quando o processo pai cria os shards, esse hook recebe a instância do *ShardingManager* e inicia o servidor fora do ciclo de vida normal de boot. O *BridgeFactory* cria um *ShardedBotBridge* que usa `manager.broadcastEval()` para alcançar guilds em diferentes shards. Esse modo também armazena a referência do manager no *HttpRegistry* para que sobreviva ao contexto de inicialização estática.
+
+## Fluxo de runtime resumido
+
+<Steps>
+  <Step title="Resolver configuração do plugin">
+    O *HttpServer* lê a entrada do plugin HTTP no *ConfigStore* via `getPluginConfig(defineHttp)`. Esse objeto carrega host, porta, modo de sharding, política de segurança e a referência da classe de módulo. Se nenhuma configuração for encontrada ou `enabled` for `false`, o servidor pula o startup completamente e registra um aviso no log.
+  </Step>
+  <Step title="Selecionar estratégia de startup">
+    No modo direto, o *onBoot* exige um *Client* do Discord injetado. No modo sharded, um hook estático no *ParentHookRegistry* recebe o *ShardingManager* e chama `server.start()` fora do ciclo de vida normal. Ambos os caminhos convergem no mesmo método `start()` que constrói a aplicação Hono.
+  </Step>
+  <Step title="Criar BotBridge">
+    O *BridgeFactory.create()* verifica se um *ShardingManager* ou *Client* está disponível e retorna o bridge correspondente. A instância do bridge é adicionada ao mapa de dependências de DI para que controllers e services possam injetar *BotBridge* como parâmetro de construtor.
+  </Step>
+  <Step title="Aplicar camada global de segurança">
+    O servidor registra middleware nesta ordem fixa: remoção de `X-Powered-By`, *SecurityHeadersMiddleware*, *CorsMiddleware*, *BodyLimitMiddleware*, e depois qualquer middleware global customizado da metadata do *HttpClientModule*. Cada middleware é vinculado ao path `'*'` para rodar antes de todos os handlers de rota.
+  </Step>
+  <Step title="Executar guards globais">
+    Se o *HttpClientModule* declarar guards, o *GuardExecutor* os encapsula em um middleware Hono que executa sequencialmente. Quando qualquer guard retorna `false`, a execução para e o servidor responde com `{ ok: false, error: 'Unauthorized' }` no status 401. Nenhum middleware ou handler posterior é executado.
+  </Step>
+  <Step title="Registrar controllers e services">
+    O *RouteRegistry* resolve services primeiro usando ordenação topológica para tratar ordem de dependências, depois instancia controllers com o mapa de dependências resolvido. O *RouteBuilder* lê metadata de rota de cada controller e registra handlers no Hono com cadeias de middleware de classe e método mescladas.
+  </Step>
+  <Step title="Resolver parâmetros e validar DTOs">
+    Quando uma request chega a um handler, o *ParamResolver* lê metadata dos decorators de parâmetro e extrai valores de params, query, body, headers ou do *Context* completo do Hono. Se um decorator *@Body* incluir uma classe DTO, o *ValidationPipe* transforma o body bruto em uma instância tipada e valida com regras do *class-validator* antes da execução do handler.
+  </Step>
+  <Step title="Normalizar erros e retornar resposta">
+    Handlers que retornam objetos simples são serializados automaticamente em JSON com status 200 (ou status customizado via *@HttpStatus*). Se um handler retornar um `Response` nativo, o Hono repassa sem modificação. O handler *onError* normaliza exceções: *ValidationError* retorna 400 com detalhes, qualquer *HttpError* retorna seu próprio status, e exceções desconhecidas retornam 500 após log.
+  </Step>
+  <Step title="Shutdown gracioso">
+    Durante o *onShutdown*, o servidor fecha a instância de `Server` do Node.js e aguarda conexões ativas drenarem. O handler de shutdown também é registrado em `SIGINT` e `SIGTERM` no modo sharded para garantir que o servidor para corretamente quando o processo pai termina.
+  </Step>
+</Steps>
+
+## Roteiro de documentação
+
+Cada página desta categoria cobre uma camada do stack HTTP em profundidade. Leia na ordem para uma compreensão completa, ou pule para um tópico específico quando precisar de referência direcionada.
+
+1. [Configuração e Setup de Módulo Único](/guide/http-config-and-single-module), cobrindo *defineHttp*, *HttpConfig* e o modelo de ownership de módulo.
+2. [Arquitetura de Pastas HTTP](/guide/http-folder-architecture), cobrindo organização recomendada de arquivos conforme o número de endpoints cresce.
+3. [Pipeline de Rotas e Decorators](/guide/http-routing-runtime-pipeline), cobrindo decorators, resolução de parâmetros, validação de DTO e formatação de resposta.
+4. [Segurança, Guards e Middleware](/guide/http-security-guards-middleware), cobrindo o stack de hardening, interface de guard e composição de middleware.
+5. [Modos de Runtime do Bot Bridge](/guide/http-bridge-and-errors), cobrindo contrato do *BotBridge*, implementações direta vs sharded e serializers.
+6. [Exceções e Tratamento de Erros](/guide/http-exceptions-and-error-handling), cobrindo a hierarquia *HttpError*, detalhes de *ValidationError* e a camada de normalização centralizada.
+
+## Próxima página
+
+Continue com [Configuração e Setup de Módulo Único](/guide/http-config-and-single-module).

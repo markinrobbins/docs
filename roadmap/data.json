@@ -1,0 +1,124 @@
+{
+  "completed": [
+    { "label": "Application factory & DI container", "scope": "core" },
+    { "label": "Module system & lifecycle hooks", "scope": "core" },
+    { "label": "Universal guard pipeline (9 built-ins)", "scope": "core" },
+    { "label": "Slash command handlers & subcommands", "scope": "core" },
+    { "label": "Prefix command handlers & subcommands", "scope": "core" },
+    { "label": "Slash autocomplete handlers", "scope": "core" },
+    { "label": "Boot diagnostics tables", "scope": "core" },
+    { "label": "Button & dynamic button handlers", "scope": "components" },
+    { "label": "Select menu handlers (all types)", "scope": "components" },
+    { "label": "Modal handlers & field validation", "scope": "components" },
+    { "label": "Embed & v2 component system", "scope": "components" },
+    { "label": "Context storage (memory, Redis, SQLite)", "scope": "core" },
+    { "label": "@spraxium/http: REST over Hono", "scope": "packages" },
+    { "label": "@spraxium/signal + signal-client", "scope": "packages" },
+    { "label": "@spraxium/schedule: cron/interval/timeout", "scope": "packages" },
+    { "label": "@spraxium/env: env validation", "scope": "packages" },
+    { "label": "@spraxium/i18n: bot localization", "scope": "packages" },
+    { "label": "@spraxium/analytics: telemetry", "scope": "packages" }
+  ],
+  "inProgress": [
+    {
+      "label": "Context menu command handlers",
+      "scope": "core",
+      "detail": "Right-click context menu commands for users and messages with full decorator support."
+    },
+    {
+      "label": "Documentation site",
+      "scope": "ecosystem",
+      "detail": "Complete guide covering every feature, with examples in English, Portuguese, and Spanish."
+    },
+    {
+      "label": "Testing utilities & vitest helpers",
+      "scope": "packages",
+      "detail": "First-class testing package with mock factories, test containers, and assertion helpers."
+    },
+    {
+      "label": "Example bot projects",
+      "scope": "ecosystem",
+      "detail": "Ready-to-clone starter bots demonstrating slash commands, HTTP APIs, scheduling, and more."
+    }
+  ],
+  "upcoming": [
+    {
+      "label": "@spraxium/dashboard: web UI",
+      "scope": "packages",
+      "detail": "Admin panel for managing bot configuration, viewing logs, and monitoring real-time metrics."
+    },
+    {
+      "label": "Plugin registry & marketplace",
+      "scope": "ecosystem",
+      "detail": "Discover, install, and publish reusable Spraxium plugins from the community."
+    },
+    {
+      "label": "Voice state handler decorators",
+      "scope": "core",
+      "detail": "Declarative voice channel event handling with join/leave/mute/deafen decorators."
+    },
+    {
+      "label": "CLI new project templates v2",
+      "scope": "cli",
+      "detail": "Revamped scaffolding with interactive prompts, database presets, and deployment configs."
+    },
+    {
+      "label": "Rate limiting decorators",
+      "scope": "core",
+      "detail": "Built-in per-user and per-guild cooldown decorators for commands and interactions."
+    },
+    {
+      "label": "Webhook handler decorators",
+      "scope": "core",
+      "detail": "Receive and validate Discord webhook events with typed payload decorators."
+    },
+    {
+      "label": "Hot module reload (dev mode)",
+      "scope": "cli",
+      "detail": "Restart individual modules without dropping the gateway connection during development."
+    },
+    {
+      "label": "@spraxium/cache: distributed cache",
+      "scope": "packages",
+      "detail": "Multi-layer caching with in-memory, Redis, and custom adapter support."
+    }
+  ],
+  "community": [
+    {
+      "label": "GraphQL API layer",
+      "votes": 47,
+      "author": "community",
+      "detail": "Optional GraphQL schema generation from bot commands for external integrations."
+    },
+    {
+      "label": "Docker Compose templates",
+      "votes": 38,
+      "author": "community",
+      "detail": "Pre-built docker-compose.yml files for common setups: bot + Redis + Postgres."
+    },
+    {
+      "label": "VS Code extension",
+      "votes": 35,
+      "author": "community",
+      "detail": "IntelliSense for decorators, inline guard/pipeline visualization, and snippet library."
+    },
+    {
+      "label": "Discord Activities support",
+      "votes": 29,
+      "author": "community",
+      "detail": "First-class embedded app/activity decorators with iframe SDK integration."
+    },
+    {
+      "label": "Event sourcing adapter",
+      "votes": 22,
+      "author": "community",
+      "detail": "Replay historical bot events for debugging and audit trail capabilities."
+    },
+    {
+      "label": "Multi-bot orchestration",
+      "votes": 19,
+      "author": "community",
+      "detail": "Run and coordinate multiple bot instances from a single Spraxium application."
+    }
+  ]
+}

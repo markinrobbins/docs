@@ -1,0 +1,218 @@
+---
+title: Configuración y Setup de Módulo Único
+description: |
+  Configura @spraxium/http con un modelo único de ownership global y arranque predecible.
+  Mantén la metadata HTTP en AppModule y registra el plugin con una sola entrada de configuración.
+order: 2
+category: '@spraxium/http'
+---
+
+## Ownership de configuración primero
+
+La decisión arquitectónica más importante es dónde vive la metadata. *HttpServer* lee la metadata de *HttpClientModule* desde la clase referenciada en `defineHttp({ module })`, así que esa clase se convierte en el dueño único de cada declaración de controller, service, guard y middleware en la superficie HTTP. Usar AppModule como esa clase mantiene el ownership explícito y previene desviaciones silenciosas de configuración cuando los equipos refactorizan módulos.
+
+<Callout tone="warning" title="No necesitas un wrapper local de módulo HTTP">
+  Evita crear un AppHttpModule separado solo para hospedar metadata de *HttpClientModule*. Mantén *HttpClientModule* en AppModule, importa *HttpModule* en AppModule y referencia AppModule en *defineHttp*. Un segundo módulo con su propio *HttpClientModule* es silenciosamente ignorado por el servidor porque solo se resuelve la referencia raíz.
+</Callout>
+
+Este modelo elimina ambigüedad de ownership. El ciclo de vida del servidor, guards, middleware y registro de rutas apuntan a una única clase raíz y una entrada de plugin. Cuando agregas un nuevo controller o cambias la pila de guards, el cambio es visible en un solo lugar y tiene efecto en toda la superficie API sin tocar archivos de configuración.
+
+## Contrato HttpConfig
+
+*HttpConfig* es la interfaz que *defineHttp()* acepta y *ConfigStore* entrega a *HttpServer* al arrancar. Cada campo mapea a un comportamiento específico de runtime, así que entender el contrato previene sorpresas durante el despliegue.
+
+<DropdownGroup>
+<Dropdown title="enabled: boolean — Activa o desactiva el runtime HTTP">
+  Cuando es `false`, *HttpServer.onBoot()* retorna inmediatamente sin hacer bind a un puerto ni registrar rutas.
+</Dropdown>
+
+<Dropdown title="host: string — Interfaz de red a vincular">
+  Por defecto `0.0.0.0`. Usa `127.0.0.1` en desarrollo para restringir acceso solo a localhost.
+</Dropdown>
+
+<Dropdown title="port: number — Puerto TCP para el listener de Hono">
+  Por defecto `3000`. Lee desde variables de entorno para evitar valores hardcodeados en producción.
+</Dropdown>
+
+<Dropdown title="apiKey: string — Valor secreto para ApiKeyGuard">
+  Cuando se define, el paquete instancia *ApiKeyGuard* automáticamente con este valor y lo agrega como guard global. No es necesario registrarlo manualmente en la metadata de *HttpClientModule*.
+</Dropdown>
+
+<Dropdown title="security: SecurityConfig — Headers, CORS, límite de body y proxies de confianza">
+  Cuando se omite, se aplican *SECURITY_DEFAULTS*. Establece subcampos individuales a `false` para deshabilitar protecciones específicas.
+</Dropdown>
+
+<Dropdown title="rateLimit: RateLimitConfig — Configuración opcional de rate limiting">
+  Configuración `{ windowMs, max }` a nivel de config. Aún necesitas instanciar *RateLimitMiddleware* con estos valores y registrarlo.
+</Dropdown>
+
+<Dropdown title="sharding: boolean — Selecciona modo directo vs sharded">
+  Cambia la ruta de arranque, la implementación de bridge y si un *Client* de Discord es requerido al arrancar.
+</Dropdown>
+
+<Dropdown title="module: Constructor — Clase decorada con @HttpClientModule">
+  Fuente principal de metadata de controllers, services, guards, middleware y *middlewareProviders*.
+</Dropdown>
+</DropdownGroup>
+
+## Subestructura de SecurityConfig
+
+El campo *security* acepta un objeto *SecurityConfig* con cuatro subcampos opcionales. Cada subcampo controla una capa del stack de hardening y puede establecerse a `false` para deshabilitarlo por completo. Cuando un subcampo se omite, el paquete aplica *SECURITY_DEFAULTS* automáticamente.
+
+<DropdownGroup>
+<Dropdown title="hidePoweredBy: boolean — Elimina headers de fingerprinting">
+  Elimina los headers `X-Powered-By` y `Server` de todas las respuestas. Por defecto `true`. Previene fingerprinting del framework y runtime.
+</Dropdown>
+
+<Dropdown title="headers: SecurityHeadersConfig — SecurityHeadersMiddleware envolviendo Hono secureHeaders">
+  *frameOptions* (`DENY` o `SAMEORIGIN`), *hstsMaxAge* (31536000), *contentSecurityPolicy*, *referrerPolicy*, *noSniff*, *xssProtection*, *permissionsPolicy*, *crossOriginOpenerPolicy*, *crossOriginResourcePolicy*. Establece a `false` para deshabilitar todos los headers de seguridad.
+</Dropdown>
+
+<Dropdown title="cors: CorsConfig — CorsMiddleware envolviendo Hono cors">
+  *origins* (array de strings o `'*'`), *methods*, *allowedHeaders*, *exposedHeaders*, *credentials* (boolean), *maxAge* (cache de preflight en segundos, default 600). Solo activo cuando este campo está configurado.
+</Dropdown>
+
+<Dropdown title="bodyLimit: BodyLimitConfig — BodyLimitMiddleware envolviendo Hono bodyLimit">
+  *maxSize* en bytes, por defecto 102400 (100 KB). Payloads sobredimensionados reciben `{ ok: false, error: 'Payload too large', maxSize }` con status 413. Establece a `false` para deshabilitar.
+</Dropdown>
+
+<Dropdown title="trustedProxies: TrustedProxiesConfig — Configuración de proxies de confianza">
+  Array *proxies* (por defecto `['127.0.0.1', '::1']`). Define qué proxies pueden establecer headers de forwarding de confianza. Configura correctamente para que rate limiting e IP logging funcionen con tu infraestructura de reverse proxy en producción.
+</Dropdown>
+</DropdownGroup>
+
+## Split recomendado de integración
+
+Mantén la llamada a *defineHttp* en un archivo de config dedicado para que las decisiones de red y seguridad sean visibles sin hacer scroll por decorators de módulo. El archivo de config importa AppModule, y `spraxium.config.ts` importa el archivo de config. Este patrón de tres archivos le da a cada concern un hogar estable: el archivo de config posee infraestructura, el módulo posee metadata y el config raíz posee el registro de plugins.
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="config/http.config.ts" language="typescript">
+```typescript filename="config/http.config.ts"
+import { defineHttp } from '@spraxium/http';
+import { AppModule } from '../src/app.module';
+
+export const httpPlugin = defineHttp({
+  enabled: true,
+  host: process.env.HTTP_HOST ?? '0.0.0.0',
+  port: Number(process.env.HTTP_PORT ?? 3000),
+  apiKey: process.env.HTTP_API_KEY ?? '',
+  sharding: false,
+  security: {
+    hidePoweredBy: true,
+    headers: {
+      frameOptions: 'DENY',
+      contentSecurityPolicy: "default-src 'none'",
+      referrerPolicy: 'no-referrer',
+    },
+    cors: {
+      origins: ['https://admin.example.com'],
+      methods: ['GET', 'POST', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
+      credentials: true,
+    },
+    bodyLimit: { maxSize: 256_000 },
+  },
+  module: AppModule,
+});
+```
+  </Tab>
+  <Tab label="src/app.module.ts" language="typescript">
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import {
+  HttpClientModule,
+  HttpModule,
+  LoggerMiddleware,
+} from '@spraxium/http';
+import { GuildHttpController } from './http/controllers/guild-http.controller';
+import { GuildHttpService } from './http/services/guild-http.service';
+
+@HttpClientModule({
+  controllers: [GuildHttpController],
+  services: [GuildHttpService],
+  middleware: [new LoggerMiddleware()],
+})
+@Module({
+  imports: [HttpModule],
+  providers: [GuildHttpController, GuildHttpService],
+})
+export class AppModule {}
+```
+  </Tab>
+  <Tab label="spraxium.config.ts" language="typescript">
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { httpPlugin } from './config/http.config';
+
+export default defineConfig(() => ({
+  plugins: [httpPlugin],
+}));
+```
+  </Tab>
+</CodeTabs>
+
+## Shape de metadata de HttpClientModule
+
+*@HttpClientModule* es un decorator de clase que almacena metadata consumida por *HttpServer* durante el registro de rutas. Cada campo controla una fase diferente del pipeline de arranque.
+
+<DropdownGroup>
+<Dropdown title="controllers: Array<Constructor> — Rutas de la API">
+  *RouteRegistry* instancia cada clase con DI y *RouteBuilder* vincula sus métodos decorados como rutas de Hono.
+</Dropdown>
+
+<Dropdown title="services: Array<Constructor> — Lógica de negocio inyectable">
+  Se resuelven antes que los controllers usando ordenamiento topológico. Las instancias se agregan al mapa de DI para que los controllers puedan inyectarlas como parámetros de constructor.
+</Dropdown>
+
+<Dropdown title="guards: Array<HttpGuard> — Autenticación y autorización global">
+  *GuardExecutor* los ejecuta secuencialmente en cada request antes de cualquier handler de ruta. Un solo retorno `false` detiene la ejecución con 401.
+</Dropdown>
+
+<Dropdown title="middleware: Array<HttpMiddleware> — Pipeline global de requests">
+  Se registran como middleware global de Hono en la ruta `'*'` después del stack de seguridad pero antes de la ejecución de guards.
+</Dropdown>
+
+<Dropdown title="middlewareProviders: Map<Constructor, HttpMiddleware> — Middleware a nivel de ruta">
+  Mapea tokens de clase a instancias concretas. *RouteBuilder* resuelve referencias de decorators *@HttpUseMiddleware* a través de este mapa durante el binding de rutas.
+</Dropdown>
+</DropdownGroup>
+
+La separación entre *middleware* y *middlewareProviders* da ownership claro entre la política de pipeline global y las declaraciones a nivel de ruta. El middleware global se ejecuta en cada request incondicionalmente. El middleware de ruta solo se ejecuta en endpoints decorados con *@UseMiddleware* y se resuelve de forma lazy desde el mapa de providers, así que clases de middleware no referenciadas nunca se ejecutan.
+
+## Secuencia de setup
+
+<Steps>
+  <Step title="Extraer la configuración del plugin en un archivo dedicado">
+    Mantén la llamada a *defineHttp* en `config/http.config.ts` para que el binding de red, la política de seguridad y el modo de sharding sean visibles en un solo lugar. Esto también mantiene `spraxium.config.ts` enfocado en el registro de plugins en vez de detalles de implementación. Las variables de entorno para host, port y API key deben leerse aquí.
+  </Step>
+  <Step title="Apuntar module a tu raíz real de composición">
+    Establece `module: AppModule` en *defineHttp* para que *HttpServer* lea metadata desde la misma clase que posee el grafo de módulos. Crear un HttpAppModule separado lleva a desviaciones porque los cambios en AppModule no se propagan a la fuente de metadata HTTP automáticamente.
+  </Step>
+  <Step title="Importar HttpModule una sola vez en AppModule">
+    *HttpModule* es global y debe aparecer una vez en los imports del módulo raíz. Eso asegura un único dueño del ciclo de vida para arranque y shutdown gradual del servidor. Importarlo en múltiples módulos no causa errores pero tampoco agrega beneficio.
+  </Step>
+  <Step title="Registrar guards y middleware en HttpClientModule">
+    Declara guards y middleware globales como instancias en la metadata de *@HttpClientModule*. Los guards se ejecutan secuencialmente para cada request. Las instancias de middleware se ejecutan después del stack de seguridad. El middleware a nivel de ruta va en *middlewareProviders* y se activa por endpoint con *@UseMiddleware*.
+  </Step>
+  <Step title="Registrar una sola entrada de plugin HTTP en defineConfig">
+    Mantén una única entrada de plugin HTTP dentro de `defineConfig({ plugins })`. Múltiples entradas llevan a ownership ambiguo y registro de rutas inestable porque *ConfigStore* retorna solo una config para la clave *defineHttp*.
+  </Step>
+</Steps>
+
+## Comportamiento de arranque por modo
+
+<DropdownGroup>
+<Dropdown title="Directo (sharding: false): onBoot con Client de Discord">
+  El servidor arranca durante el hook de ciclo de vida *onBoot*, después de que el *Client* de Discord esté listo. Requiere un *Client* inyectado: si falta, el servidor loguea un error y omite el arranque. Implementación de bridge: *DirectBotBridge*, que accede al cache de guild y la API de Discord a través de la instancia del client directamente.
+</Dropdown>
+
+<Dropdown title="Sharded (sharding: true): vía ParentHookRegistry con ShardingManager">
+  El servidor no arranca durante *onBoot*. Un bloque estático registra un hook con *ParentHookRegistry* que arranca el servidor cuando el proceso padre crea el *ShardingManager*. El *Client* no es requerido. Implementación de bridge: *ShardedBotBridge*, que usa `manager.broadcastEval()` para ejecutar operaciones en el shard que posee cada guild.
+</Dropdown>
+</DropdownGroup>
+
+En modo directo, el servidor tiene acceso inmediato al *Client* de Discord y puede inyectarlo en el mapa de DI junto con *BotBridge*. Controllers que necesitan el client directamente (para funcionalidades no cubiertas por la bridge) pueden declararlo como parámetro de constructor. En modo sharded, el client no está disponible en el proceso HTTP, así que los controllers deben usar *BotBridge* exclusivamente para interacciones con Discord.
+
+## Página siguiente
+
+Continúa con [Arquitectura de Carpetas HTTP](/guide/http-folder-architecture).

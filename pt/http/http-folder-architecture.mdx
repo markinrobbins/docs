@@ -1,0 +1,210 @@
+---
+title: Arquitetura de Pastas HTTP
+description: |
+  Organize arquivos HTTP com fronteiras de transporte claras e crescimento sustentável.
+  Mantenha AppModule como dono único de metadata enquanto separa controllers, services, DTOs e middleware.
+order: 3
+category: '@spraxium/http'
+---
+
+## Por que estruturar cedo
+
+Um layout de pastas limpo mantém o código de transporte compreensível conforme o número de endpoints cresce. Sem fronteiras claras, arquivos de controller acumulam lógica de negócio, definições de DTO acabam espalhadas em diretórios não relacionados e o posicionamento de middleware se torna imprevisível. Estabelecer estrutura cedo evita que esses problemas se acumulem conforme o projeto escala, porque a hierarquia de pastas por si só comunica onde cada responsabilidade pertence.
+
+O objetivo é direto: uma raiz de ownership no AppModule, posicionamento previsível de arquivo para cada concern de transporte e separação clara entre mapeamento de request (controllers) e lógica de negócio (services). Quando um novo integrante abre o projeto, a árvore de pastas deve responder "onde isso vai?" sem precisar de uma conversa.
+
+Isso importa mais em módulos HTTP do que em código típico de comandos Discord porque endpoints HTTP são um contrato público. Clientes dependem de estabilidade de caminhos, shapes de resposta e formatos de erro. Código de transporte desorganizado dificulta auditar o que está exposto e facilita introduzir breaking changes acidentalmente.
+
+## Estrutura recomendada
+
+<FolderStructure title="Arquitetura HTTP sugerida">
+  <Folder name="src" open>
+    <File name="app.module.ts" comment="Importa HttpModule e hospeda @HttpClientModule com controllers/services/guards/middleware" />
+    <File name="main.ts" comment="Ponto de entrada do bootstrap da aplicação" />
+    <Folder name="http" open>
+      <Folder name="controllers" open>
+        <File name="guild-http.controller.ts" comment="Contratos de rota, mapeamento de parâmetros e formatação de resposta" />
+        <File name="moderation-http.controller.ts" comment="Endpoints de ban, kick, timeout e gestão de roles" />
+      </Folder>
+      <Folder name="services" open>
+        <File name="guild-http.service.ts" comment="Operações de negócio compartilhadas pelas rotas de guild" />
+        <File name="moderation-http.service.ts" comment="Lógica de moderação consumindo BotBridge" />
+      </Folder>
+      <Folder name="dto" open>
+        <File name="update-guild-config.dto.ts" comment="Contrato de validação para PATCH de config de guild" />
+        <File name="ban-member.dto.ts" comment="Contrato de validação para POST de ban" />
+      </Folder>
+      <Folder name="middleware" open>
+        <File name="request-audit.middleware.ts" comment="Middleware por rota para logging de auditoria" />
+      </Folder>
+      <Folder name="errors" open>
+        <File name="guild-locked.error.ts" comment="Subclasse customizada de ForbiddenError para guilds bloqueadas" />
+      </Folder>
+    </Folder>
+  </Folder>
+  <Folder name="config" open>
+    <File name="http.config.ts" comment="Entrada única defineHttp exportada como httpPlugin" />
+  </Folder>
+  <File name="spraxium.config.ts" comment="Registra httpPlugin no defineConfig plugins" />
+</FolderStructure>
+
+## Papel de cada pasta
+
+Entender o que cada diretório controla previne vazamentos de responsabilidade entre fronteiras. Controllers cuidam do mapeamento request/response, services controlam regras de negócio, DTOs definem contratos de validação, middleware provê comportamento cross-cutting e errors modelam cenários de falha específicos do domínio.
+
+<DropdownGroup>
+<Dropdown title="controllers/: Mapeamento de request e resposta">
+  Classes decoradas com *@HttpController*. Cada classe agrupa rotas relacionadas sob um prefixo. Controllers devem ser enxutos: extraia qualquer lógica além de leitura de parâmetros e construção de resposta para um service.
+</Dropdown>
+
+<Dropdown title="services/: Regras de negócio e lógica do domínio">
+  Classes decoradas com *@Injectable*. Contêm regras de negócio, chamadas ao *BotBridge* e transformações de dados. Services são resolvidos pelo *RouteRegistry* antes dos controllers. Declare-os em *HttpClientModule({ services })* e injete via construtor.
+</Dropdown>
+
+<Dropdown title="dto/: Contratos de validação de input">
+  Classes com decorators do *class-validator*. Consumidas por *@HttpBody(DtoClass)* nos métodos de controller. Um DTO por shape de mutação. DTOs não devem conter lógica de negócio, apenas regras estruturais e de constraint.
+</Dropdown>
+
+<Dropdown title="middleware/: Comportamento transversal por rota">
+  Classes implementando *HttpMiddleware*. Usadas como middleware global ou resolvidas via *middlewareProviders*. Mantenha middleware stateless quando possível. Estado como contadores de rate-limit deve ser isolado por instância.
+</Dropdown>
+
+<Dropdown title="errors/: Subclasses de erro específicas do domínio">
+  Subclasses customizadas de *HttpError* para cenários de falha específicos do domínio. Nomeie erros pela condição do domínio (ex: *GuildLockedError*), não pelo status HTTP. O status é herdado da classe pai.
+</Dropdown>
+</DropdownGroup>
+
+## Responsabilidades focadas por arquivo
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
+```typescript filename="http/controllers/guild-http.controller.ts"
+import { HttpController, HttpGet, HttpParam, HttpPatch, HttpBody, HttpStatus } from '@spraxium/http';
+import { NotFoundError } from '@spraxium/http';
+import { GuildHttpService } from '../services/guild-http.service';
+import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
+
+@HttpController('/guilds')
+export class GuildHttpController {
+  constructor(private readonly service: GuildHttpService) {}
+
+  @HttpGet('/:guildId')
+  async getGuild(@HttpParam('guildId') guildId: string) {
+    const guild = await this.service.getGuildSummary(guildId);
+    if (!guild) throw new NotFoundError('Guild not found');
+    return { ok: true, ...guild };
+  }
+
+  @HttpPatch('/:guildId/config')
+  @HttpStatus(200)
+  async updateConfig(
+    @HttpParam('guildId') guildId: string,
+    @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+  ) {
+    return this.service.updateConfig(guildId, body);
+  }
+}
+```
+  </Tab>
+  <Tab label="http/services/guild-http.service.ts" language="typescript">
+```typescript filename="http/services/guild-http.service.ts"
+import { Injectable } from '@spraxium/common';
+import { BotBridge, ConflictError, ForbiddenError } from '@spraxium/http';
+import type { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
+
+@Injectable()
+export class GuildHttpService {
+  constructor(private readonly bridge: BotBridge) {}
+
+  async getGuildSummary(guildId: string) {
+    const guild = await this.bridge.getGuild(guildId);
+    if (!guild) return null;
+    return { guildId: guild.id, name: guild.name, memberCount: guild.memberCount };
+  }
+
+  async updateConfig(guildId: string, dto: UpdateGuildConfigDto) {
+    const guild = await this.bridge.getGuild(guildId);
+    if (!guild) throw new ForbiddenError('Guild not accessible');
+    return { ok: true, guildId, applied: dto };
+  }
+}
+```
+  </Tab>
+  <Tab label="http/dto/update-guild-config.dto.ts" language="typescript">
+```typescript filename="http/dto/update-guild-config.dto.ts"
+import { IsBoolean, IsOptional, IsString, Length } from 'class-validator';
+
+export class UpdateGuildConfigDto {
+  @IsString()
+  @Length(1, 5)
+  prefix!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  maintenanceMode?: boolean;
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Por que controllers devem ser enxutos
+
+Controllers são a fronteira entre transporte HTTP e lógica de aplicação. O trabalho deles é ler parâmetros da request, delegar trabalho para services e formatar a resposta. Quando controllers acumulam regras de negócio, ficam difíceis de testar porque você precisa de um contexto HTTP completo para exercitar comportamento de domínio. Também ficam difíceis de reutilizar porque a mesma lógica não pode ser chamada de um ponto de entrada diferente como um handler de Signal ou uma tarefa agendada.
+
+O padrão é consistente: o controller chama o service, o service chama o *BotBridge* ou outras dependências, e erros propagam para cima através da hierarquia *HttpError* até o handler centralizado *onError* normalizá-los. Essa camada mantém cada arquivo focado e cada teste isolado.
+
+Services são resolvidos pelo *RouteRegistry* usando ordenação topológica, o que significa que podem depender uns dos outros desde que não haja referências circulares. Se uma dependência circular for detectada, o startup falha imediatamente com uma mensagem de erro clara listando as classes envolvidas.
+
+## Escalando para bounded contexts
+
+Quando a superfície da API cresce além de alguns controllers, pastas planas ficam ruidosas. Nesse ponto, divida `src/http` em subdiretórios específicos por domínio. Cada subdiretório ganha seus próprios controllers, services, DTOs e errors enquanto continua registrando tudo através da mesma metadata do *@HttpClientModule* no AppModule.
+
+<FolderStructure title="Arquitetura HTTP escalada com fronteiras de domínio">
+  <Folder name="src" open>
+    <File name="app.module.ts" comment="Dono único de metadata para todos os domínios HTTP" />
+    <Folder name="http" open>
+      <Folder name="guilds" open>
+        <File name="guild-http.controller.ts" />
+        <File name="guild-http.service.ts" />
+        <File name="update-guild-config.dto.ts" />
+      </Folder>
+      <Folder name="moderation" open>
+        <File name="moderation-http.controller.ts" />
+        <File name="moderation-http.service.ts" />
+        <File name="ban-member.dto.ts" />
+      </Folder>
+      <Folder name="members" open>
+        <File name="member-http.controller.ts" />
+        <File name="member-http.service.ts" />
+      </Folder>
+      <Folder name="shared" open>
+        <File name="request-audit.middleware.ts" comment="Middleware compartilhado entre domínios" />
+        <File name="guild-locked.error.ts" comment="Erros customizados compartilhados entre domínios" />
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+## Passos práticos de evolução
+
+<Steps>
+  <Step title="Começar com uma pasta de transporte">
+    Inicie com `src/http` contendo controllers, services e pastas de DTO mesmo para uma API pequena. Isso dá ao time um mapa mental estável antes do projeto escalar. Evite colocar arquivos HTTP diretamente em `src/` porque vão se misturar com código de comandos Discord.
+  </Step>
+  <Step title="Promover lógica compartilhada para services">
+    Mantenha controllers enxutos movendo regras de negócio não triviais para classes de service. Handlers de rota devem coordenar entrada e saída, não controlar comportamento de domínio. Services também recebem *BotBridge* via injeção, mantendo interação com Discord atrás de uma abstração limpa.
+  </Step>
+  <Step title="Criar classes de erro customizadas cedo">
+    Defina subclasses de *HttpError* específicas do domínio em uma pasta `errors/` em vez de lançar erros genéricos com mensagens de string. Erros nomeados são mais fáceis de encontrar em logs, testar em assertions e filtrar em dashboards de monitoramento.
+  </Step>
+  <Step title="Separar por bounded context quando necessário">
+    Conforme o volume de endpoints crescer, divida `src/http` em pastas de domínio como `guilds/`, `moderation/` e `members/`. Mantenha `app.module.ts` como raiz única de composição para todos os contexts. Cada pasta de domínio controla seus controllers, services e DTOs.
+  </Step>
+  <Step title="Proteger fronteiras de ownership">
+    Continue usando uma entrada *defineHttp* e uma fonte AppModule para metadata mesmo após refactors. Múltiplas raízes de metadata tornam ciclo de vida e política de segurança difíceis de raciocinar. Todos os controllers de todos os domínios são listados no mesmo array `controllers` do *HttpClientModule*.
+  </Step>
+</Steps>
+
+## Próxima página
+
+Continue com [Pipeline de Rotas e Decorators](/guide/http-routing-runtime-pipeline).

@@ -1,0 +1,259 @@
+---
+title: Modos de Runtime de Bot Bridge
+description: |
+  Entiende cómo BotBridge funciona en runtime directo y sharded.
+  Diseña contratos de endpoint estables sin depender de la topología de procesos de Discord.
+order: 6
+category: '@spraxium/http'
+---
+
+## Por qué existe el bridge
+
+*BotBridge* es la capa de abstracción entre controllers HTTP y operaciones de Discord. Los controllers deben depender de los métodos de *BotBridge*, no de internals crudos de discord.js como `client.guilds.cache` o `guild.members.ban()`. Esto mantiene el comportamiento de rutas estable incluso cuando la topología de despliegue cambia de proceso único a workers sharded, porque el código del controller no cambia.
+
+Sin la bridge, moverse de modo directo a modo sharded requeriría reescribir cada controller que interactúa con Discord. El patrón bridge aísla esa diferencia en dos clases concretas, *DirectBotBridge* y *ShardedBotBridge*, ambas implementando el mismo contrato abstracto. *BridgeFactory* selecciona la implementación correcta al arrancar el servidor y la inyecta en el mapa de dependencias de DI, para que controllers y services puedan declarar `BotBridge` como parámetro de constructor y recibir la implementación correcta automáticamente.
+
+La bridge también fuerza serialización en la frontera. Los objetos de discord.js contienen referencias circulares, caches activos y métodos que no son seguros para serializar a JSON. La bridge retorna objetos plain tipados como *SerializedGuild*, *SerializedMember* y *SerializedBan* que son seguros para transporte HTTP.
+
+## Selección de modo de runtime
+
+*BridgeFactory.create(client, manager)* selecciona la implementación de bridge basándose en qué referencia de runtime está disponible. El factory sigue una precedencia estricta: *ShardingManager* tiene prioridad sobre *Client*. Si ninguno se provee, el factory lanza un error al arrancar, previniendo que el servidor corra sin conectividad con Discord.
+
+<DropdownGroup>
+<Dropdown title="Directo: DirectBotBridge">
+  Usa la instancia local del *Client* de Discord. Lee del cache de guild y llama métodos API directamente en el mismo proceso. Usa para bots de proceso único o entornos de desarrollo donde sharding es innecesario.
+</Dropdown>
+
+<Dropdown title="Sharded: ShardedBotBridge">
+  Usa `manager.broadcastEval()` para enviar una función a todos los shards. Retorna el primer resultado no-null (lecturas) o primer `true` (acciones). Usa para bots en producción con múltiples shards donde el servidor HTTP corre en el proceso padre sin un *Client* local.
+</Dropdown>
+</DropdownGroup>
+
+## Contrato de capacidades de BotBridge
+
+La clase abstracta *BotBridge* define 12 métodos organizados en tres grupos de operación. Toda implementación concreta debe cumplir los 12 métodos, garantizando que los controllers tengan una API completa y consistente sin importar el modo de runtime.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header="Grupo">Grupo</TableCell>
+      <TableCell header="Método">Método</TableCell>
+      <TableCell header="Tipo de retorno">Tipo de retorno</TableCell>
+      <TableCell header="Comportamiento">Comportamiento</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Lectura</TableCell>
+      <TableCell>*getGuild(guildId)*</TableCell>
+      <TableCell>`SerializedGuild | null`</TableCell>
+      <TableCell>Retorna metadata de la guild o `null` si el bot no está en la guild.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Lectura</TableCell>
+      <TableCell>*getMember(guildId, userId)*</TableCell>
+      <TableCell>`SerializedMember | null`</TableCell>
+      <TableCell>Retorna perfil del miembro con roles, estado de timeout y flag de pending.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Lectura</TableCell>
+      <TableCell>*getMembers(guildId)*</TableCell>
+      <TableCell>`Array<SerializedMember> | null`</TableCell>
+      <TableCell>Retorna todos los miembros en cache. Puede no incluir todos si el cache de la guild está incompleto.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Lectura</TableCell>
+      <TableCell>*getBan(guildId, userId)*</TableCell>
+      <TableCell>`SerializedBan | null`</TableCell>
+      <TableCell>Retorna registro de ban con snapshot de usuario y razón, o `null` si no está baneado.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Lectura</TableCell>
+      <TableCell>*getBans(guildId)*</TableCell>
+      <TableCell>`Array<SerializedBan>`</TableCell>
+      <TableCell>Retorna todos los registros de ban de la guild. Retorna array vacío en fallo o guild ausente.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Moderación</TableCell>
+      <TableCell>*banMember(guildId, userId, reason, options?)*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Banea al usuario con *deleteMessageSeconds* opcional. Retorna `true` en caso de éxito.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Moderación</TableCell>
+      <TableCell>*unbanMember(guildId, userId)*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Remueve el ban. Retorna `true` en caso de éxito.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Moderación</TableCell>
+      <TableCell>*kickMember(guildId, userId, reason)*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Expulsa al miembro de la guild con razón. Retorna `true` en caso de éxito.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Moderación</TableCell>
+      <TableCell>*timeoutMember(guildId, userId, durationMs, reason)*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Aplica timeout de comunicación en milisegundos. Retorna `true` en caso de éxito.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Moderación</TableCell>
+      <TableCell>*removeTimeoutMember(guildId, userId)*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Remueve timeout activo estableciéndolo a `null`. Retorna `true` en caso de éxito.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Rol</TableCell>
+      <TableCell>*addRole(guildId, userId, roleId)*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Agrega un rol al miembro. Retorna `true` en caso de éxito.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Rol</TableCell>
+      <TableCell>*removeRole(guildId, userId, roleId)*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Remueve un rol del miembro. Retorna `true` en caso de éxito.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+Métodos de lectura retornan objetos serializados o `null`. Métodos de acción retornan flags booleanos de éxito. Cada método de la bridge envuelve su cuerpo en try/catch: en caso de fallo, métodos de lectura retornan `null` (o array vacío para *getBans*) y métodos de acción retornan `false`. Esto significa que los controllers nunca necesitan manejar excepciones inesperadas de llamadas a la bridge.
+
+## Cómo funciona la bridge sharded
+
+*ShardedBotBridge* usa `manager.broadcastEval()` para ejecutar un closure en cada shard del cluster. El closure recibe el *Client* local del shard y un objeto de contexto serializado con los parámetros (guild ID, user ID, etc). Solo el shard que controla la guild objetivo la encontrará en su cache, así que los demás retornan `null` o `false`.
+
+Para operaciones de lectura, la bridge recolecta resultados de todos los shards y retorna el primer valor no-null usando `.find(r => r !== null)`. Para operaciones de acción, retorna `true` si algún shard retornó `true` usando `.some(r => r === true)`. Este patrón de fan-out significa que cada operación alcanza el shard correcto sin requerir que el servidor HTTP conozca la topología de shards o el mapeo guild-a-shard.
+
+La contrapartida es latencia: cada llamada de bridge en modo sharded paga el costo de comunicación inter-proceso a todos los shards. Para bots con muchos shards, considera cachear mapeos de guild-a-shard si endpoints de lectura intensiva se convierten en cuello de botella.
+
+## Controller consumiendo la bridge
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="http/controllers/moderation-http.controller.ts" language="typescript">
+```typescript filename="http/controllers/moderation-http.controller.ts"
+import { HttpController, HttpGet, HttpPost, HttpParam, HttpBody, HttpStatus } from '@spraxium/http';
+import { BotBridge, NotFoundError } from '@spraxium/http';
+import { BanMemberDto } from '../dto/ban-member.dto';
+
+@HttpController('/guilds/:guildId/moderation')
+export class ModerationHttpController {
+  constructor(private readonly bridge: BotBridge) {}
+
+  @HttpGet('/bans')
+  async listBans(@HttpParam('guildId') guildId: string) {
+    const bans = await this.bridge.getBans(guildId);
+    return { ok: true, guildId, bans, count: bans.length };
+  }
+
+  @HttpGet('/members/:userId')
+  async getMember(
+    @HttpParam('guildId') guildId: string,
+    @HttpParam('userId') userId: string,
+  ) {
+    const member = await this.bridge.getMember(guildId, userId);
+    if (!member) throw new NotFoundError('Member not found in guild');
+    return { ok: true, member };
+  }
+
+  @HttpPost('/bans/:userId')
+  @HttpStatus(201)
+  async banMember(
+    @HttpParam('guildId') guildId: string,
+    @HttpParam('userId') userId: string,
+    @HttpBody(BanMemberDto) body: BanMemberDto,
+  ) {
+    const success = await this.bridge.banMember(
+      guildId,
+      userId,
+      body.reason,
+      { deleteMessageSeconds: body.deleteMessageSeconds },
+    );
+    return { ok: success, guildId, userId };
+  }
+}
+```
+  </Tab>
+  <Tab label="http/dto/ban-member.dto.ts" language="typescript">
+```typescript filename="http/dto/ban-member.dto.ts"
+import { IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+
+export class BanMemberDto {
+  @IsString()
+  @MinLength(3)
+  reason!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(604800)
+  deleteMessageSeconds?: number;
+}
+```
+  </Tab>
+  <Tab label="src/app.module.ts" language="typescript">
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import { HttpClientModule, HttpModule } from '@spraxium/http';
+import { ModerationHttpController } from './http/controllers/moderation-http.controller';
+
+@HttpClientModule({
+  controllers: [ModerationHttpController],
+})
+@Module({
+  imports: [HttpModule],
+  providers: [ModerationHttpController],
+})
+export class AppModule {}
+```
+  </Tab>
+</CodeTabs>
+
+## Modelo de serialización
+
+La bridge usa tres clases de serializer para convertir objetos runtime de discord.js en payloads plain tipados seguros para transporte JSON. Estos serializers eliminan referencias circulares, convierten fechas a strings ISO y extraen solo los campos que clientes externos necesitan. Los tipos serializados sirven como frontera estable de la API: los controllers retornan estos tipos y los clientes los consumen.
+
+<DropdownGroup>
+<Dropdown title="GuildSerializer: Guild → SerializedGuild">
+  Entrada: discord.js *Guild*. Campos de salida: *id*, *name*, *icon*, *memberCount*, *ownerId*, *createdAt* (string ISO), *features* (array de strings).
+</Dropdown>
+
+<Dropdown title="MemberSerializer: GuildMember → SerializedMember">
+  Entrada: discord.js *GuildMember*. Campos de salida: *id*, *username*, *displayName*, *discriminator*, *avatar*, *bot*, *joinedAt*, *createdAt*, *roles* (array de *SerializedRole* con id/name/color/position/permissions/managed/mentionable), *pending*, *communicationDisabledUntil*.
+</Dropdown>
+
+<Dropdown title="BanSerializer: GuildBan → SerializedBan">
+  Entrada: discord.js *GuildBan*. Campos de salida: *user* (*SerializedUser* anidado con id/username/discriminator/avatar/bot/createdAt), *reason* (string o `null`).
+</Dropdown>
+</DropdownGroup>
+
+En modo directo, los serializers corren en el mismo proceso que el client Discord. En modo sharded, el closure de `broadcastEval` hace serialización inline en el shard que controla la guild, retornando objetos plain que cruzan la frontera IPC de forma segura. Ambos caminos producen el mismo shape de salida, así que el código de controller es idéntico sin importar el modo.
+
+## Checklist para diseño de endpoints con bridge
+
+<Steps>
+  <Step title="Diseñar para transparencia de modo">
+    Mantén la lógica de controller idéntica en despliegues directos y sharded dependiendo solo de los métodos de *BotBridge*. La selección de modo debe quedarse como concern de configuración en `defineHttp({ sharding })`, no como concern de controller. Nunca importes *DirectBotBridge* o *ShardedBotBridge* directamente en código de controller.
+  </Step>
+  <Step title="Retornar solo payloads serializados">
+    Trata los tipos de salida de los serializers como tu frontera de API. Nunca retornes objetos runtime de discord.js desde handlers porque contienen referencias circulares y caches activos que rompen serialización JSON. Si necesitas campos no cubiertos por los serializers por defecto, crea un serializer personalizado en vez de exponer objetos crudos de discord.js.
+  </Step>
+  <Step title="Manejar lecturas nulas de forma explícita">
+    Operaciones de lectura pueden retornar `null` cuando las entidades están ausentes o no disponibles en el estado actual de runtime. Convierte resultados `null` en respuestas HTTP claras basadas en el contrato de la ruta. Una guild `null` típicamente mapea a *NotFoundError*(404), mientras que un miembro `null` puede justificar *NotFoundError* o una respuesta vacía filtrada dependiendo de la semántica del endpoint.
+  </Step>
+  <Step title="Mantener mutaciones idempotentes cuando sea posible">
+    Métodos de acción retornan booleanos y pueden correr en contextos distribuidos donde ocurren reintentos. La semántica del endpoint debe tolerar reintentos sin efectos secundarios. Por ejemplo, banear un usuario ya baneado retorna `false` pero no crea conflicto, y el controller puede reportar el resultado de la operación sin lanzar excepción.
+  </Step>
+  <Step title="Validar payloads de mutación con DTOs">
+    Usa *@Body(DtoClass)* con constraints de *class-validator* en cada endpoint de mutación. Acciones de bridge como *banMember* y *timeoutMember* aceptan parámetros que deben validarse antes de llegar a la capa de bridge. La validación de DTO captura input malformado temprano y produce respuestas de error estructuradas automáticamente.
+  </Step>
+</Steps>
+
+<Callout tone="warning" title="Los métodos de bridge nunca lanzan excepciones en caso de fallo">
+  Todos los métodos de bridge envuelven operaciones en try/catch internamente. Métodos de lectura retornan `null` en caso de fallo y métodos de acción retornan `false`. Diseña el manejo de errores del controller en torno a estos valores de retorno en vez de esperar excepciones lanzadas por llamadas a la bridge.
+</Callout>
+
+## Página siguiente
+
+Continúa con [Excepciones y Manejo de Errores](/guide/http-exceptions-and-error-handling).
