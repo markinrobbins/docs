@@ -20,7 +20,7 @@ O pacote oferece dois estilos de criação para V2. O padrão de schema baseado 
 Containers V2 são adequados sempre que a mensagem precisa de um layout estruturado que um embed simples não consegue expressar. Casos de uso comuns incluem leaderboards com listas de entradas de tamanho variável, painéis de dashboard de servidor com thumbnail de ícone e grade de estatísticas, perfis com avatar ao lado de múltiplos campos e galerias de imagens incorporadas em respostas de comandos. Qualquer mensagem que se beneficie de separação visual entre seções, ou que exigiria múltiplos embeds para ser aproximada, é uma boa candidata para um container V2.
 
 <Callout type="warning">
-  Containers V2 exigem a flag `MessageFlags.IsComponentsV2` ao enviar mensagens.
+  Containers V2 exigem a flag MessageFlags.IsComponentsV2 ao enviar mensagens.
   Definir essa flag significa que a mensagem não pode carregar embeds tradicionais ou uma string de conteúdo simples junto com os containers — projete mensagens V2 como layouts independentes, não como melhorias de conteúdo já existente.
 </Callout>
 

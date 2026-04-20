@@ -187,7 +187,7 @@ The *handle* method parameters are populated by the *SlashInvoker* at runtime. T
 </Table>
 
 <Callout tone="warning" title="@SlashOpt names must match the option definition exactly">
-  The string passed to *@SlashOpt('name')* must be identical to the option name declared in the *@SlashOption* decorator on the command definition. If the names do not match, the framework cannot look up the option metadata and the parameter receives `null` at runtime.
+  The string passed to *@SlashOpt('name')* must be identical to the option name declared in the *@SlashOption* decorator on the command definition. If the names do not match, the framework cannot look up the option metadata and the parameter receives null at runtime.
   Double-check option names when renaming command options, or import the command class as a type reference to catch mismatches during code review.
 </Callout>
 

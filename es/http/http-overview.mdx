@@ -64,7 +64,7 @@ Este diseño significa que controllers y middleware interactúan con los tipos *
 ## Modelo de ownership global
 
 <Callout tone="warning" title="Usa un único camino de ownership HTTP">
-  No crees un módulo wrapper local solo para HTTP. Usa tu AppModule raíz como fuente de metadata en `defineHttp({ module })` e importa *HttpModule* una sola vez dentro de AppModule. Múltiples raíces de metadata causan comportamiento ambiguo de guards, middleware y ciclo de vida.
+  No crees un módulo wrapper local solo para HTTP. Usa tu AppModule raíz como fuente de metadata en defineHttp({ module }) e importa *HttpModule* una sola vez dentro de AppModule. Múltiples raíces de metadata causan comportamiento ambiguo de guards, middleware y ciclo de vida.
 </Callout>
 
 El modelo de ownership único significa una entrada de plugin en `spraxium.config.ts`, un decorator *@HttpClientModule* en tu AppModule y un import de *HttpModule* en el grafo de módulos. Este patrón mantiene el ownership del ciclo de vida explícito: el servidor hace bind una vez, la política de guards se declara una vez y el orden del middleware es visible en un solo lugar. Cuando los equipos dividen responsabilidades, agregan controllers y services a la misma metadata del módulo en vez de crear árboles de módulos que compiten entre sí.

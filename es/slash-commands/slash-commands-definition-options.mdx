@@ -168,7 +168,7 @@ export class EchoCommand {
 Cuando se configura *minLength* o *maxLength*, Discord valida la longitud de entrada del lado del cliente antes de enviar la interacción. Cuando se proporciona *choices*, el usuario selecciona de un dropdown en vez de escribir libremente. Cuando *autocomplete* se configura a `true`, Discord llama a tu handler de autocomplete mientras el usuario escribe, proporcionando sugerencias dinámicas en tiempo real.
 
 <Callout tone="warning" title="choices y autocomplete son mutuamente exclusivos">
-  Configurar *autocomplete* a `true` y proporcionar un array *choices* en la misma opción no está permitido por la API de Discord. Cuando *autocomplete* está activo, los choices estáticos son ignorados y solo se consulta tu handler de autocomplete.
+  Configurar *autocomplete* a true y proporcionar un array *choices* en la misma opción no está permitido por la API de Discord. Cuando *autocomplete* está activo, los choices estáticos son ignorados y solo se consulta tu handler de autocomplete.
   Usa *choices* estáticos para listas pequeñas y fijas, y *autocomplete* para sugerencias dinámicas o provenientes de base de datos que superen las 25 entradas.
 </Callout>
 

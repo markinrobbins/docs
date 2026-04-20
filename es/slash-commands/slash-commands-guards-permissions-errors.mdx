@@ -205,7 +205,7 @@ export class CooldownGuard implements SpraxiumGuard {
 ```
 
 <Callout tone="info" title="Las respuestas de error se manejan automáticamente">
-  Cuando un guard retorna `false` o un handler lanza un error, el framework captura el error y envía una respuesta a Discord automáticamente.
+  Cuando un guard retorna false o un handler lanza un error, el framework captura el error y envía una respuesta a Discord automáticamente.
   Lanza una subclase de *SpraxiumException* con un mensaje significativo y deja que el exception handler resuelva el layout de respuesta correcto.
 </Callout>
 

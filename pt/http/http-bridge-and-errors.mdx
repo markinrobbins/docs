@@ -216,7 +216,7 @@ No modo direto, os serializers rodam no mesmo processo que o client Discord. No 
 </Steps>
 
 <Callout tone="warning" title="Métodos da bridge nunca lançam exceções em caso de falha">
-  Todos os métodos da bridge encapsulam operações em try/catch internamente. Métodos de leitura retornam `null` em caso de falha e métodos de ação retornam `false`. Projete o tratamento de erros do controller em torno desses valores de retorno em vez de esperar exceções lançadas por chamadas à bridge.
+  Todos os métodos da bridge encapsulam operações em try/catch internamente. Métodos de leitura retornam null em caso de falha e métodos de ação retornam false. Projete o tratamento de erros do controller em torno desses valores de retorno em vez de esperar exceções lançadas por chamadas à bridge.
 </Callout>
 
 ## Próxima página

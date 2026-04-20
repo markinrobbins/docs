@@ -167,7 +167,7 @@ The *PrefixCooldownManager* enforces per-user, per-command cooldowns. When a com
 Cooldowns are stored in memory and reset when the bot restarts. The *check* method returns the remaining seconds (zero if the cooldown has expired), the *set* method registers a new cooldown entry, and the *clear* method removes all tracked cooldowns. For most bots, the decorator-level *cooldown* field and the global *defaultCooldown* config handle everything automatically without direct API calls.
 
 <Callout tone="info">
-  The per-command *cooldown* field in *@PrefixCommand* overrides the global *defaultCooldown*. If a command sets `cooldown: 5` and the global default is `3`, that command uses a 5-second cooldown.
+  The per-command *cooldown* field in *@PrefixCommand* overrides the global *defaultCooldown*. If a command sets cooldown: 5 and the global default is 3, that command uses a 5-second cooldown.
 </Callout>
 
 ## Next page

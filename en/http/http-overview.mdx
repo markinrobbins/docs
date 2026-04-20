@@ -64,7 +64,7 @@ This design means controllers and middleware interact with Hono's *Context* and 
 ## Global ownership model
 
 <Callout tone="warning" title="Use one global HTTP ownership path">
-  Do not create a local wrapper module only for HTTP. Use your root AppModule as the metadata source in `defineHttp({ module })` and import *HttpModule* once inside AppModule. Multiple metadata roots cause ambiguous guard, middleware, and lifecycle behavior.
+  Do not create a local wrapper module only for HTTP. Use your root AppModule as the metadata source in defineHttp({ module }) and import *HttpModule* once inside AppModule. Multiple metadata roots cause ambiguous guard, middleware, and lifecycle behavior.
 </Callout>
 
 The single-ownership model means one plugin entry in `spraxium.config.ts`, one *@HttpClientModule* decorator on your AppModule, and one *HttpModule* import in the module graph. This pattern keeps lifecycle ownership explicit: the server binds once, guard policy is declared once, and middleware order is visible in one place. When teams split responsibilities, they add controllers and services to the same module metadata instead of creating competing module trees.

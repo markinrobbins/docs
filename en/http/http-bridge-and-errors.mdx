@@ -208,7 +208,7 @@ In direct mode, serializers run in the same process as the Discord client. In sh
 </Steps>
 
 <Callout tone="warning" title="Bridge methods never throw exceptions on failure">
-  All bridge methods wrap operations in try/catch internally. Read methods return `null` on failure, and action methods return `false`. Design your controller error handling around these return values rather than expecting thrown exceptions from bridge calls.
+  All bridge methods wrap operations in try/catch internally. Read methods return null on failure, and action methods return false. Design your controller error handling around these return values rather than expecting thrown exceptions from bridge calls.
 </Callout>
 
 ## Next page

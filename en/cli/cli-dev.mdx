@@ -51,7 +51,7 @@ export default {
 </DropdownGroup>
 
 <Callout tone="info" title="Default excludes are always on">
-  Even with no config block, the watcher ignores `node_modules`, `.git`, and `.spraxium` to prevent restart loops from dependency installs or build output.
+  Even with no config block, the watcher ignores node_modules, .git, and .spraxium to prevent restart loops from dependency installs or build output.
 </Callout>
 
 ### Crash recovery
@@ -107,7 +107,7 @@ The CLI checks the following paths in order and runs the first one it finds:
 6. `build/main.js`
 
 <Callout tone="warning" title="No build means no start">
-  If none of the candidate paths exist, the command fails and prints a message telling you to run *spraxium build* first. Ensure your environment variables such as `DISCORD_TOKEN` are loaded before running this command.
+  If none of the candidate paths exist, the command fails and prints a message telling you to run *spraxium build* first. Ensure your environment variables such as DISCORD_TOKEN are loaded before running this command.
 </Callout>
 
 ---

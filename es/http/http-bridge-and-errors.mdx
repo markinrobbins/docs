@@ -251,7 +251,7 @@ En modo directo, los serializers corren en el mismo proceso que el client Discor
 </Steps>
 
 <Callout tone="warning" title="Los métodos de bridge nunca lanzan excepciones en caso de fallo">
-  Todos los métodos de bridge envuelven operaciones en try/catch internamente. Métodos de lectura retornan `null` en caso de fallo y métodos de acción retornan `false`. Diseña el manejo de errores del controller en torno a estos valores de retorno en vez de esperar excepciones lanzadas por llamadas a la bridge.
+  Todos los métodos de bridge envuelven operaciones en try/catch internamente. Métodos de lectura retornan null en caso de fallo y métodos de acción retornan false. Diseña el manejo de errores del controller en torno a estos valores de retorno en vez de esperar excepciones lanzadas por llamadas a la bridge.
 </Callout>
 
 ## Página siguiente
