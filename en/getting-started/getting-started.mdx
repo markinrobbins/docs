@@ -25,6 +25,10 @@ Before scaffolding your first project, make sure you have the following tools an
   The token acts as your bot's password, anyone who has it can take full control of the bot. Always keep it in .env and ensure .env is listed in .gitignore. The Spraxium scaffold adds that rule to the generated .gitignore automatically.
 </Callout>
 
+<Callout tone="tip" title="Using a test server">
+  During development, always point your bot at a private Discord server you own. That way you can register slash commands instantly with guild-scoped registration and test interactions without affecting any real users.
+</Callout>
+
 ## Scaffold the project
 
 The fastest way to start is through the official create command, which generates a ready-to-run project with the correct folder structure, TypeScript configuration, and all default dependencies pre-installed. The CLI will ask which template to use, which package manager you prefer, and whether to initialize a Git repository. The defaults work well for most bots, so you can press Enter through the prompts on a first project without needing to customize anything.
