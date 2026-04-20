@@ -1,0 +1,143 @@
+---
+title: Dev Watch and Config Loading
+description: |
+  Configure the local development watcher to restart your bot predictably on file changes.
+  Learn the dev block fields, supported config filenames, and how environments are resolved at startup.
+order: 6
+category: Configuration
+---
+
+## The dev block
+
+The *dev* block controls the local development watcher that restarts your bot process when source files change. All fields are optional. The default entrypoint is `src/main.ts` and the default debounce is 300 milliseconds; most projects only need to adjust *debounce* to prevent restart storms during rapid saves.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+
+export default defineConfig({
+  dev: {
+    entrypoint: 'src/main.ts',
+    debounce: 500,
+    include: ['locales'],
+    exclude: ['.spraxium/**', 'dist/**'],
+  },
+});
+```
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Field</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Default</TableCell>
+      <TableCell header>Purpose</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*entrypoint*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>`'src/main.ts'`</TableCell>
+      <TableCell>File executed by the watcher when restarting the process.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*include*</TableCell>
+      <TableCell>`string[]`</TableCell>
+      <TableCell>`[]`</TableCell>
+      <TableCell>Additional directories to trigger restarts on change.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*exclude*</TableCell>
+      <TableCell>`string[]`</TableCell>
+      <TableCell>`[]`</TableCell>
+      <TableCell>Glob patterns to ignore during file watching.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*debounce*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>`300`</TableCell>
+      <TableCell>Milliseconds to wait after a change before triggering a restart.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+<Callout tone="warning" title="Exclude generated directories">
+  Always add `.spraxium/**` and `dist/**` to the *exclude* list. These directories change during build operations,
+  and watching them causes infinite restart loops that destabilize the watcher process.
+</Callout>
+
+## Supported config filenames
+
+The framework searches for your config file using the following priority order. In production mode, compiled output is checked first; in all other modes the TypeScript source takes precedence.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Priority</TableCell>
+      <TableCell header>Path</TableCell>
+      <TableCell header>Mode</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>1</TableCell>
+      <TableCell>`.spraxium/dist/spraxium.config.js`</TableCell>
+      <TableCell>Production only</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>2</TableCell>
+      <TableCell>`dist/spraxium.config.js`</TableCell>
+      <TableCell>Production only</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>3</TableCell>
+      <TableCell>`spraxium.config.ts`</TableCell>
+      <TableCell>All modes</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>4</TableCell>
+      <TableCell>`spraxium.config.js`</TableCell>
+      <TableCell>All modes</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>5</TableCell>
+      <TableCell>`spraxium.config.mjs`</TableCell>
+      <TableCell>All modes</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Environment resolution
+
+`NODE_ENV` is read once during startup and mapped to a *ConfigEnv* object. This value never changes after the config has been loaded, so all environment-based branching must happen inside your *defineConfig* callback.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>NODE_ENV</TableCell>
+      <TableCell header>Mode</TableCell>
+      <TableCell header>Active flags</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`production`</TableCell>
+      <TableCell>production</TableCell>
+      <TableCell>`isProd = true`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`neutral`, `staging`, `test`</TableCell>
+      <TableCell>neutral</TableCell>
+      <TableCell>`isNeutral = true`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Any other value</TableCell>
+      <TableCell>development</TableCell>
+      <TableCell>`isDev = true`</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Next study
+
+[Components Overview](/components-overview)

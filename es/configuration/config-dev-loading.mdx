@@ -1,0 +1,143 @@
+---
+title: Watch de Dev y Carga de Configuración
+description: |
+  Configura el watcher de desarrollo local y entiende cómo Spraxium descarga el archivo de configuración en runtime.
+  Aprende el orden de prioridad de archivos, el mapeo de NODE_ENV y las opciones del bloque dev.
+order: 6
+category: Configuration
+---
+
+## El bloque dev
+
+El bloque *dev* controla el watcher de desarrollo local que reinicia el proceso del bot ante cambios en archivos. Ajusta el *entrypoint* a ejecutar, el intervalo de *debounce* entre cambios y los directorios a incluir o excluir. El valor por defecto de cada campo es razonable para la mayoría de proyectos, así que solo configura lo que necesites cambiar.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Default</TableCell>
+      <TableCell header>Propósito</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*entrypoint*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>`'src/main.ts'`</TableCell>
+      <TableCell>El archivo que el watcher ejecuta al reiniciar.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*include*</TableCell>
+      <TableCell>`string[]`</TableCell>
+      <TableCell>`[]`</TableCell>
+      <TableCell>Directorios adicionales que activan reinicios al cambiar.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*exclude*</TableCell>
+      <TableCell>`string[]`</TableCell>
+      <TableCell>`[]`</TableCell>
+      <TableCell>Patrones glob a ignorar durante la observación de archivos.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*debounce*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>`300`</TableCell>
+      <TableCell>Milisegundos entre el cambio de archivo y la activación del reinicio.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+<Callout tone="warning" title="Excluye los directorios generados">
+  Directorios como `.spraxium/` y `dist/` cambian durante las operaciones de build. Si no los
+  excluyes, el watcher puede entrar en bucles de reinicio cada vez que un archivo generado cambie.
+</Callout>
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+
+export default defineConfig({
+  dev: {
+    entrypoint: 'src/main.ts',
+    debounce: 500,
+    include: ['locales'],
+    exclude: ['.spraxium/**', 'dist/**'],
+  },
+});
+```
+
+## Orden de prioridad de nombres de archivo
+
+Spraxium busca el archivo de configuración usando una cadena de prioridad específica por entorno. El primer archivo que exista en el sistema de archivos gana y la búsqueda se detiene. En modo producción, los directorios de salida compilados tienen prioridad. En los demás modos, el archivo fuente TypeScript tiene la mayor prioridad.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Prioridad</TableCell>
+      <TableCell header>Modo</TableCell>
+      <TableCell header>Ruta</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>1</TableCell>
+      <TableCell>Solo producción</TableCell>
+      <TableCell>`.spraxium/dist/spraxium.config.js`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>2</TableCell>
+      <TableCell>Solo producción</TableCell>
+      <TableCell>`dist/spraxium.config.js`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>3</TableCell>
+      <TableCell>Todos los modos</TableCell>
+      <TableCell>`spraxium.config.ts`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>4</TableCell>
+      <TableCell>Todos los modos</TableCell>
+      <TableCell>`spraxium.config.js`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>5</TableCell>
+      <TableCell>Todos los modos</TableCell>
+      <TableCell>`spraxium.config.mjs`</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Mapeo de NODE_ENV a ConfigEnv
+
+El loader lee `process.env.NODE_ENV` una vez y lo mapea a un objeto *ConfigEnv* con cuatro propiedades: *mode*, *isDev*, *isNeutral* e *isProd*. Este objeto es el único argumento que tu callback recibe cuando usas el patrón de export con función. Cambiar *NODE_ENV* después de que la config fue evaluada no tiene ningún efecto.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Valor de NODE_ENV</TableCell>
+      <TableCell header>Modo resuelto</TableCell>
+      <TableCell header>Flags activos</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`production`</TableCell>
+      <TableCell>production</TableCell>
+      <TableCell>`isProd = true`, `isDev = false`, `isNeutral = false`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`neutral` / `staging` / `test`</TableCell>
+      <TableCell>neutral</TableCell>
+      <TableCell>`isNeutral = true`, `isDev = false`, `isProd = false`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Cualquier otro valor o `undefined`</TableCell>
+      <TableCell>development</TableCell>
+      <TableCell>`isDev = true`, `isNeutral = false`, `isProd = false`</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Siguiente estudio
+
+[Descripción General de Componentes](/components-overview)

@@ -1,0 +1,144 @@
+---
+title: Watch de Dev e Carregamento de Configuração
+description: |
+  Configure o watcher de desenvolvimento local para reiniciar seu bot de forma previsível ao detectar mudanças.
+  Aprenda os campos do bloco dev, os nomes de arquivo de configuração suportados e como os ambientes são resolvidos.
+order: 6
+category: Configuration
+---
+
+## O bloco dev
+
+O bloco *dev* controla o watcher de desenvolvimento local que reinicia o processo do seu bot quando arquivos mudam. Todos os campos são opcionais. O entrypoint padrão é `src/main.ts` e o debounce padrão é 300 milissegundos. Na maioria dos projetos, você só precisa ajustar o *debounce* para evitar storms de reinício durante salvamentos rápidos.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+
+export default defineConfig({
+  dev: {
+    entrypoint: 'src/main.ts',
+    debounce: 500,
+    include: ['locales'],
+    exclude: ['.spraxium/**', 'dist/**'],
+  },
+});
+```
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Padrão</TableCell>
+      <TableCell header>Propósito</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*entrypoint*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>`'src/main.ts'`</TableCell>
+      <TableCell>Arquivo executado pelo watcher ao reiniciar o processo.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*include*</TableCell>
+      <TableCell>`string[]`</TableCell>
+      <TableCell>`[]`</TableCell>
+      <TableCell>Diretórios adicionais que devem disparar reinícios ao mudar.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*exclude*</TableCell>
+      <TableCell>`string[]`</TableCell>
+      <TableCell>`[]`</TableCell>
+      <TableCell>Padrões glob para ignorar durante o file watching.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*debounce*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>`300`</TableCell>
+      <TableCell>Milissegundos para aguardar após uma mudança antes de disparar o reinício.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+<Callout tone="warning" title="Exclua diretórios gerados">
+  Sempre adicione `.spraxium/**` e `dist/**` à lista *exclude*. Esses diretórios mudam
+  durante operações de build e, se observados, causam loops infinitos de reinício que
+  desestabilizam o processo do watcher.
+</Callout>
+
+## Nomes de arquivo de configuração suportados
+
+O framework busca seu arquivo de configuração usando esta ordem de prioridade.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Prioridade</TableCell>
+      <TableCell header>Caminho</TableCell>
+      <TableCell header>Modo</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>1</TableCell>
+      <TableCell>`.spraxium/dist/spraxium.config.js`</TableCell>
+      <TableCell>Somente produção</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>2</TableCell>
+      <TableCell>`dist/spraxium.config.js`</TableCell>
+      <TableCell>Somente produção</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>3</TableCell>
+      <TableCell>`spraxium.config.ts`</TableCell>
+      <TableCell>Todos os modos</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>4</TableCell>
+      <TableCell>`spraxium.config.js`</TableCell>
+      <TableCell>Todos os modos</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>5</TableCell>
+      <TableCell>`spraxium.config.mjs`</TableCell>
+      <TableCell>Todos os modos</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Resolução de ambiente
+
+O `NODE_ENV` é lido uma vez durante a inicialização e mapeado para um objeto *ConfigEnv*. Esse valor nunca muda após o carregamento da configuração, portanto todo branching baseado em ambiente deve acontecer dentro do callback do *defineConfig*.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>NODE_ENV</TableCell>
+      <TableCell header>Modo</TableCell>
+      <TableCell header>Flags ativas</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`production`</TableCell>
+      <TableCell>production</TableCell>
+      <TableCell>`isProd = true`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`neutral`, `staging`, `test`</TableCell>
+      <TableCell>neutral</TableCell>
+      <TableCell>`isNeutral = true`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Qualquer outro valor</TableCell>
+      <TableCell>development</TableCell>
+      <TableCell>`isDev = true`</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Próximo estudo
+
+[Visão Geral de Componentes](/components-overview)

@@ -1,0 +1,131 @@
+---
+title: Campos Core
+description: |
+  Referência de todos os campos de nível superior disponíveis no spraxium.config.ts.
+  Aprenda o propósito, o valor padrão e o escopo de cada campo antes de configurá-lo.
+order: 2
+category: Configuration
+---
+
+## Referência do tipo raiz
+
+O objeto passado para *defineConfig* deve satisfazer *SpraxiumCoreConfig*. Todos os campos são opcionais. Quando omitido, o framework aplica um padrão sensato. A tabela abaixo cobre todas as chaves de nível superior.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Padrão</TableCell>
+      <TableCell header>Propósito</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*debug*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>`false`</TableCell>
+      <TableCell>Aumenta a verbosidade diagnóstica em todos os subsistemas.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*logger*</TableCell>
+      <TableCell>`SpraxiumLoggerConfig`</TableCell>
+      <TableCell>Padrões internos</TableCell>
+      <TableCell>Controla saída de log, mascaramento de tokens, rastreamento de comandos e transporte Discord.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*plugins*</TableCell>
+      <TableCell>`SpraxiumPlugin[]`</TableCell>
+      <TableCell>`[]`</TableCell>
+      <TableCell>Entradas tipadas produzidas por helpers de factory como *defineHttp* e *defineSchedule*.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*prefix*</TableCell>
+      <TableCell>`PrefixConfig`</TableCell>
+      <TableCell>Sem prefix commands</TableCell>
+      <TableCell>Define prefixo, política de cooldown e comportamento de menção.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*exceptions*</TableCell>
+      <TableCell>`ExceptionOptions`</TableCell>
+      <TableCell>Layout padrão do framework</TableCell>
+      <TableCell>Mapeia classes de exception para layouts de resposta e controla logging de erros.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*dev*</TableCell>
+      <TableCell>`SpraxiumDevConfig`</TableCell>
+      <TableCell>Padrões sensatos de watch</TableCell>
+      <TableCell>Configura o entrypoint do watcher local, debounce e padrões de arquivo.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## debug
+
+A flag *debug* habilita saída diagnóstica extra em todos os subsistemas. Quando ativa, o framework emite linhas de rastreamento adicionais durante o carregamento de módulos, resolução de providers, registro de comandos e despacho de interações. Essa saída é destinada a troubleshooting e não deve permanecer ativa em deployments de produção com alto volume de tráfego.
+
+A flag aceita um booleano simples ou qualquer expressão de *ConfigEnv*, permitindo escopar a verbosidade a um ambiente específico.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Valor</TableCell>
+      <TableCell header>Quando ativo</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`false`</TableCell>
+      <TableCell>Sempre desativado. É o padrão quando o campo é omitido.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`true`</TableCell>
+      <TableCell>Sempre ativado, independente do ambiente. Use somente em ambientes de teste isolados.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`env.isDev`</TableCell>
+      <TableCell>Ativo em desenvolvimento local. Qualquer valor de NODE_ENV que não seja production, neutral, staging ou test.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`env.isNeutral`</TableCell>
+      <TableCell>Ativo em staging e CI. NODE_ENV configurado como neutral, staging ou test. Baseline recomendado para a maioria dos projetos.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`env.isProd`</TableCell>
+      <TableCell>Ativo somente em produção. Use de forma deliberada e temporária ao diagnosticar um problema em produção.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## logger
+
+O bloco *logger* controla a política de saída do logger integrado do framework. Não afeta lógica de negócio. As opções mais configuradas são *maskTokens* (substitui strings parecidas com tokens por um placeholder seguro), *commandLogging* (emite uma linha de rastreamento a cada despacho de comando) e *discord* (envia níveis de log selecionados para um canal via webhook).
+
+```typescript filename="config/logger.config.ts"
+import type { SpraxiumLoggerConfig } from '@spraxium/core';
+
+export const loggerConfig: SpraxiumLoggerConfig = {
+  maskTokens: true,
+  commandLogging: true,
+  discord: {
+    type: 'channel',
+    webhookUrl: process.env.LOGGER_WEBHOOK!,
+    levels: ['error', 'warn'],
+    channelId: '1462519588775395429',
+  },
+};
+```
+
+## plugins
+
+O array *plugins* coleta entradas retornadas pelas factories de plugin. Cada entrada carrega uma string *namespace* e um payload de configuração tipado. O framework usa o namespace para rotear a configuração para o plugin correto em runtime. As factories de plugin e as opções first-party são abordadas na página de Registro de Plugins.
+
+## dev
+
+O bloco *dev* tem uma página de referência dedicada nesta categoria, cobrindo todos os campos do watcher, os nomes de arquivo de configuração suportados e como os ambientes são resolvidos na inicialização.
+
+O bloco *prefix* é documentado na categoria de Comandos de Prefixo. O bloco *exceptions* é documentado na categoria de Exceções.
+
+## Próxima página
+
+[Registro de Plugins](/guide/config-plugins)

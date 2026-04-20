@@ -1,0 +1,120 @@
+---
+title: Configuration Overview
+description: |
+  spraxium.config.ts is the single file that governs all runtime behavior in a Spraxium project.
+  Learn how defineConfig works, when to use the callback form, and how the framework loads your config at startup.
+order: 1
+category: Configuration
+---
+
+## The config file
+
+Every Spraxium project has a `spraxium.config.ts` file at its root. This file is the single source of truth for all runtime behavior: which plugins are active, how commands match, how errors are presented, and how the local dev watcher behaves. The framework reads it once at startup and stores the result as an immutable snapshot before any module begins running.
+
+You write the file using the *defineConfig* helper exported from `@spraxium/core`. It accepts either a plain object or a callback that receives a *ConfigEnv* argument. Both forms produce a valid config, but the callback form is recommended whenever options need to differ between environments, as it makes all branching explicit in one place.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { defineSchedule } from '@spraxium/schedule';
+
+export default defineConfig((env) => ({
+  debug: env.isNeutral,
+  plugins: [
+    defineSchedule({ timezone: 'America/Sao_Paulo', disableAll: false }),
+  ],
+  dev: {
+    entrypoint: 'src/main.ts',
+    debounce: 500,
+  },
+}));
+```
+
+## Callback vs object form
+
+The callback form receives a *ConfigEnv* object built from a single read of `NODE_ENV` at startup. It exposes *isDev*, *isNeutral*, and *isProd* so you can branch on environment without checking raw strings. The object form is suitable for projects where configuration is identical in all environments.
+
+<CodeTabs>
+  <Tab label="Callback" language="typescript">
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+
+export default defineConfig((env) => ({
+  debug: env.isNeutral,
+  logger: { maskTokens: true, commandLogging: env.isDev },
+}));
+```
+  </Tab>
+  <Tab label="Object" language="typescript">
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+
+export default defineConfig({
+  debug: false,
+  logger: { maskTokens: true },
+});
+```
+  </Tab>
+</CodeTabs>
+
+The *ConfigEnv* flags resolve from `NODE_ENV` as follows.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>NODE_ENV</TableCell>
+      <TableCell header>Active flag</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`production`</TableCell>
+      <TableCell>`isProd = true`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`neutral`, `staging`, `test`</TableCell>
+      <TableCell>`isNeutral = true`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Any other value</TableCell>
+      <TableCell>`isDev = true`</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Startup sequence
+
+The framework completes these steps before any application module runs.
+
+<Steps>
+  <Step title="Config file discovery">
+    The framework scans the project root for `spraxium.config.ts`, then `spraxium.config.js`, then `spraxium.config.mjs`. In production mode, compiled artifacts in `dist/` and `.spraxium/dist/` are checked first. The first file that exists on disk wins, and the search stops immediately.
+  </Step>
+  <Step title="Environment resolution and evaluation">
+    `NODE_ENV` is read once and mapped to a *ConfigEnv* object. If your export is a function, it is called with this object and the return value is used. If it is a plain object, it is used directly. The result is stored as an immutable singleton for the rest of the process lifetime.
+  </Step>
+  <Step title="Module and plugin initialization">
+    The framework resolves modules, providers, and lifecycle hooks. Each plugin reads its own config slice from the singleton using its factory as a lookup key. No further reads of the config file occur after this point.
+  </Step>
+</Steps>
+
+<Callout tone="info" title="No config file is not an error">
+  If no config file is found at startup, the framework continues with all defaults applied and logs a debug message.
+  This is the expected state during initial project setup, before the config file is created.
+</Callout>
+
+## One concern per block
+
+Each top-level key in the config object is owned by one subsystem. Plugin options live inside their respective factory calls. Command matching policy lives in the *prefix* block. Exception rendering lives in the *exceptions* block. Keeping each block focused means that modifying one area never creates side effects in another, and narrowing down an incident during a production outage stays fast.
+
+<FolderStructure title="Recommended organization for larger projects">
+  <Folder name="config" open>
+    <File name="http.config.ts" comment="HTTP plugin factory call" />
+    <File name="i18n.config.ts" comment="I18n plugin factory call" />
+    <File name="logger.config.ts" comment="Logger options" />
+  </Folder>
+  <File name="spraxium.config.ts" comment="Imports and composes all config fragments" />
+</FolderStructure>
+
+## Next page
+
+[Core Fields](/guide/config-core-fields)

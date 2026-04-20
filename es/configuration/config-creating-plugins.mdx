@@ -1,0 +1,118 @@
+---
+title: Creando un Plugin
+description: |
+  Usa definePlugin para exponer una factory tipada para tu propio paquete de plugin Spraxium.
+  Aprende a definir la interfaz de configuración, crear la factory, registrarla y leer la configuración en runtime.
+order: 4
+category: Configuration
+---
+
+## Qué es una factory de plugin
+
+Cuando creas un paquete de plugin propio, necesitas una forma de que los consumidores registren su configuración en `spraxium.config.ts` con tipado completo. *definePlugin* expone exactamente ese mecanismo. Recibe un string de namespace y retorna una función factory que empaqueta cualquier objeto de config bajo ese namespace. La factory resultante puede usarse en el array *plugins* exactamente como las factories oficiales.
+
+<Steps>
+  <Step title="Definir la interfaz de config">
+    Crea una interfaz TypeScript que describa cada opción que tu plugin acepta. Mantenla enfocada en lo que el plugin necesita en runtime. Usa comentarios de documentación para los tooltips del IDE y evita campos opcionales a menos que exista un comportamiento por defecto genuino para el valor ausente.
+
+```typescript filename="src/interfaces/my-plugin-config.interface.ts"
+export interface MyPluginConfig {
+  enabled: boolean;
+  apiUrl: string;
+  timeout?: number;
+}
+```
+  </Step>
+  <Step title="Crear la factory con definePlugin">
+    Importa *definePlugin* desde `@spraxium/core` e invócalo con el string literal del namespace y la interfaz de config como parámetros genéricos. El namespace debe ser único entre todos los plugins del proyecto. Exporta el resultado para que los consumidores puedan importarlo en sus archivos de configuración.
+
+```typescript filename="src/my-plugin.config.ts"
+import { definePlugin } from '@spraxium/core';
+import type { MyPluginConfig } from './interfaces/my-plugin-config.interface';
+
+export const defineMyPlugin = definePlugin<'my-plugin', MyPluginConfig>('my-plugin');
+```
+  </Step>
+  <Step title="Registrar en spraxium.config.ts">
+    Los consumidores importan la factory e invocan en el array *plugins*. El payload de config está tipado, así que el editor autocompletará cada opción y advertirá sobre formas inválidas en tiempo de compilación.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { defineMyPlugin } from '@acme/my-plugin';
+
+export default defineConfig({
+  plugins: [
+    defineMyPlugin({
+      enabled: true,
+      apiUrl: 'https://api.example.com',
+      timeout: 5000,
+    }),
+  ],
+});
+```
+  </Step>
+  <Step title="Leer la configuración en runtime">
+    Dentro de tu paquete, usa *ConfigStore.getPluginConfig(factory)* para obtener la config tipada. El método acepta la función factory y usa su propiedad *namespace* para encontrar la entrada coincidente en el array *plugins*. El tipo de retorno se infiere automáticamente como `MyPluginConfig | undefined`, lo que te obliga a verificar si el plugin fue registrado antes de usarlo.
+
+```typescript filename="src/my-plugin.service.ts"
+import { Injectable } from '@spraxium/common';
+import { ConfigStore } from '@spraxium/core';
+import { defineMyPlugin } from './my-plugin.config';
+
+@Injectable()
+export class MyPluginService {
+  private readonly config = ConfigStore.getPluginConfig(defineMyPlugin);
+
+  isEnabled(): boolean {
+    return this.config?.enabled === true;
+  }
+}
+```
+  </Step>
+</Steps>
+
+## Verificar si el plugin está registrado
+
+Un guardia de habilitación es el patrón más común para proteger lógica de plugin que solo debe ejecutarse cuando el plugin está configurado. El guardia lee la config a través de la factory y retorna `false` si la entrada no existe o si el campo *enabled* es `false`. Esto evita errores de runtime causados por consumir config no presente.
+
+```typescript filename="src/guards/my-plugin-enabled.guard.ts"
+import { ConfigStore } from '@spraxium/core';
+import { defineMyPlugin } from '../my-plugin.config';
+
+export class MyPluginEnabledGuard {
+  canActivate(): boolean {
+    const config = ConfigStore.getPluginConfig(defineMyPlugin);
+    return config?.enabled === true;
+  }
+}
+```
+
+<Callout tone="warning" title="Los namespaces deben ser únicos">
+  Si dos plugins usan el mismo namespace, el segundo sobrescribe la entrada del primero en el array
+  *plugins* durante la resolución. Usa un prefijo con alcance al paquete como `acme-analytics`
+  en lugar de un nombre genérico como `analytics`.
+</Callout>
+
+## Estructura recomendada del paquete
+
+<FolderStructure>
+  <Folder name="packages/my-plugin">
+    <Folder name="src">
+      <Folder name="interfaces">
+        <File name="my-plugin-config.interface.ts" />
+      </Folder>
+      <Folder name="guards">
+        <File name="my-plugin-enabled.guard.ts" />
+      </Folder>
+      <File name="my-plugin.config.ts" />
+      <File name="my-plugin.service.ts" />
+      <File name="index.ts" />
+    </Folder>
+    <File name="package.json" />
+    <File name="tsconfig.json" />
+  </Folder>
+</FolderStructure>
+
+## Siguiente página
+
+[Watch de Dev y Carga de Configuración](/guide/config-dev-loading)

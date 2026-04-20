@@ -1,0 +1,115 @@
+---
+title: Registro de Plugins
+description: |
+  Las factories de plugin producen entradas tipadas para el array plugins en spraxium.config.ts.
+  Aprende a registrar plugins oficiales y a mantener la configuración de cada plugin aislada y auditable.
+order: 3
+category: Configuration
+---
+
+## Cómo funciona el array plugins
+
+El array *plugins* reúne entradas retornadas por helpers de factory tipados. Cada entrada contiene un string *namespace* que identifica el plugin de forma única y un payload *config* tipado. No crees estas entradas manualmente. Las factories oficiales como *defineHttp*, *defineI18n*, *defineSchedule*, *defineSignal* y *defineComponents* se encargan del empaquetado. El orden de las entradas en el array no importa porque los plugins se resuelven por namespace en runtime, no por posición.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { defineHttp } from '@spraxium/http';
+import { defineSchedule } from '@spraxium/schedule';
+
+export default defineConfig({
+  plugins: [
+    defineHttp({ enabled: true, port: 3001, host: 'localhost', apiKey: 'dev-key', sharding: false }),
+    defineSchedule({ timezone: 'America/Sao_Paulo', disableAll: false }),
+  ],
+});
+```
+
+## Factories oficiales
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Factory</TableCell>
+      <TableCell header>Paquete</TableCell>
+      <TableCell header>Propósito</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*defineHttp*</TableCell>
+      <TableCell>`@spraxium/http`</TableCell>
+      <TableCell>Puente HTTP con ruteo estilo Express para APIs del bot.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*defineI18n*</TableCell>
+      <TableCell>`@spraxium/i18n`</TableCell>
+      <TableCell>Internacionalización con referencias de locale y cadenas de fallback.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*defineSchedule*</TableCell>
+      <TableCell>`@spraxium/schedule`</TableCell>
+      <TableCell>Agendamiento de tareas basado en cron con soporte de zona horaria.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*defineSignal*</TableCell>
+      <TableCell>`@spraxium/signal`</TableCell>
+      <TableCell>Receptor en el lado del bot para envelopes de eventos firmados.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*defineComponents*</TableCell>
+      <TableCell>`@spraxium/components`</TableCell>
+      <TableCell>Sistema de interacción de componentes para botones, selects y modales.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Extracción de config de plugins a archivos separados
+
+Para proyectos con muchos plugins, el patrón recomendado es extraer la llamada de cada factory a un archivo dedicado dentro de un directorio `config/` y luego importarla en la config raíz. Las opciones de cada plugin quedan aisladas y son auditables de forma independiente. Esto también facilita las revisiones de código durante incidentes, ya que el lector no tiene que buscar en un archivo de config extenso.
+
+<CodeTabs>
+  <Tab label="config/http.config.ts" language="typescript">
+```typescript filename="config/http.config.ts"
+import { defineHttp } from '@spraxium/http';
+
+export const httpPlugin = defineHttp({
+  enabled: true,
+  port: 3001,
+  host: 'localhost',
+  apiKey: process.env.HTTP_API_KEY ?? 'dev-secret',
+  sharding: false,
+});
+```
+  </Tab>
+  <Tab label="config/schedule.config.ts" language="typescript">
+```typescript filename="config/schedule.config.ts"
+import { defineSchedule } from '@spraxium/schedule';
+
+export const schedulePlugin = defineSchedule({
+  timezone: 'America/Sao_Paulo',
+  defaultLockTtlMs: 60_000,
+  disableAll: false,
+});
+```
+  </Tab>
+  <Tab label="spraxium.config.ts" language="typescript">
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { httpPlugin } from './config/http.config';
+import { schedulePlugin } from './config/schedule.config';
+
+export default defineConfig({
+  plugins: [httpPlugin, schedulePlugin],
+});
+```
+  </Tab>
+</CodeTabs>
+
+<Callout tone="success" title="Mantén la config cerca del import de la factory">
+  Cuando el namespace y el payload están en el mismo archivo, las auditorías y los refactors son
+  significativamente más rápidos. Evita dispersar opciones de plugin en módulos utilitarios compartidos.
+</Callout>
+
+## Siguiente página
+
+[Creando un Plugin](/guide/config-creating-plugins)
