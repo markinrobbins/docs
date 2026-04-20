@@ -1,0 +1,30 @@
+name: Sync website & deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout website repo
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ secrets.WEBSITE_REPO }}
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+          submodules: true
+          fetch-depth: 0
+
+      - name: Update content submodule to latest
+        run: |
+          git submodule update --init --remote --recursive
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add content
+          git diff --cached --quiet || git commit -m "chore(content): sync docs submodule [skip ci]"
+          git push
+
+      # go back later
+      # - name: Trigger Vercel deploy
+      #   run: curl -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}"
