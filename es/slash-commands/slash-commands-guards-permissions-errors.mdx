@@ -61,12 +61,26 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 import { PermissionFlagsBits } from 'discord.js';
 
 @SlashCommand({
-  name: 'ban', description: 'Ban a member from the server.', defaultMemberPermissions: PermissionFlagsBits.BanMembers, })
+  name: 'ban',
+  description: 'Ban a member from the server.',
+  defaultMemberPermissions: PermissionFlagsBits.BanMembers,
+})
 export class BanCommand {
-  @SlashOption.User('target', { description: 'The member to ban', required: true })
-  @SlashOption.String('reason', { description: 'Reason for the ban', required: false, maxLength: 512 })
+  @SlashOption.User('target', {
+    description: 'The member to ban',
+    required: true,
+  })
+  @SlashOption.String('reason', {
+    description: 'Reason for the ban',
+    required: false,
+    maxLength: 512,
+  })
   @SlashOption.Integer('days', {
-    description: 'Number of days of messages to delete', required: false, min: 0, max: 7, })
+    description: 'Number of days of messages to delete',
+    required: false,
+    min: 0,
+    max: 7,
+  })
   build() {}
 }
 ```
@@ -130,7 +144,12 @@ Aplica guards a clases handler usando el decorador *@UseGuards*. Puedes pasar un
 <CodeTabs defaultIndex={0}>
   <Tab label="Guard de nivel de clase" language="typescript">
 ```typescript filename="handlers/ban.handler.ts"
-import { Ctx, SlashCommandHandler, SlashOpt, UseGuards } from '@spraxium/common';
+import {
+  Ctx,
+  SlashCommandHandler,
+  SlashOpt,
+  UseGuards,
+} from '@spraxium/common';
 import type { ChatInputCommandInteraction, User } from 'discord.js';
 import { ModeratorGuard } from '../../guards/moderator.guard';
 import { BanCommand } from '../commands/ban.command';
@@ -139,7 +158,11 @@ import { BanCommand } from '../commands/ban.command';
 @SlashCommandHandler(BanCommand)
 export class BanHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('target') target: User, @SlashOpt('reason') reason: string | null, @SlashOpt('days') days: number | null, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('target') target: User,
+    @SlashOpt('reason') reason: string | null,
+    @SlashOpt('days') days: number | null,
+  ): Promise<void> {
     const reasonText = reason ?? 'No reason provided';
     await interaction.reply(`${target} has been banned. Reason: ${reasonText}`);
   }
@@ -170,7 +193,11 @@ export class NukeHandler {
 Algunos guards aceptan opciones de configuración que cambian su comportamiento por handler. El framework soporta pasar opciones tipadas a guards usando el helper *withOptions*. Los campos de opción del guard se declaran con el decorador *@GuardOption* en la clase guard, especificando valores por defecto y si la opción es obligatoria.
 
 ```typescript filename="guards/cooldown.guard.ts"
-import { GuardOption, type ExecutionContext, type SpraxiumGuard } from '@spraxium/common';
+import {
+  GuardOption,
+  type ExecutionContext,
+  type SpraxiumGuard,
+} from '@spraxium/common';
 import type { ChatInputCommandInteraction } from 'discord.js';
 
 export class CooldownGuard implements SpraxiumGuard {
@@ -207,7 +234,10 @@ import { defineConfig } from '@spraxium/core';
 
 export default defineConfig({
   exceptions: {
-    logUnhandled: true, layouts: [], }, });
+    logUnhandled: true,
+    layouts: [],
+  },
+});
 ```
 
 Cuando *logUnhandled* es `true` (el valor por defecto), cualquier valor lanzado que no sea una subclase de *SpraxiumException* se registra con su mensaje y stack trace antes de ser envuelto en una *InternalException*. Configurarlo a `false` suprime la salida en consola pero aún envía la respuesta de error a Discord.
@@ -223,17 +253,31 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 import { PermissionFlagsBits } from 'discord.js';
 
 @SlashCommand({
-  name: 'ban', description: 'Ban a member from the server.', defaultMemberPermissions: PermissionFlagsBits.BanMembers, })
+  name: 'ban',
+  description: 'Ban a member from the server.',
+  defaultMemberPermissions: PermissionFlagsBits.BanMembers,
+})
 export class BanCommand {
-  @SlashOption.User('target', { description: 'The member to ban', required: true })
-  @SlashOption.String('reason', { description: 'Reason for the ban', required: false })
+  @SlashOption.User('target', {
+    description: 'The member to ban',
+    required: true,
+  })
+  @SlashOption.String('reason', {
+    description: 'Reason for the ban',
+    required: false,
+  })
   build() {}
 }
 ```
   </Tab>
   <Tab label="handlers/ban.handler.ts" language="typescript">
 ```typescript filename="handlers/ban.handler.ts"
-import { Ctx, SlashCommandHandler, SlashOpt, UseGuards } from '@spraxium/common';
+import {
+  Ctx,
+  SlashCommandHandler,
+  SlashOpt,
+  UseGuards,
+} from '@spraxium/common';
 import type { ChatInputCommandInteraction, User } from 'discord.js';
 import { ModeratorGuard } from '../../guards/moderator.guard';
 import { BanCommand } from '../commands/ban.command';
@@ -242,15 +286,26 @@ import { BanCommand } from '../commands/ban.command';
 @SlashCommandHandler(BanCommand)
 export class BanHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('target') target: User, @SlashOpt('reason') reason: string | null, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('target') target: User,
+    @SlashOpt('reason') reason: string | null,
+  ): Promise<void> {
     if (!interaction.guild) {
-      await interaction.reply({ content: 'This command can only be used in a server.', flags: 'Ephemeral' });
+      await interaction.reply({
+        content: 'This command can only be used in a server.',
+        flags: 'Ephemeral',
+      });
       return;
     }
 
-    const member = await interaction.guild.members.fetch(target.id).catch(() => null);
+    const member = await interaction.guild.members
+      .fetch(target.id)
+      .catch(() => null);
     if (!member) {
-      await interaction.reply({ content: `Could not find member ${target}.`, flags: 'Ephemeral' });
+      await interaction.reply({
+        content: `Could not find member ${target}.`,
+        flags: 'Ephemeral',
+      });
       return;
     }
 

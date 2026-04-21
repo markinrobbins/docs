@@ -85,9 +85,19 @@ Clientes recebem uma estrutura previsível onde `details` é sempre um array, me
   <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
 ```typescript filename="http/controllers/guild-http.controller.ts"
 import {
-  HttpBody, HttpController, HttpGet, HttpParam, HttpPatch, HttpStatus, } from '@spraxium/http';
+  HttpBody,
+  HttpController,
+  HttpGet,
+  HttpParam,
+  HttpPatch,
+  HttpStatus,
+} from '@spraxium/http';
 import {
-  NotFoundError, ForbiddenError, ConflictError, ServiceUnavailableError, } from '@spraxium/http';
+  NotFoundError,
+  ForbiddenError,
+  ConflictError,
+  ServiceUnavailableError,
+} from '@spraxium/http';
 import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
 
 @HttpController('/guilds')
@@ -110,12 +120,16 @@ export class GuildHttpController {
   @HttpPatch('/:guildId/config')
   @HttpStatus(200)
   async updateConfig(
-    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
+    @HttpParam('guildId') guildId: string,
+    @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+  ) {
     const guild = await this.findGuild(guildId);
     if (!guild) throw new NotFoundError('Guild não encontrada');
 
     if (guild.locked) {
-      throw new ForbiddenError('Configuração da guild está bloqueada por admin');
+      throw new ForbiddenError(
+        'Configuração da guild está bloqueada por admin',
+      );
     }
 
     if (guild.prefix === body.prefix) {
@@ -153,9 +167,12 @@ import { HttpClientModule, HttpModule } from '@spraxium/http';
 import { GuildHttpController } from './http/controllers/guild-http.controller';
 
 @HttpClientModule({
-  controllers: [GuildHttpController], })
+  controllers: [GuildHttpController],
+})
 @Module({
-  imports: [HttpModule], providers: [GuildHttpController], })
+  imports: [HttpModule],
+  providers: [GuildHttpController],
+})
 export class AppModule {}
 ```
   </Tab>
@@ -218,7 +235,9 @@ import { ServiceUnavailableError } from '@spraxium/http';
 
 export class BridgeUnavailableError extends ServiceUnavailableError {
   constructor() {
-    super('Bot bridge não está respondendo, tente novamente em alguns segundos');
+    super(
+      'Bot bridge não está respondendo, tente novamente em alguns segundos',
+    );
     this.name = 'BridgeUnavailableError';
   }
 }
@@ -235,7 +254,9 @@ import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
 export class GuildHttpController {
   @HttpPatch('/:guildId/config')
   async updateConfig(
-    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
+    @HttpParam('guildId') guildId: string,
+    @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+  ) {
     const guild = await this.fetchGuild(guildId);
     if (!guild) throw new BridgeUnavailableError();
     if (guild.locked) throw new GuildLockedError(guildId);

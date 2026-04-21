@@ -18,9 +18,15 @@ import { defineConfig } from '@spraxium/core';
 import { defineSchedule } from '@spraxium/schedule';
 
 export default defineConfig((env) => ({
-  debug: env.isNeutral, plugins: [
-    defineSchedule({ timezone: 'America/Sao_Paulo', disableAll: false }), ], dev: {
-    entrypoint: 'src/main.ts', debounce: 500, }, }));
+  debug: env.isNeutral,
+  plugins: [
+    defineSchedule({ timezone: 'America/Sao_Paulo', disableAll: false }),
+  ],
+  dev: {
+    entrypoint: 'src/main.ts',
+    debounce: 500,
+  },
+}));
 ```
 
 ## Callback vs object form
@@ -33,7 +39,9 @@ The callback form receives a *ConfigEnv* object built from a single read of `NOD
 import { defineConfig } from '@spraxium/core';
 
 export default defineConfig((env) => ({
-  debug: env.isNeutral, logger: { maskTokens: true, commandLogging: env.isDev }, }));
+  debug: env.isNeutral,
+  logger: { maskTokens: true, commandLogging: env.isDev },
+}));
 ```
   </Tab>
   <Tab label="Object" language="typescript">
@@ -41,7 +49,9 @@ export default defineConfig((env) => ({
 import { defineConfig } from '@spraxium/core';
 
 export default defineConfig({
-  debug: false, logger: { maskTokens: true }, });
+  debug: false,
+  logger: { maskTokens: true },
+});
 ```
   </Tab>
 </CodeTabs>

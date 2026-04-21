@@ -66,11 +66,19 @@ Selects de string são o tipo mais flexível porque você controla as opções d
 import { StringSelect, SelectOption } from '@spraxium/components';
 
 @StringSelect({
-  customId: 'color-picker', placeholder: 'Choose a color', minValues: 1, maxValues: 1, })
+  customId: 'color-picker',
+  placeholder: 'Choose a color',
+  minValues: 1,
+  maxValues: 1,
+})
 export class ColorPickerSelect {
   @SelectOption({ label: 'Red', value: 'red', description: 'A warm color' })
   @SelectOption({ label: 'Blue', value: 'blue', description: 'A cool color' })
-  @SelectOption({ label: 'Green', value: 'green', description: 'A natural color' })
+  @SelectOption({
+    label: 'Green',
+    value: 'green',
+    description: 'A natural color',
+  })
   options: void;
 }
 ```
@@ -84,9 +92,13 @@ import { ColorPickerSelect } from './color-picker.select';
 @StringSelectHandler(ColorPickerSelect)
 export class ColorPickerHandler {
   async handle(
-    @Ctx() interaction: StringSelectMenuInteraction, @Selected() color: string, ): Promise<void> {
+    @Ctx() interaction: StringSelectMenuInteraction,
+    @Selected() color: string,
+  ): Promise<void> {
     await interaction.reply({
-      content: `You picked ${color}.`, ephemeral: true, });
+      content: `You picked ${color}.`,
+      ephemeral: true,
+    });
   }
 }
 ```
@@ -158,9 +170,14 @@ Quando as opções do select dependem de dados de runtime, como registros de ban
 import { StringSelect } from '@spraxium/components';
 
 @StringSelect({
-  customId: 'role-list', placeholder: 'Pick a role', dynamicOptions: (roles: Array<{ id: string; name: string }>) =>
+  customId: 'role-list',
+  placeholder: 'Pick a role',
+  dynamicOptions: (roles: Array<{ id: string; name: string }>) =>
     roles.map((r) => ({
-      label: r.name, value: r.id, })), })
+      label: r.name,
+      value: r.id,
+    })),
+})
 export class RoleListSelect {}
 ```
 
@@ -174,7 +191,9 @@ Os selects de entidade usam os seletores nativos do Discord que exibem avatares 
 import { UserSelect } from '@spraxium/components';
 
 @UserSelect({
-  customId: 'assign-user', placeholder: 'Select a team member', })
+  customId: 'assign-user',
+  placeholder: 'Select a team member',
+})
 export class AssignUserSelect {}
 ```
 </Tab>
@@ -183,7 +202,9 @@ export class AssignUserSelect {}
 import { RoleSelect } from '@spraxium/components';
 
 @RoleSelect({
-  customId: 'assign-role', placeholder: 'Select a role', })
+  customId: 'assign-role',
+  placeholder: 'Select a role',
+})
 export class AssignRoleSelect {}
 ```
 </Tab>
@@ -193,7 +214,10 @@ import { ChannelSelect } from '@spraxium/components';
 import { ChannelType } from 'discord.js';
 
 @ChannelSelect({
-  customId: 'pick-channel', placeholder: 'Select a channel', channelTypes: [ChannelType.GuildText, ChannelType.GuildVoice], })
+  customId: 'pick-channel',
+  placeholder: 'Select a channel',
+  channelTypes: [ChannelType.GuildText, ChannelType.GuildVoice],
+})
 export class PickChannelSelect {}
 ```
 </Tab>
@@ -211,9 +235,13 @@ import { AssignUserSelect } from './assign-user.select';
 @UserSelectHandler(AssignUserSelect)
 export class AssignUserHandler {
   async handle(
-    @Ctx() interaction: UserSelectMenuInteraction, @SelectedValues() userIds: string[], ): Promise<void> {
+    @Ctx() interaction: UserSelectMenuInteraction,
+    @SelectedValues() userIds: string[],
+  ): Promise<void> {
     await interaction.reply({
-      content: `Selected ${userIds.length} user(s).`, ephemeral: true, });
+      content: `Selected ${userIds.length} user(s).`,
+      ephemeral: true,
+    });
   }
 }
 ```
@@ -237,7 +265,9 @@ export class PickColorCommandHandler {
     const row = await this.selects.build(ColorPickerSelect);
 
     await interaction.reply({
-      content: 'Pick your favorite color:', components: [row], });
+      content: 'Pick your favorite color:',
+      components: [row],
+    });
   }
 }
 ```
@@ -267,8 +297,8 @@ import { ColorPickerHandler } from './color-picker.handler';
 import { AssignUserHandler } from './assign-user.handler';
 
 @Module({
-  handlers: [
-    ColorPickerHandler, AssignUserHandler, ], })
+  handlers: [ColorPickerHandler, AssignUserHandler],
+})
 export class SelectsModule {}
 ```
 

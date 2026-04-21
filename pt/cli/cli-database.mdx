@@ -93,7 +93,11 @@ export class HelloService {
 
   async getCount(): Promise<number> {
     // Use o client do ORM retornado pelo service
-    return this.db.getDb().select().from(table).then((rows) => rows.length);
+    return this.db
+      .getDb()
+      .select()
+      .from(table)
+      .then((rows) => rows.length);
   }
 }
 ```

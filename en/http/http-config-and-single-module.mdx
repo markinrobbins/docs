@@ -92,24 +92,46 @@ import { defineHttp } from '@spraxium/http';
 import { AppModule } from '../src/app.module';
 
 export const httpPlugin = defineHttp({
-  enabled: true, host: process.env.HTTP_HOST ?? '0.0.0.0', port: Number(process.env.HTTP_PORT ?? 3000), apiKey: process.env.HTTP_API_KEY ?? '', sharding: false, security: {
-    hidePoweredBy: true, headers: {
-      frameOptions: 'DENY', contentSecurityPolicy: "default-src 'none'", referrerPolicy: 'no-referrer', }, cors: {
-      origins: ['https://admin.example.com'], methods: ['GET', 'POST', 'PATCH'], allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'], credentials: true, }, bodyLimit: { maxSize: 256_000 }, }, module: AppModule, });
+  enabled: true,
+  host: process.env.HTTP_HOST ?? '0.0.0.0',
+  port: Number(process.env.HTTP_PORT ?? 3000),
+  apiKey: process.env.HTTP_API_KEY ?? '',
+  sharding: false,
+  security: {
+    hidePoweredBy: true,
+    headers: {
+      frameOptions: 'DENY',
+      contentSecurityPolicy: "default-src 'none'",
+      referrerPolicy: 'no-referrer',
+    },
+    cors: {
+      origins: ['https://admin.example.com'],
+      methods: ['GET', 'POST', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
+      credentials: true,
+    },
+    bodyLimit: { maxSize: 256_000 },
+  },
+  module: AppModule,
+});
 ```
   </Tab>
   <Tab label="src/app.module.ts" language="typescript">
 ```typescript filename="src/app.module.ts"
 import { Module } from '@spraxium/common';
-import {
-  HttpClientModule, HttpModule, LoggerMiddleware, } from '@spraxium/http';
+import { HttpClientModule, HttpModule, LoggerMiddleware } from '@spraxium/http';
 import { GuildHttpController } from './http/controllers/guild-http.controller';
 import { GuildHttpService } from './http/services/guild-http.service';
 
 @HttpClientModule({
-  controllers: [GuildHttpController], services: [GuildHttpService], middleware: [new LoggerMiddleware()], })
+  controllers: [GuildHttpController],
+  services: [GuildHttpService],
+  middleware: [new LoggerMiddleware()],
+})
 @Module({
-  imports: [HttpModule], providers: [GuildHttpController, GuildHttpService], })
+  imports: [HttpModule],
+  providers: [GuildHttpController, GuildHttpService],
+})
 export class AppModule {}
 ```
   </Tab>
@@ -119,7 +141,8 @@ import { defineConfig } from '@spraxium/core';
 import { httpPlugin } from './config/http.config';
 
 export default defineConfig(() => ({
-  plugins: [httpPlugin], }));
+  plugins: [httpPlugin],
+}));
 ```
   </Tab>
 </CodeTabs>

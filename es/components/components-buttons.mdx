@@ -49,7 +49,11 @@ Un botón estático es el componente interactivo más simple. Decoras una clase 
 import { Button } from '@spraxium/components';
 
 @Button({
-  customId: 'confirm-action', label: 'Confirm', style: 'success', emoji: '✅', })
+  customId: 'confirm-action',
+  label: 'Confirm',
+  style: 'success',
+  emoji: '✅',
+})
 export class ConfirmButton {}
 ```
 </Tab>
@@ -130,7 +134,10 @@ Los botones de enlace usan *@LinkButton* y abren una URL en el navegador del usu
 import { LinkButton } from '@spraxium/components';
 
 @LinkButton({
-  url: 'https://spraxium.dev/guide', label: 'Documentation', emoji: '📚', })
+  url: 'https://spraxium.dev/guide',
+  label: 'Documentation',
+  emoji: '📚',
+})
 export class DocsLinkButton {}
 ```
 
@@ -211,8 +218,8 @@ import { ConfirmButtonHandler } from './confirm.handler';
 import { SelectItemHandler } from './select-item.handler';
 
 @Module({
-  handlers: [
-    ConfirmButtonHandler, SelectItemHandler, ], })
+  handlers: [ConfirmButtonHandler, SelectItemHandler],
+})
 export class ButtonsModule {}
 ```
 

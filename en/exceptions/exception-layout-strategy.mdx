@@ -136,14 +136,19 @@ const PolicyLayout = defineExceptionLayout((exception) => ({
     new EmbedBuilder()
       .setColor(0xffb020)
       .setTitle('Action blocked by policy')
-      .setDescription(String(exception.props.reason ?? 'Reason not provided')), ], ephemeral: true,
+      .setDescription(String(exception.props.reason ?? 'Reason not provided')),
+  ],
+  ephemeral: true,
 }));
 
 @WithLayout(PolicyLayout)
 export class PolicyException extends SpraxiumException {
   constructor(props: { reason: string }) {
     super({
-      code: 'POLICY_BLOCKED', message: 'Action blocked: {{reason}}', props, });
+      code: 'POLICY_BLOCKED',
+      message: 'Action blocked: {{reason}}',
+      props,
+    });
   }
 }
 ```
@@ -152,8 +157,11 @@ And in application configuration:
 
 ```typescript filename="spraxium.config.ts"
 exceptions: {
-  logUnhandled: true, layouts: {
-    default: AppDefaultLayout, PolicyException: TeamBrandPolicyLayout, },
+  logUnhandled: true,
+  layouts: {
+    default: AppDefaultLayout,
+    PolicyException: TeamBrandPolicyLayout,
+  },
 }
 ```
 

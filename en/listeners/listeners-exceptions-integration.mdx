@@ -75,7 +75,10 @@ import { SpraxiumException } from '@spraxium/core';
 class AccountSuspendedException extends SpraxiumException {
   constructor(props: { reason: string; userId: string }) {
     super({
-      code: 'ACCOUNT_SUSPENDED', message: 'Your account has been suspended: {{reason}}.', props, });
+      code: 'ACCOUNT_SUSPENDED',
+      message: 'Your account has been suspended: {{reason}}.',
+      props,
+    });
   }
 }
 
@@ -88,7 +91,9 @@ export class AccountPolicyListener {
     const isSuspended = await this.checkSuspension(message.author.id);
     if (isSuspended) {
       throw new AccountSuspendedException({
-        reason: 'Policy violation', userId: message.author.id, });
+        reason: 'Policy violation',
+        userId: message.author.id,
+      });
     }
   }
 
@@ -118,7 +123,10 @@ export class MemberJoinListener {
         await channel.send(`Welcome to the server, ${member}!`);
       }
     } catch (error) {
-      this.logger.error(`Failed to send welcome message for ${member.user.username}`, error);
+      this.logger.error(
+        `Failed to send welcome message for ${member.user.username}`,
+        error,
+      );
     }
   }
 }

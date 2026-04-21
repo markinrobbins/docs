@@ -32,7 +32,9 @@ export interface MyPluginConfig {
 import { definePlugin } from '@spraxium/core';
 import type { MyPluginConfig } from './interfaces/my-plugin-config.interface';
 
-export const defineMyPlugin = definePlugin<'my-plugin', MyPluginConfig>('my-plugin');
+export const defineMyPlugin = definePlugin<'my-plugin', MyPluginConfig>(
+  'my-plugin',
+);
 ```
   </Step>
   <Step title="Register in spraxium.config.ts">
@@ -45,7 +47,12 @@ import { defineMyPlugin } from './src/my-plugin.config';
 export default defineConfig({
   plugins: [
     defineMyPlugin({
-      enabled: true, apiKey: process.env.MY_PLUGIN_API_KEY ?? '', retries: 3, }), ], });
+      enabled: true,
+      apiKey: process.env.MY_PLUGIN_API_KEY ?? '',
+      retries: 3,
+    }),
+  ],
+});
 ```
   </Step>
   <Step title="Read the config at runtime">

@@ -43,7 +43,9 @@ import { db } from './database/connection';
 
 async function main(): Promise<void> {
   I18nStoreRegistry.set(new DrizzleLocaleStore(db));
-  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN! });
+  const app = await SpraxiumFactory.create({
+    token: process.env.DISCORD_TOKEN!,
+  });
   app.intents(IntentPreset.Standard);
   await app.listen();
 }
@@ -89,7 +91,10 @@ export class DrizzleLocaleStore implements I18nStore {
     await this.db
       .insert(localePreferences)
       .values({ userId, locale })
-      .onConflictDoUpdate({ target: localePreferences.userId, set: { locale } });
+      .onConflictDoUpdate({
+        target: localePreferences.userId,
+        set: { locale },
+      });
   }
 
   async getGuild(guildId: string): Promise<string | undefined> {
@@ -105,7 +110,10 @@ export class DrizzleLocaleStore implements I18nStore {
     await this.db
       .insert(guildLocalePreferences)
       .values({ guildId, locale })
-      .onConflictDoUpdate({ target: guildLocalePreferences.guildId, set: { locale } });
+      .onConflictDoUpdate({
+        target: guildLocalePreferences.guildId,
+        set: { locale },
+      });
   }
 }
 ```
@@ -122,24 +130,34 @@ export class PrismaLocaleStore implements I18nStore {
 
   async getUser(userId: string): Promise<string | undefined> {
     const registro = await this.prisma.localePreference.findUnique({
-      where: { userId }, select: { locale: true }, });
+      where: { userId },
+      select: { locale: true },
+    });
     return registro?.locale ?? undefined;
   }
 
   async setUser(userId: string, locale: string): Promise<void> {
     await this.prisma.localePreference.upsert({
-      where: { userId }, create: { userId, locale }, update: { locale }, });
+      where: { userId },
+      create: { userId, locale },
+      update: { locale },
+    });
   }
 
   async getGuild(guildId: string): Promise<string | undefined> {
     const registro = await this.prisma.guildLocalePreference.findUnique({
-      where: { guildId }, select: { locale: true }, });
+      where: { guildId },
+      select: { locale: true },
+    });
     return registro?.locale ?? undefined;
   }
 
   async setGuild(guildId: string, locale: string): Promise<void> {
     await this.prisma.guildLocalePreference.upsert({
-      where: { guildId }, create: { guildId, locale }, update: { locale }, });
+      where: { guildId },
+      create: { guildId, locale },
+      update: { locale },
+    });
   }
 }
 ```
@@ -152,13 +170,13 @@ import type { I18nStore } from '@spraxium/i18n';
 @Entity('locale_preferences')
 class LocalePreference {
   @PrimaryColumn() userId!: string;
-  @Column()        locale!: string;
+  @Column() locale!: string;
 }
 
 @Entity('guild_locale_preferences')
 class GuildLocalePreference {
   @PrimaryColumn() guildId!: string;
-  @Column()        locale!: string;
+  @Column() locale!: string;
 }
 
 export class TypeOrmLocaleStore implements I18nStore {
@@ -166,7 +184,7 @@ export class TypeOrmLocaleStore implements I18nStore {
   private servidores: Repository<GuildLocalePreference>;
 
   constructor(private readonly dataSource: DataSource) {
-    this.usuarios   = dataSource.getRepository(LocalePreference);
+    this.usuarios = dataSource.getRepository(LocalePreference);
     this.servidores = dataSource.getRepository(GuildLocalePreference);
   }
 
@@ -252,7 +270,10 @@ export class LocaleHandler {
     await this.i18n.setUserLocale(userId, locale);
 
     const confirmacao = await this.i18n.tUser(
-      userId, 'commands.locale.alterado', { locale }, );
+      userId,
+      'commands.locale.alterado',
+      { locale },
+    );
 
     await interaction.reply({ content: confirmacao, ephemeral: true });
   }
@@ -284,7 +305,11 @@ import { I18nStoreRegistry } from '@spraxium/i18n';
 import { vi } from 'vitest';
 
 const mockStore = {
-  init: vi.fn().mockResolvedValue(undefined), getUser: vi.fn().mockResolvedValue('pt-BR'), setUser: vi.fn().mockResolvedValue(undefined), getGuild: vi.fn().mockResolvedValue(undefined), setGuild: vi.fn().mockResolvedValue(undefined),
+  init: vi.fn().mockResolvedValue(undefined),
+  getUser: vi.fn().mockResolvedValue('pt-BR'),
+  setUser: vi.fn().mockResolvedValue(undefined),
+  getGuild: vi.fn().mockResolvedValue(undefined),
+  setGuild: vi.fn().mockResolvedValue(undefined),
 };
 
 beforeEach(() => {

@@ -64,7 +64,10 @@ import { prefixModule } from '@spraxium/core/prefix';
 export default defineConfig({
   modules: [
     prefixModule({
-      prefix: '!', defaultCooldown: 3, }), ],
+      prefix: '!',
+      defaultCooldown: 3,
+    }),
+  ],
 });
 ```
 
@@ -113,7 +116,12 @@ export class AdminOnlyGuard implements CanActivate {
   </Tab>
   <Tab label="Aplicar al handler" language="typescript">
 ```typescript filename="src/modules/admin/handlers/set-prefix-command.handler.ts"
-import { Ctx, PrefixArg, PrefixCommandHandler, UseGuards } from '@spraxium/common';
+import {
+  Ctx,
+  PrefixArg,
+  PrefixCommandHandler,
+  UseGuards,
+} from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { AdminOnlyGuard } from '../../../guards/admin-only.guard';
 import { SetPrefixCommand } from '../commands/set-prefix.command';
@@ -122,7 +130,9 @@ import { SetPrefixCommand } from '../commands/set-prefix.command';
 @PrefixCommandHandler(SetPrefixCommand)
 export class SetPrefixHandler {
   async handle(
-    @Ctx() message: Message, @PrefixArg('newPrefix') newPrefix: string, ): Promise<void> {
+    @Ctx() message: Message,
+    @PrefixArg('newPrefix') newPrefix: string,
+  ): Promise<void> {
     await message.reply(`Prefix updated to \`${newPrefix}\``);
   }
 }

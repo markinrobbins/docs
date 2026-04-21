@@ -77,7 +77,14 @@ The trade-off is latency: every bridge call in sharded mode pays the cost of int
 <CodeTabs defaultIndex={0}>
   <Tab label="http/controllers/moderation-http.controller.ts" language="typescript">
 ```typescript filename="http/controllers/moderation-http.controller.ts"
-import { HttpController, HttpGet, HttpPost, HttpParam, HttpBody, HttpStatus } from '@spraxium/http';
+import {
+  HttpController,
+  HttpGet,
+  HttpPost,
+  HttpParam,
+  HttpBody,
+  HttpStatus,
+} from '@spraxium/http';
 import { BotBridge, NotFoundError } from '@spraxium/http';
 import { BanMemberDto } from '../dto/ban-member.dto';
 
@@ -93,7 +100,9 @@ export class ModerationHttpController {
 
   @HttpGet('/members/:userId')
   async getMember(
-    @HttpParam('guildId') guildId: string, @HttpParam('userId') userId: string, ) {
+    @HttpParam('guildId') guildId: string,
+    @HttpParam('userId') userId: string,
+  ) {
     const member = await this.bridge.getMember(guildId, userId);
     if (!member) throw new NotFoundError('Member not found in guild');
     return { ok: true, member };
@@ -102,9 +111,13 @@ export class ModerationHttpController {
   @HttpPost('/bans/:userId')
   @HttpStatus(201)
   async banMember(
-    @HttpParam('guildId') guildId: string, @HttpParam('userId') userId: string, @HttpBody(BanMemberDto) body: BanMemberDto, ) {
-    const success = await this.bridge.banMember(
-      guildId, userId, body.reason, { deleteMessageSeconds: body.deleteMessageSeconds }, );
+    @HttpParam('guildId') guildId: string,
+    @HttpParam('userId') userId: string,
+    @HttpBody(BanMemberDto) body: BanMemberDto,
+  ) {
+    const success = await this.bridge.banMember(guildId, userId, body.reason, {
+      deleteMessageSeconds: body.deleteMessageSeconds,
+    });
     return { ok: success, guildId, userId };
   }
 }
@@ -112,7 +125,14 @@ export class ModerationHttpController {
   </Tab>
   <Tab label="http/dto/ban-member.dto.ts" language="typescript">
 ```typescript filename="http/dto/ban-member.dto.ts"
-import { IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class BanMemberDto {
   @IsString()
@@ -134,9 +154,12 @@ import { HttpClientModule, HttpModule } from '@spraxium/http';
 import { ModerationHttpController } from './http/controllers/moderation-http.controller';
 
 @HttpClientModule({
-  controllers: [ModerationHttpController], })
+  controllers: [ModerationHttpController],
+})
 @Module({
-  imports: [HttpModule], providers: [ModerationHttpController], })
+  imports: [HttpModule],
+  providers: [ModerationHttpController],
+})
 export class AppModule {}
 ```
   </Tab>

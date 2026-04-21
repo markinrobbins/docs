@@ -21,7 +21,9 @@ import { PingCommand } from '../commands/ping.command';
 @SlashCommandHandler(PingCommand)
 export class PingHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('service') service: string | null, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('service') service: string | null,
+  ): Promise<void> {
     const ws = interaction.client.ws.ping;
     if (service) {
       await interaction.reply(`Service: ${service}, Latency: ${ws}ms`);
@@ -110,7 +112,10 @@ import { ConfigCommand } from '../commands/config.command';
 @SlashCommandHandler(ConfigCommand, { sub: 'automod', group: 'moderation' })
 export class ConfigAutomodHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('enabled') enabled: boolean, @SlashOpt('filter') filter: string | null, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('enabled') enabled: boolean,
+    @SlashOpt('filter') filter: string | null,
+  ): Promise<void> {
     await interaction.reply(`Automod ${enabled ? 'enabled' : 'disabled'}`);
   }
 }
@@ -201,17 +206,23 @@ export class LocaleHandler {
   constructor(private readonly i18n: I18nService) {}
 
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('language') language: string, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('language') language: string,
+  ): Promise<void> {
     const userId = interaction.user.id;
     if (!this.i18n.has(language)) {
       const msg = await this.i18n.tUser(userId, 'commands.locale.invalid', {
-        locale: language, available: this.i18n.locales().join(', '), });
+        locale: language,
+        available: this.i18n.locales().join(', '),
+      });
       await interaction.reply({ content: msg, flags: 'Ephemeral' });
       return;
     }
 
     await this.i18n.setUserLocale(userId, language);
-    const msg = this.i18n.t('commands.locale.set', language, { locale: language });
+    const msg = this.i18n.t('commands.locale.set', language, {
+      locale: language,
+    });
     await interaction.reply({ content: msg, flags: 'Ephemeral' });
   }
 }
@@ -232,7 +243,9 @@ import { SecretCommand } from '../commands/secret.command';
 export class SecretHandler {
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
     await interaction.reply({
-      content: 'This message is only visible to you.', flags: 'Ephemeral', });
+      content: 'This message is only visible to you.',
+      flags: 'Ephemeral',
+    });
   }
 }
 ```
@@ -270,7 +283,17 @@ export class InfoHandler {
       .setColor(0x5865f2)
       .setTitle('Bot Info')
       .addFields(
-        { name: 'Latency', value: `${interaction.client.ws.ping}ms`, inline: true }, { name: 'Guilds', value: `${interaction.client.guilds.cache.size}`, inline: true }, );
+        {
+          name: 'Latency',
+          value: `${interaction.client.ws.ping}ms`,
+          inline: true,
+        },
+        {
+          name: 'Guilds',
+          value: `${interaction.client.guilds.cache.size}`,
+          inline: true,
+        },
+      );
 
     await interaction.reply({ embeds: [embed] });
   }

@@ -23,7 +23,10 @@ interface InsufficientBalanceProps {
 export class InsufficientBalanceException extends SpraxiumException {
   constructor(props: InsufficientBalanceProps) {
     super({
-      code: 'INSUFFICIENT_BALANCE', message: 'You need {{required}} {{currency}} but only have {{current}}.', props, });
+      code: 'INSUFFICIENT_BALANCE',
+      message: 'You need {{required}} {{currency}} but only have {{current}}.',
+      props,
+    });
   }
 }
 ```
@@ -39,7 +42,10 @@ import { InsufficientBalanceException } from './exceptions/insufficient-balance.
 
 if (user.balance < item.price) {
   throw new InsufficientBalanceException({
-    required: item.price, current: user.balance, currency: 'coins', });
+    required: item.price,
+    current: user.balance,
+    currency: 'coins',
+  });
 }
 ```
 
@@ -58,15 +64,21 @@ const BalanceLayout = defineExceptionLayout((exception) => ({
       .setColor(0xff6b6b)
       .setTitle('Saldo Insuficiente')
       .setDescription(
-        `Necesitas **${exception.props.required} ${exception.props.currency}** pero solo tienes **${exception.props.current}**.`, )
-      .setFooter({ text: 'Gana más completando tareas diarias.' }), ], ephemeral: true,
+        `Necesitas **${exception.props.required} ${exception.props.currency}** pero solo tienes **${exception.props.current}**.`,
+      )
+      .setFooter({ text: 'Gana más completando tareas diarias.' }),
+  ],
+  ephemeral: true,
 }));
 
 @WithLayout(BalanceLayout)
 export class InsufficientBalanceException extends SpraxiumException {
   constructor(props: { required: number; current: number; currency: string }) {
     super({
-      code: 'INSUFFICIENT_BALANCE', message: 'You need {{required}} {{currency}} but only have {{current}}.', props, });
+      code: 'INSUFFICIENT_BALANCE',
+      message: 'You need {{required}} {{currency}} but only have {{current}}.',
+      props,
+    });
   }
 }
 ```
@@ -79,7 +91,12 @@ Cada exception personalizada puede sobreescribir si el pipeline envía una respu
 export class SilentAuditException extends SpraxiumException {
   constructor(props: { action: string; actorId: string }) {
     super({
-      code: 'SILENT_AUDIT', message: 'Audit recorded for {{action}} by {{actorId}}.', props, shouldReply: false, shouldLog: true, });
+      code: 'SILENT_AUDIT',
+      message: 'Audit recorded for {{action}} by {{actorId}}.',
+      props,
+      shouldReply: false,
+      shouldLog: true,
+    });
   }
 }
 ```

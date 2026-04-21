@@ -28,7 +28,9 @@ export class ReadyListener {
   @On('clientReady')
   onReady() {
     PresenceManager.setActivity({
-      name: 'your commands', type: 'Listening', });
+      name: 'your commands',
+      type: 'Listening',
+    });
   }
 }
 ```
@@ -37,7 +39,9 @@ O método *setActivity* só muda a atividade. Ele não toca no indicador de stat
 
 ```typescript filename="src/listeners/ready.listener.ts"
 PresenceManager.setPresence({
-  status: 'dnd', activities: [{ name: 'maintenance mode', type: 'Playing' }], });
+  status: 'dnd',
+  activities: [{ name: 'maintenance mode', type: 'Playing' }],
+});
 ```
 
 ## Mudando apenas o status
@@ -89,7 +93,9 @@ Placeholders funcionam em todos os lugares onde atividades são usadas: em *setA
 
 ```typescript filename="src/listeners/ready.listener.ts"
 PresenceManager.setActivity({
-  name: '{{totalServers}} servers · {{ping}}ms', type: 'Watching', });
+  name: '{{totalServers}} servers · {{ping}}ms',
+  type: 'Watching',
+});
 ```
 
 ## Configuração de boot
@@ -102,8 +108,9 @@ Em vez de chamar métodos do *PresenceManager* em um listener, você pode declar
 import type { PresenceOptions } from '@spraxium/core';
 
 export const presenceConfig: PresenceOptions = {
-  status: 'online', activities: [
-    { name: '{{totalServers}} servers', type: 'Watching' }, ], };
+  status: 'online',
+  activities: [{ name: '{{totalServers}} servers', type: 'Watching' }],
+};
 ```
   </Tab>
   <Tab label="src/main.ts">
@@ -113,7 +120,9 @@ import { presenceConfig } from '../config/presence.config';
 import { AppModule } from './app.module';
 
 async function main() {
-  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  const app = await SpraxiumFactory.create({
+    token: process.env.DISCORD_TOKEN,
+  });
   app.useModule(AppModule);
   app.initPresence(presenceConfig);
   await app.listen();

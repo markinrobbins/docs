@@ -55,7 +55,11 @@ import { definePrefix } from '@spraxium/core';
 import { loadGuildPrefixes } from './prefix/guild-prefix.provider';
 
 export default definePrefix({
-  prefix: '!', caseSensitive: false, mentionPrefix: true, defaultCooldown: 3, guildPrefixProvider: loadGuildPrefixes,
+  prefix: '!',
+  caseSensitive: false,
+  mentionPrefix: true,
+  defaultCooldown: 3,
+  guildPrefixProvider: loadGuildPrefixes,
 });
 ```
 
@@ -127,7 +131,9 @@ export class GuildPrefixService {
 
   setGuildPrefix(guildId: string, prefix: string, actorId: string): void {
     this.dispatcher.guildPrefixes.setGuildPrefix(guildId, prefix, {
-      updatedBy: actorId, updatedAt: new Date().toISOString(), });
+      updatedBy: actorId,
+      updatedAt: new Date().toISOString(),
+    });
   }
 }
 ```
@@ -144,15 +150,25 @@ export class SetPrefixHandler {
   constructor(private readonly guildPrefixService: GuildPrefixService) {}
 
   async handle(
-    @Ctx() message: Message, @PrefixArg('newPrefix') newPrefix: string, ): Promise<void> {
+    @Ctx() message: Message,
+    @PrefixArg('newPrefix') newPrefix: string,
+  ): Promise<void> {
     const guildId = message.guildId;
     if (!guildId) {
-      await message.reply('Este comando solo se puede usar dentro de un servidor.');
+      await message.reply(
+        'Este comando solo se puede usar dentro de un servidor.',
+      );
       return;
     }
 
-    this.guildPrefixService.setGuildPrefix(guildId, newPrefix, message.author.id);
-    await message.reply(`Prefijo actualizado a \`${newPrefix}\` para este servidor.`);
+    this.guildPrefixService.setGuildPrefix(
+      guildId,
+      newPrefix,
+      message.author.id,
+    );
+    await message.reply(
+      `Prefijo actualizado a \`${newPrefix}\` para este servidor.`,
+    );
   }
 }
 ```

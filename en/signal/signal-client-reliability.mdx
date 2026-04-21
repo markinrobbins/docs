@@ -173,11 +173,15 @@ The *stats* method on the *FallbackWorker* returns both *pending* and *deadLette
 const { pending, deadLetter } = await client.fallback!.stats();
 
 if (deadLetter > 0) {
-  logger.warn(`Signal fallback: ${deadLetter} dead-letter envelopes require investigation`);
+  logger.warn(
+    `Signal fallback: ${deadLetter} dead-letter envelopes require investigation`,
+  );
 }
 
 if (pending > 100) {
-  logger.warn(`Signal fallback: ${pending} pending envelopes, possible sustained delivery failure`);
+  logger.warn(
+    `Signal fallback: ${pending} pending envelopes, possible sustained delivery failure`,
+  );
 }
 ```
 

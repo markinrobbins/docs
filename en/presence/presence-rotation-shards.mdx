@@ -19,8 +19,14 @@ import { PresenceManager } from '@spraxium/core';
 export class ReadyListener {
   @On('clientReady')
   onReady() {
-    PresenceManager.startRotation([
-      { name: '{{totalServers}} servers', type: 'Watching' }, { name: '/help for commands', type: 'Playing' }, { name: 'feedback from users', type: 'Listening' }, ], 30_000);
+    PresenceManager.startRotation(
+      [
+        { name: '{{totalServers}} servers', type: 'Watching' },
+        { name: '/help for commands', type: 'Playing' },
+        { name: 'feedback from users', type: 'Listening' },
+      ],
+      30_000,
+    );
   }
 }
 ```
@@ -35,8 +41,14 @@ You can also configure rotation at boot time by setting *rotateInterval* in your
 import type { PresenceOptions } from '@spraxium/core';
 
 export const presenceConfig: PresenceOptions = {
-  status: 'online', activities: [
-    { name: '{{totalServers}} servers', type: 'Watching' }, { name: '/help', type: 'Playing' }, { name: '{{ping}}ms latency', type: 'Competing' }, ], rotateInterval: 20_000, };
+  status: 'online',
+  activities: [
+    { name: '{{totalServers}} servers', type: 'Watching' },
+    { name: '/help', type: 'Playing' },
+    { name: '{{ping}}ms latency', type: 'Competing' },
+  ],
+  rotateInterval: 20_000,
+};
 ```
   </Tab>
   <Tab label="src/main.ts">
@@ -46,7 +58,9 @@ import { presenceConfig } from '../config/presence.config';
 import { AppModule } from './app.module';
 
 async function main() {
-  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  const app = await SpraxiumFactory.create({
+    token: process.env.DISCORD_TOKEN,
+  });
   app.useModule(AppModule);
   app.initPresence(presenceConfig);
   await app.listen();
@@ -65,7 +79,10 @@ The *stopRotation* method clears the interval timer. The last active activity re
 import { PresenceManager } from '@spraxium/core';
 
 PresenceManager.stopRotation();
-PresenceManager.setActivity({ name: 'maintenance in progress', type: 'Playing' });
+PresenceManager.setActivity({
+  name: 'maintenance in progress',
+  type: 'Playing',
+});
 ```
 
 ## Per-shard presence at boot
@@ -80,10 +97,19 @@ For deeper customization, the *PresenceOptions* object supports a *perShard* rec
 import type { PresenceOptions } from '@spraxium/core';
 
 export const presenceConfig: PresenceOptions = {
-  status: 'online', activities: [
-    { name: 'Shard {{shardNumber}}/{{totalShards}}', type: 'Playing' }, ], perShard: {
+  status: 'online',
+  activities: [
+    { name: 'Shard {{shardNumber}}/{{totalShards}}', type: 'Playing' },
+  ],
+  perShard: {
     0: {
-      status: 'dnd', activities: [{ name: 'Primary shard · {{totalServers}} guilds', type: 'Watching' }], }, }, };
+      status: 'dnd',
+      activities: [
+        { name: 'Primary shard · {{totalServers}} guilds', type: 'Watching' },
+      ],
+    },
+  },
+};
 ```
   </Tab>
   <Tab label="src/main.ts">
@@ -93,7 +119,9 @@ import { presenceConfig } from '../config/presence.config';
 import { AppModule } from './app.module';
 
 async function main() {
-  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  const app = await SpraxiumFactory.create({
+    token: process.env.DISCORD_TOKEN,
+  });
   app.useModule(AppModule);
   app.initPresence(presenceConfig);
   await app.listen();
@@ -117,8 +145,14 @@ import { PresenceManager } from '@spraxium/core';
 @Injectable()
 export class ShardStatusService {
   updateShardActivity(shardId: number, version: string) {
-    PresenceManager.setShardActivity(shardId, {
-      name: 'v{{version}} · {{totalServers}} guilds on shard {{shardNumber}}', type: 'Playing', }, { version });
+    PresenceManager.setShardActivity(
+      shardId,
+      {
+        name: 'v{{version}} · {{totalServers}} guilds on shard {{shardNumber}}',
+        type: 'Playing',
+      },
+      { version },
+    );
   }
 
   resetShard(shardId: number) {

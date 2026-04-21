@@ -19,7 +19,24 @@ import { defineSchedule } from '@spraxium/schedule';
 
 export default defineConfig({
   plugins: [
-    defineI18n({ defaultLocale: 'en-US', references: [{ name: 'commands', path: './locales' }] }), defineHttp({ enabled: true, port: 3001, host: 'localhost', apiKey: process.env.HTTP_API_KEY ?? 'dev-secret', sharding: false }), defineSchedule({ timezone: 'America/Sao_Paulo', defaultLockTtlMs: 60_000, disableAll: false }), ], });
+    defineI18n({
+      defaultLocale: 'en-US',
+      references: [{ name: 'commands', path: './locales' }],
+    }),
+    defineHttp({
+      enabled: true,
+      port: 3001,
+      host: 'localhost',
+      apiKey: process.env.HTTP_API_KEY ?? 'dev-secret',
+      sharding: false,
+    }),
+    defineSchedule({
+      timezone: 'America/Sao_Paulo',
+      defaultLockTtlMs: 60_000,
+      disableAll: false,
+    }),
+  ],
+});
 ```
 
 ## Factories de plugin first-party
@@ -71,7 +88,10 @@ Em projetos com vários plugins, manter todas as chamadas de factory inline no `
 import { defineSchedule } from '@spraxium/schedule';
 
 export const schedulePlugin = defineSchedule({
-  timezone: 'America/Sao_Paulo', defaultLockTtlMs: 60_000, disableAll: false, });
+  timezone: 'America/Sao_Paulo',
+  defaultLockTtlMs: 60_000,
+  disableAll: false,
+});
 ```
   </Tab>
   <Tab label="config/http.config.ts" language="typescript">
@@ -79,7 +99,12 @@ export const schedulePlugin = defineSchedule({
 import { defineHttp } from '@spraxium/http';
 
 export const httpPlugin = defineHttp({
-  enabled: true, port: 3001, host: 'localhost', apiKey: process.env.HTTP_API_KEY ?? 'dev-secret', sharding: false, });
+  enabled: true,
+  port: 3001,
+  host: 'localhost',
+  apiKey: process.env.HTTP_API_KEY ?? 'dev-secret',
+  sharding: false,
+});
 ```
   </Tab>
   <Tab label="spraxium.config.ts" language="typescript">
@@ -89,7 +114,8 @@ import { httpPlugin } from './config/http.config';
 import { schedulePlugin } from './config/schedule.config';
 
 export default defineConfig({
-  plugins: [httpPlugin, schedulePlugin], });
+  plugins: [httpPlugin, schedulePlugin],
+});
 ```
   </Tab>
 </CodeTabs>

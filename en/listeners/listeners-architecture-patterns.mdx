@@ -36,7 +36,9 @@ export class MessageCreateListener {
   @On()
   async onMessage(message: Message): Promise<void> {
     if (message.author.bot) return;
-    this.logger.debug(`Message from ${message.author.id} in guild ${message.guildId}`);
+    this.logger.debug(
+      `Message from ${message.author.id} in guild ${message.guildId}`,
+    );
     await this.leaderboard.trackMessage(message.author.id, message.guildId);
   }
 }
@@ -92,7 +94,13 @@ import { MessageCreateListener } from './listeners/message-create.listener';
 import { ReadyListener } from './listeners/ready.listener';
 
 @Module({
-  providers: [LeaderboardService, WelcomeService], listeners: [ReadyListener, MessageCreateListener, MemberJoinListener, MemberLeaveListener],
+  providers: [LeaderboardService, WelcomeService],
+  listeners: [
+    ReadyListener,
+    MessageCreateListener,
+    MemberJoinListener,
+    MemberLeaveListener,
+  ],
 })
 export class EventsModule {}
 ```

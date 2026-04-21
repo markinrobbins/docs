@@ -16,8 +16,16 @@ import type { SpraxiumLoggerConfig } from '@spraxium/core';
 
 export const loggerConfig: SpraxiumLoggerConfig = {
   levels: [
-    { name: 'audit', color: 'blueBright' }, { name: 'payment', color: 'greenBright' }, ], maskTokens: true, discord: {
-    type: 'channel', channelId: '1234567890', levels: ['error', 'warn', 'command'], }, };
+    { name: 'audit', color: 'blueBright' },
+    { name: 'payment', color: 'greenBright' },
+  ],
+  maskTokens: true,
+  discord: {
+    type: 'channel',
+    channelId: '1234567890',
+    levels: ['error', 'warn', 'command'],
+  },
+};
 ```
 
 ```typescript filename="spraxium.config.ts"
@@ -25,7 +33,8 @@ import { defineConfig } from '@spraxium/core';
 import { loggerConfig } from './config/logger.config';
 
 export default defineConfig((env) => ({
-  logger: loggerConfig, }));
+  logger: loggerConfig,
+}));
 ```
 
 The *levels* array registers custom log levels with their console colors. These levels become available through *Logger.extend* and are recognized by both transports. The *maskTokens* flag controls the *TokenMasker*, which is enabled by default. Setting it to `false` disables token redaction, which you should only do in local development when you need to see the full output.
@@ -74,7 +83,11 @@ import type { SpraxiumLoggerConfig } from '@spraxium/core';
 
 export const loggerConfig: SpraxiumLoggerConfig = {
   discord: {
-    type: 'channel', channelId: '1234567890123456789', levels: ['error', 'warn'], }, };
+    type: 'channel',
+    channelId: '1234567890123456789',
+    levels: ['error', 'warn'],
+  },
+};
 ```
   </Tab>
   <Tab label="Webhook mode" language="typescript">
@@ -83,7 +96,11 @@ import type { SpraxiumLoggerConfig } from '@spraxium/core';
 
 export const loggerConfig: SpraxiumLoggerConfig = {
   discord: {
-    type: 'webhook', webhookUrl: 'https://discord.com/api/webhooks/123/abc', levels: ['error'], }, };
+    type: 'webhook',
+    webhookUrl: 'https://discord.com/api/webhooks/123/abc',
+    levels: ['error'],
+  },
+};
 ```
   </Tab>
 </CodeTabs>
@@ -101,9 +118,22 @@ import type { SpraxiumLoggerConfig } from '@spraxium/core';
 
 export const loggerConfig: SpraxiumLoggerConfig = {
   discord: {
-    type: 'channel', channelId: '1234567890123456789', levels: ['error', 'warn', 'command'], embed: {
-      title: '{{level}} Log', description: '```\n{{message}}\n```', color: 0xff6b6b, timestamp: true, footer: { text: 'Shard {{shard}} · {{date}} {{time}}' }, fields: [
-        { name: 'Context', value: '{{context}}', inline: true }, { name: 'Level', value: '{{level}}', inline: true }, ], }, }, };
+    type: 'channel',
+    channelId: '1234567890123456789',
+    levels: ['error', 'warn', 'command'],
+    embed: {
+      title: '{{level}} Log',
+      description: '```\n{{message}}\n```',
+      color: 0xff6b6b,
+      timestamp: true,
+      footer: { text: 'Shard {{shard}} · {{date}} {{time}}' },
+      fields: [
+        { name: 'Context', value: '{{context}}', inline: true },
+        { name: 'Level', value: '{{level}}', inline: true },
+      ],
+    },
+  },
+};
 ```
 
 The available placeholder variables are resolved from the log entry at send time. The *shard* variable shows the shard ID when running in sharded mode, or "N/A" in single-process mode. Any metadata keys passed through the *log* method are also available as placeholders.
@@ -157,9 +187,20 @@ The standard way to enable command logging is through `spraxium.config.ts`. Set 
 import type { SpraxiumLoggerConfig } from '@spraxium/core';
 
 export const loggerConfig: SpraxiumLoggerConfig = {
-  maskTokens: true, commandLogging: true, discord: {
-    type: 'channel', channelId: '1234567890123456789', levels: ['command'], embed: {
-      title: 'Command Executed', description: '`/{{command}}` by **{{user}}**', timestamp: true, footer: { text: '{{guild}} ({{guildId}})' }, }, }, };
+  maskTokens: true,
+  commandLogging: true,
+  discord: {
+    type: 'channel',
+    channelId: '1234567890123456789',
+    levels: ['command'],
+    embed: {
+      title: 'Command Executed',
+      description: '`/{{command}}` by **{{user}}**',
+      timestamp: true,
+      footer: { text: '{{guild}} ({{guildId}})' },
+    },
+  },
+};
 ```
 
 If you are using the logger outside the framework or need to bind command logging manually, call *CommandLogger.bind* directly with the Discord client after it is ready. The metadata keys available in embed templates are `{{command}}`, `{{user}}`, `{{userId}}`, `{{guild}}`, `{{guildId}}`, and `{{channel}}`.

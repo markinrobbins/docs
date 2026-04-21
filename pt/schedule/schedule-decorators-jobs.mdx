@@ -24,7 +24,9 @@ import { Cron, CronExpression } from '@spraxium/schedule';
 @Injectable()
 export class CleanupService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
-    name: 'cleanup-expired-warnings', timezone: 'UTC', })
+    name: 'cleanup-expired-warnings',
+    timezone: 'UTC',
+  })
   async cleanExpiredWarnings(): Promise<void> {
     // Remover avisos com mais de 30 dias
   }
@@ -39,7 +41,8 @@ import { Interval, IntervalExpression } from '@spraxium/schedule';
 @Injectable()
 export class SyncService {
   @Interval(IntervalExpression.EVERY_5_MINUTES, {
-    name: 'sync-member-count', })
+    name: 'sync-member-count',
+  })
   async syncMemberCount(): Promise<void> {
     // Atualizar contagem de membros cacheada da API
   }
@@ -65,7 +68,8 @@ import { Timeout, TimeoutExpression } from '@spraxium/schedule';
 @Injectable()
 export class InitService {
   @Timeout(TimeoutExpression.AFTER_30_SECONDS, {
-    name: 'deferred-cache-warmup', })
+    name: 'deferred-cache-warmup',
+  })
   async warmCache(): Promise<void> {
     // Popular caches 30 segundos ap\u00f3s o boot
   }
@@ -80,7 +84,8 @@ import { AfterOnline } from '@spraxium/schedule';
 @Injectable()
 export class WelcomeService {
   @AfterOnline(5000, {
-    name: 'post-online-announcement', })
+    name: 'post-online-announcement',
+  })
   async announceOnline(): Promise<void> {
     // Enviar mensagem "bot online" 5 segundos ap\u00f3s o ready
   }
@@ -140,7 +145,12 @@ Você sempre pode passar valores brutos ao invés de constantes de enum. Os help
 
 ```typescript filename="src/modules/tasks/services/example.service.ts"
 import { Injectable } from '@spraxium/common';
-import { Cron, CronExpression, Interval, IntervalExpression } from '@spraxium/schedule';
+import {
+  Cron,
+  CronExpression,
+  Interval,
+  IntervalExpression,
+} from '@spraxium/schedule';
 
 @Injectable()
 export class ExampleService {

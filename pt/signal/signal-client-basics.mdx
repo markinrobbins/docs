@@ -59,7 +59,12 @@ import { SignalClient } from '@spraxium/signal-client';
 
 const client = new SignalClient({
   webhookUrls: [
-    process.env.SIGNAL_WEBHOOK_URL_1!, process.env.SIGNAL_WEBHOOK_URL_2!, ], hmacSecret: process.env.SIGNAL_HMAC_SECRET!, rateLimitStrategy: 'skip', });
+    process.env.SIGNAL_WEBHOOK_URL_1!,
+    process.env.SIGNAL_WEBHOOK_URL_2!,
+  ],
+  hmacSecret: process.env.SIGNAL_HMAC_SECRET!,
+  rateLimitStrategy: 'skip',
+});
 ```
 
 O segredo compartilhado em `hmacSecret` deve corresponder exatamente a configuração bot-side. Se os valores divergirem, o bot rejeita todo envelope na verificação HMAC (regra R10) e nenhuma execução de listener acontece.
@@ -123,7 +128,9 @@ O envelope resultante sempre carrega versão de protocolo `1`, o nome do evento,
 
 ```typescript filename="emit-event.ts"
 await client.send('billing.status.changed', guildId, {
-  plan: 'premium', expiresAt: '2025-12-31', });
+  plan: 'premium',
+  expiresAt: '2025-12-31',
+});
 ```
 
 A interface *SendOptions* expõe dois campos opcionais. O campo *webhookIndex* força entrega por um webhook específico, ignorando a rotação round-robin. O campo *skipFallback* e usado internamente pelo *FallbackWorker* para evitar loops de re-enqueue durante tentativas de retry.
@@ -206,7 +213,8 @@ const poolStatus = client.pool.status();
 
 for (const entry of poolStatus) {
   console.log(
-    `Webhook #${entry.index}: ${entry.available ? 'ready' : `cooldown until ${entry.rateLimitedUntil}`}`, );
+    `Webhook #${entry.index}: ${entry.available ? 'ready' : `cooldown until ${entry.rateLimitedUntil}`}`,
+  );
 }
 ```
 

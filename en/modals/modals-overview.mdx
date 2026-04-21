@@ -25,11 +25,23 @@ import { ModalComponent, ModalInput } from '@spraxium/components';
 @ModalComponent({ id: 'feedback-modal', title: 'Send Feedback' })
 export class FeedbackModal {
   @ModalInput({
-    label: 'Subject', placeholder: 'Brief summary of your feedback', required: true, minLength: 3, maxLength: 100, style: 'short', })
+    label: 'Subject',
+    placeholder: 'Brief summary of your feedback',
+    required: true,
+    minLength: 3,
+    maxLength: 100,
+    style: 'short',
+  })
   subject!: string;
 
   @ModalInput({
-    label: 'Details', placeholder: 'Describe your feedback in detail...', required: true, minLength: 10, maxLength: 4000, style: 'paragraph', })
+    label: 'Details',
+    placeholder: 'Describe your feedback in detail...',
+    required: true,
+    minLength: 10,
+    maxLength: 4000,
+    style: 'paragraph',
+  })
   details!: string;
 }
 ```
@@ -46,9 +58,14 @@ import { FeedbackModal } from './feedback.modal';
 @ModalHandler(FeedbackModal)
 export class FeedbackModalHandler {
   async handle(
-    @Ctx() interaction: ModalSubmitInteraction, @Field('subject') subject: string, @Field('details') details: string, ): Promise<void> {
+    @Ctx() interaction: ModalSubmitInteraction,
+    @Field('subject') subject: string,
+    @Field('details') details: string,
+  ): Promise<void> {
     await interaction.reply({
-      content: `Thank you for your feedback on "${subject}".`, ephemeral: true, });
+      content: `Thank you for your feedback on "${subject}".`,
+      ephemeral: true,
+    });
   }
 }
 ```
@@ -178,8 +195,8 @@ import { FeedbackModalHandler } from './feedback.handler';
 import { OpenFeedbackHandler } from './open-feedback.handler';
 
 @Module({
-  handlers: [
-    FeedbackModalHandler, OpenFeedbackHandler, ], })
+  handlers: [FeedbackModalHandler, OpenFeedbackHandler],
+})
 export class FeedbackModule {}
 ```
 

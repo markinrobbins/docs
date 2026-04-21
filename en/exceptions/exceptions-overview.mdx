@@ -27,7 +27,11 @@ Every exception in the Spraxium ecosystem extends `SpraxiumException`, which its
 import { SpraxiumException } from '@spraxium/core';
 
 throw new SpraxiumException({
-  code: 'ORDER_LIMIT_EXCEEDED', message: 'You have exceeded the {{limit}} order limit for today.', props: { limit: 5, userId: interaction.user.id }, shouldReply: true, shouldLog: false,
+  code: 'ORDER_LIMIT_EXCEEDED',
+  message: 'You have exceeded the {{limit}} order limit for today.',
+  props: { limit: 5, userId: interaction.user.id },
+  shouldReply: true,
+  shouldLog: false,
 });
 ```
 
@@ -44,12 +48,18 @@ interface OrderLimitProps {
 export class OrderLimitExceededException extends SpraxiumException {
   constructor(props: OrderLimitProps) {
     super({
-      code: 'ORDER_LIMIT_EXCEEDED', message: 'You have exceeded the {{limit}} order limit for today.', props, });
+      code: 'ORDER_LIMIT_EXCEEDED',
+      message: 'You have exceeded the {{limit}} order limit for today.',
+      props,
+    });
   }
 }
 
 // Usage anywhere in domain code
-throw new OrderLimitExceededException({ limit: 5, userId: interaction.user.id });
+throw new OrderLimitExceededException({
+  limit: 5,
+  userId: interaction.user.id,
+});
 ```
 
 <Table variant="striped">
@@ -166,7 +176,9 @@ The built-in exceptions are ready to use with zero configuration. Every class ac
 
 ```typescript filename="shop.command.ts"
 import {
-  CooldownException, PermissionDeniedException, MaintenanceException,
+  CooldownException,
+  PermissionDeniedException,
+  MaintenanceException,
 } from '@spraxium/core';
 
 // User must wait before retrying the command

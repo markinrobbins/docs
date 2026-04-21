@@ -20,7 +20,9 @@ import { SpraxiumFactory } from '@spraxium/core';
 import { AppModule } from './app.module';
 
 async function main() {
-  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  const app = await SpraxiumFactory.create({
+    token: process.env.DISCORD_TOKEN,
+  });
   app.useModule(AppModule);
   app.useSharding({ totalShards: 2, spawnDelay: 6000 });
   await app.listen();
@@ -80,7 +82,8 @@ import { ParentHookRegistry } from '@spraxium/core';
 
 ParentHookRegistry.register(async (manager) => {
   const memberCounts = await manager.broadcastEval((c) =>
-    c.guilds.cache.reduce((sum, g) => sum + g.memberCount, 0), );
+    c.guilds.cache.reduce((sum, g) => sum + g.memberCount, 0),
+  );
   const totalMembers = (memberCounts as number[]).reduce((a, b) => a + b, 0);
   console.log(`Total members across all shards: ${totalMembers}`);
 });
@@ -106,11 +109,19 @@ import type { PresenceOptions } from '@spraxium/core';
 import { AppModule } from './app.module';
 
 const presenceConfig: PresenceOptions = {
-  status: 'online', activities: [
-    { name: 'Shard {{shardNumber}}/{{totalShards}} · {{totalServers}} guilds', type: 'Watching' }, ], };
+  status: 'online',
+  activities: [
+    {
+      name: 'Shard {{shardNumber}}/{{totalShards}} · {{totalServers}} guilds',
+      type: 'Watching',
+    },
+  ],
+};
 
 async function main() {
-  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN });
+  const app = await SpraxiumFactory.create({
+    token: process.env.DISCORD_TOKEN,
+  });
   app.useModule(AppModule);
   app.useSharding({ totalShards: 'auto' });
   app.initPresence(presenceConfig);

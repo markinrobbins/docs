@@ -53,7 +53,9 @@ import { UseGuards, withOptions } from '@spraxium/common';
 import { GuildOnly, PermissionGuard, RoleGuard } from '@spraxium/core';
 
 @UseGuards(
-  GuildOnly, withOptions(RoleGuard, { roles: ['Admin'] }), withOptions(PermissionGuard, { permissions: ['BanMembers'] }),
+  GuildOnly,
+  withOptions(RoleGuard, { roles: ['Admin'] }),
+  withOptions(PermissionGuard, { permissions: ['BanMembers'] }),
 )
 export class AdminHandler {
   async handle() {

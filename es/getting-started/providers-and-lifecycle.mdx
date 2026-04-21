@@ -79,12 +79,19 @@ Spraxium expone tres interfaces de lifecycle que los providers pueden implementa
 </Steps>
 
 ```typescript filename="src/modules/metrics/metrics.service.ts"
-import { Injectable, type SpraxiumOnBoot, type SpraxiumOnReady, type SpraxiumOnShutdown } from '@spraxium/common';
+import {
+  Injectable,
+  type SpraxiumOnBoot,
+  type SpraxiumOnReady,
+  type SpraxiumOnShutdown,
+} from '@spraxium/common';
 import type { Client } from 'discord.js';
 import { Logger } from '@spraxium/core';
 
 @Injectable()
-export class MetricsService implements SpraxiumOnBoot, SpraxiumOnReady, SpraxiumOnShutdown {
+export class MetricsService
+  implements SpraxiumOnBoot, SpraxiumOnReady, SpraxiumOnShutdown
+{
   private readonly logger = new Logger(MetricsService.name);
 
   async onBoot(): Promise<void> {
@@ -109,12 +116,14 @@ Por defecto, un provider está escopado a su propio módulo, lo que significa qu
 
 ```typescript filename="src/modules/metrics/metrics.module.ts"
 @Module({
-  providers: [MetricsService, MetricsRepository], exports: [MetricsService],
+  providers: [MetricsService, MetricsRepository],
+  exports: [MetricsService],
 })
 export class MetricsModule {}
 
 @Module({
-  imports: [MetricsModule], listeners: [EventsListener],
+  imports: [MetricsModule],
+  listeners: [EventsListener],
 })
 export class EventsModule {}
 ```

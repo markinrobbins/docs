@@ -18,7 +18,16 @@ import { defineSchedule } from '@spraxium/schedule';
 
 export default defineConfig({
   plugins: [
-    defineHttp({ enabled: true, port: 3001, host: 'localhost', apiKey: 'dev-key', sharding: false }), defineSchedule({ timezone: 'America/Sao_Paulo', disableAll: false }), ], });
+    defineHttp({
+      enabled: true,
+      port: 3001,
+      host: 'localhost',
+      apiKey: 'dev-key',
+      sharding: false,
+    }),
+    defineSchedule({ timezone: 'America/Sao_Paulo', disableAll: false }),
+  ],
+});
 ```
 
 ## Factories oficiales
@@ -70,7 +79,12 @@ Para proyectos con muchos plugins, el patrón recomendado es extraer la llamada 
 import { defineHttp } from '@spraxium/http';
 
 export const httpPlugin = defineHttp({
-  enabled: true, port: 3001, host: 'localhost', apiKey: process.env.HTTP_API_KEY ?? 'dev-secret', sharding: false, });
+  enabled: true,
+  port: 3001,
+  host: 'localhost',
+  apiKey: process.env.HTTP_API_KEY ?? 'dev-secret',
+  sharding: false,
+});
 ```
   </Tab>
   <Tab label="config/schedule.config.ts" language="typescript">
@@ -78,7 +92,10 @@ export const httpPlugin = defineHttp({
 import { defineSchedule } from '@spraxium/schedule';
 
 export const schedulePlugin = defineSchedule({
-  timezone: 'America/Sao_Paulo', defaultLockTtlMs: 60_000, disableAll: false, });
+  timezone: 'America/Sao_Paulo',
+  defaultLockTtlMs: 60_000,
+  disableAll: false,
+});
 ```
   </Tab>
   <Tab label="spraxium.config.ts" language="typescript">
@@ -88,7 +105,8 @@ import { httpPlugin } from './config/http.config';
 import { schedulePlugin } from './config/schedule.config';
 
 export default defineConfig({
-  plugins: [httpPlugin, schedulePlugin], });
+  plugins: [httpPlugin, schedulePlugin],
+});
 ```
   </Tab>
 </CodeTabs>

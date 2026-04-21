@@ -20,8 +20,11 @@ import { defineConfig } from '@spraxium/core';
 
 export default defineConfig({
   exceptions: {
-    logUnhandled: true, layouts: {
-      default: DefaultFriendlyLayout, }, },
+    logUnhandled: true,
+    layouts: {
+      default: DefaultFriendlyLayout,
+    },
+  },
 });
 ```
 
@@ -36,13 +39,22 @@ When your application has multiple domains like moderation, billing, and onboard
 ```typescript filename="spraxium.config.ts"
 import { defineConfig } from '@spraxium/core';
 import {
-  DefaultFriendlyLayout, CooldownLayout, PermissionDeniedLayout, ArgumentLayout,
+  DefaultFriendlyLayout,
+  CooldownLayout,
+  PermissionDeniedLayout,
+  ArgumentLayout,
 } from './layouts/exceptions.layouts';
 
 export default defineConfig({
   exceptions: {
-    logUnhandled: true, layouts: {
-      default: DefaultFriendlyLayout, CooldownException: CooldownLayout, PermissionDeniedException: PermissionDeniedLayout, ArgumentException: ArgumentLayout, }, },
+    logUnhandled: true,
+    layouts: {
+      default: DefaultFriendlyLayout,
+      CooldownException: CooldownLayout,
+      PermissionDeniedException: PermissionDeniedLayout,
+      ArgumentException: ArgumentLayout,
+    },
+  },
 });
 ```
 

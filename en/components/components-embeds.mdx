@@ -23,7 +23,12 @@ The simplest embed uses the *@Embed* class decorator with a static schema. This 
 import { Embed } from '@spraxium/components';
 
 @Embed({
-  title: 'Welcome', description: 'Welcome to the server! Please read the rules.', color: 0x5865F2, footer: { text: 'Spraxium Bot' }, timestamp: true, })
+  title: 'Welcome',
+  description: 'Welcome to the server! Please read the rules.',
+  color: 0x5865f2,
+  footer: { text: 'Spraxium Bot' },
+  timestamp: true,
+})
 export class WelcomeEmbed {}
 ```
 
@@ -34,7 +39,14 @@ To render a static embed, inject *EmbedService* and call *build* with the class.
 For embeds that depend on runtime data, use property-level decorators. Each decorator accepts either a static value or a factory function that receives the data object. This lets you compute titles, colors, fields, and other properties dynamically while keeping the declaration in one place.
 
 ```typescript filename="src/components/embeds/user-profile.embed.ts"
-import { Embed, EmbedTitle, EmbedColor, EmbedField, EmbedThumbnail, EmbedFooter } from '@spraxium/components';
+import {
+  Embed,
+  EmbedTitle,
+  EmbedColor,
+  EmbedField,
+  EmbedThumbnail,
+  EmbedFooter,
+} from '@spraxium/components';
 
 interface ProfileData {
   username: string;
@@ -48,17 +60,24 @@ export class UserProfileEmbed {
   @EmbedTitle<ProfileData>((data) => `${data.username}'s Profile`)
   title!: never;
 
-  @EmbedColor<ProfileData>((data) => (data.isPremium ? 0xFFD700 : 0x5865F2))
+  @EmbedColor<ProfileData>((data) => (data.isPremium ? 0xffd700 : 0x5865f2))
   color!: never;
 
   @EmbedThumbnail<ProfileData>((data) => data.avatarUrl)
   thumbnail!: never;
 
-  @EmbedField<ProfileData>({ name: 'Level', value: (data) => String(data.level), inline: true })
+  @EmbedField<ProfileData>({
+    name: 'Level',
+    value: (data) => String(data.level),
+    inline: true,
+  })
   level!: never;
 
   @EmbedField<ProfileData>({
-    name: 'Status', value: (data) => (data.isPremium ? '⭐ Premium' : 'Free'), inline: true, })
+    name: 'Status',
+    value: (data) => (data.isPremium ? '⭐ Premium' : 'Free'),
+    inline: true,
+  })
   status!: never;
 
   @EmbedFooter<ProfileData>((data) => ({ text: `ID: ${data.username}` }))
@@ -71,7 +90,13 @@ The generic type parameter on each decorator provides type safety for the factor
 The *@EmbedDescription* decorator's factory function can return either a plain string or a *DescriptionBuilder* instance. The *desc()* shorthand creates a builder that chains markdown formatting methods, producing structured descriptions without string concatenation or template-literal noise.
 
 ```typescript filename="src/components/embeds/account-summary.embed.ts"
-import { Embed, EmbedTitle, EmbedDescription, EmbedColor, desc } from '@spraxium/components';
+import {
+  Embed,
+  EmbedTitle,
+  EmbedDescription,
+  EmbedColor,
+  desc,
+} from '@spraxium/components';
 
 interface AccountData {
   username: string;
@@ -88,12 +113,14 @@ export class AccountSummaryEmbed {
     desc()
       .bold(`Balance: ${data.balance} coins`)
       .empty()
-      .when(data.isPremium, (b) => b.quote('\u2b50 Premium \u2014 2\u00d7 rewards active'))
-      .build()
+      .when(data.isPremium, (b) =>
+        b.quote('\u2b50 Premium \u2014 2\u00d7 rewards active'),
+      )
+      .build(),
   )
   description!: never;
 
-  @EmbedColor<AccountData>((data) => (data.isPremium ? 0xFFD700 : 0x5865F2))
+  @EmbedColor<AccountData>((data) => (data.isPremium ? 0xffd700 : 0x5865f2))
   color!: never;
 }
 ```
@@ -172,18 +199,30 @@ interface StatsData {
   boostLevel: number;
 }
 
-@Embed({ color: 0x00BFFF })
+@Embed({ color: 0x00bfff })
 export class ServerStatsEmbed {
   @EmbedTitle('Server Statistics')
   title!: never;
 
-  @EmbedField<StatsData>({ name: 'Members', value: (d) => String(d.memberCount), inline: true })
+  @EmbedField<StatsData>({
+    name: 'Members',
+    value: (d) => String(d.memberCount),
+    inline: true,
+  })
   members!: never;
 
-  @EmbedField<StatsData>({ name: 'Online', value: (d) => String(d.onlineCount), inline: true })
+  @EmbedField<StatsData>({
+    name: 'Online',
+    value: (d) => String(d.onlineCount),
+    inline: true,
+  })
   online!: never;
 
-  @EmbedField<StatsData>({ name: 'Boost Level', value: (d) => `Level ${d.boostLevel}`, inline: true })
+  @EmbedField<StatsData>({
+    name: 'Boost Level',
+    value: (d) => `Level ${d.boostLevel}`,
+    inline: true,
+  })
   boost!: never;
 }
 ```
@@ -208,7 +247,9 @@ export class PremiumProfileEmbed {
 
   @EmbedWhen<ProfileData>((d) => d.isPremium)
   @EmbedField<ProfileData>({
-    name: 'Premium Since', value: (d) => d.premiumSince ?? 'Unknown', })
+    name: 'Premium Since',
+    value: (d) => d.premiumSince ?? 'Unknown',
+  })
   premiumField!: never;
 }
 ```
@@ -277,7 +318,11 @@ export class ProfileCommandHandler {
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
     const profileData = {
-      username: interaction.user.username, level: 42, isPremium: true, avatarUrl: interaction.user.displayAvatarURL(), };
+      username: interaction.user.username,
+      level: 42,
+      isPremium: true,
+      avatarUrl: interaction.user.displayAvatarURL(),
+    };
 
     const embed = this.embeds.build(UserProfileEmbed, profileData);
     await interaction.reply({ embeds: [embed] });
@@ -294,7 +339,8 @@ import { Module } from '@spraxium/common';
 import { ProfileCommand } from './commands/profile.command';
 
 @Module({
-  commands: [ProfileCommand], })
+  commands: [ProfileCommand],
+})
 export class ProfileModule {}
 ```
 

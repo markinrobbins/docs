@@ -29,7 +29,10 @@ The recommended pattern is to define schemas in dedicated files and import them 
 import { z } from 'zod';
 
 export const ConfigUpdateSchema = z.object({
-  prefix: z.string().min(1).max(5), language: z.enum(['en', 'pt', 'es']).optional(), updatedBy: z.string().min(17).max(20), });
+  prefix: z.string().min(1).max(5),
+  language: z.enum(['en', 'pt', 'es']).optional(),
+  updatedBy: z.string().min(17).max(20),
+});
 
 export type ConfigUpdatePayload = z.infer<typeof ConfigUpdateSchema>;
 ```
@@ -39,13 +42,17 @@ export type ConfigUpdatePayload = z.infer<typeof ConfigUpdateSchema>;
 import { SignalListener, OnSignal } from '@spraxium/signal';
 import type { SignalEnvelope } from '@spraxium/signal';
 import {
-  ConfigUpdateSchema, type ConfigUpdatePayload, } from '../schemas/config-update.schema';
+  ConfigUpdateSchema,
+  type ConfigUpdatePayload,
+} from '../schemas/config-update.schema';
 
 @SignalListener()
 export class GuildConfigSignal {
   @OnSignal('config.update', { schema: ConfigUpdateSchema })
   async onConfigUpdate(
-    payload: ConfigUpdatePayload, envelope: SignalEnvelope, ): Promise<void> {
+    payload: ConfigUpdatePayload,
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     // payload is validated and strongly typed
     // envelope.guildId provides tenant context
   }
@@ -85,22 +92,29 @@ import type { SignalEnvelope } from '@spraxium/signal';
 import { z } from 'zod';
 
 const PrefixSchema = z.object({
-  prefix: z.string().min(1).max(5), });
+  prefix: z.string().min(1).max(5),
+});
 
 const LanguageSchema = z.object({
-  language: z.enum(['en', 'pt', 'es']), updatedBy: z.string(), });
+  language: z.enum(['en', 'pt', 'es']),
+  updatedBy: z.string(),
+});
 
 @SignalListener()
 export class GuildConfigSignal {
   @OnSignal('config.prefix.update', { schema: PrefixSchema })
   async onPrefixUpdate(
-    payload: z.infer<typeof PrefixSchema>, envelope: SignalEnvelope, ): Promise<void> {
+    payload: z.infer<typeof PrefixSchema>,
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     // Handle prefix changes
   }
 
   @OnSignal('config.language.update', { schema: LanguageSchema })
   async onLanguageUpdate(
-    payload: z.infer<typeof LanguageSchema>, envelope: SignalEnvelope, ): Promise<void> {
+    payload: z.infer<typeof LanguageSchema>,
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     // Handle language changes
   }
 }
@@ -157,13 +171,22 @@ For complex domain events, Zod supports powerful composition patterns that keep 
 import { z } from 'zod';
 
 const ActivatedSchema = z.object({
-  action: z.literal('activated'), planId: z.string(), userId: z.string(), expiresAt: z.number(), });
+  action: z.literal('activated'),
+  planId: z.string(),
+  userId: z.string(),
+  expiresAt: z.number(),
+});
 
 const CancelledSchema = z.object({
-  action: z.literal('cancelled'), userId: z.string(), reason: z.string().optional(), });
+  action: z.literal('cancelled'),
+  userId: z.string(),
+  reason: z.string().optional(),
+});
 
 export const BillingEventSchema = z.discriminatedUnion('action', [
-  ActivatedSchema, CancelledSchema, ]);
+  ActivatedSchema,
+  CancelledSchema,
+]);
 
 export type BillingEventPayload = z.infer<typeof BillingEventSchema>;
 ```
@@ -173,13 +196,19 @@ export type BillingEventPayload = z.infer<typeof BillingEventSchema>;
 import { z } from 'zod';
 
 const BaseModerationSchema = z.object({
-  moderatorId: z.string(), targetUserId: z.string(), reason: z.string().min(1), });
+  moderatorId: z.string(),
+  targetUserId: z.string(),
+  reason: z.string().min(1),
+});
 
 export const BanSchema = BaseModerationSchema.extend({
-  duration: z.number().positive().optional(), });
+  duration: z.number().positive().optional(),
+});
 
 export const MuteSchema = BaseModerationSchema.extend({
-  duration: z.number().positive(), channelIds: z.array(z.string()).optional(), });
+  duration: z.number().positive(),
+  channelIds: z.array(z.string()).optional(),
+});
 ```
   </Tab>
 </CodeTabs>
@@ -203,8 +232,14 @@ The `@spraxium/signal` package exports a *createSignalPayload* helper that build
 ```typescript filename="test/guild-config.signal.test.ts"
 import { createSignalPayload } from '@spraxium/signal';
 
-const testEnvelope = createSignalPayload('config.update', '123456789012345678', {
-  prefix: '!', language: 'en', });
+const testEnvelope = createSignalPayload(
+  'config.update',
+  '123456789012345678',
+  {
+    prefix: '!',
+    language: 'en',
+  },
+);
 
 // testEnvelope has: v, event, guildId, nonce, sentAt, payload
 // No signature field (unsigned, for testing only)

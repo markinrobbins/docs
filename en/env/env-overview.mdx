@@ -20,7 +20,14 @@ The package also ships a base class called *SpraxiumBaseEnv* that already declar
 A schema is a plain class decorated with *@EnvSchema*. Each property uses *@Env* to specify which environment variable it reads, and one or more validator decorators to declare the expected type. The class acts as the single source of truth for all configuration your bot needs at runtime.
 
 ```typescript filename="src/app.env.ts"
-import { EnvSchema, Env, IsString, IsPort, IsBoolean, IsOptional } from '@spraxium/env';
+import {
+  EnvSchema,
+  Env,
+  IsString,
+  IsPort,
+  IsBoolean,
+  IsOptional,
+} from '@spraxium/env';
 
 @EnvSchema()
 export class AppEnv {

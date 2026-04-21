@@ -80,8 +80,17 @@ import { defineHttp } from '@spraxium/http';
 import { AppModule } from '../src/app.module';
 
 export const httpPlugin = defineHttp({
-  enabled: true, host: process.env.HTTP_HOST ?? '0.0.0.0', port: Number(process.env.HTTP_PORT ?? 3000), apiKey: process.env.HTTP_API_KEY ?? '', sharding: false, security: {
-    hidePoweredBy: true, cors: { origins: ['https://admin.example.com'], credentials: true }, }, module: AppModule, });
+  enabled: true,
+  host: process.env.HTTP_HOST ?? '0.0.0.0',
+  port: Number(process.env.HTTP_PORT ?? 3000),
+  apiKey: process.env.HTTP_API_KEY ?? '',
+  sharding: false,
+  security: {
+    hidePoweredBy: true,
+    cors: { origins: ['https://admin.example.com'], credentials: true },
+  },
+  module: AppModule,
+});
 ```
   </Tab>
   <Tab label="src/app.module.ts" language="typescript">
@@ -92,9 +101,13 @@ import { GuildHttpController } from './http/controllers/guild-http.controller';
 import { GuildHttpService } from './http/services/guild-http.service';
 
 @HttpClientModule({
-  controllers: [GuildHttpController], services: [GuildHttpService], })
+  controllers: [GuildHttpController],
+  services: [GuildHttpService],
+})
 @Module({
-  imports: [HttpModule], providers: [GuildHttpController, GuildHttpService], })
+  imports: [HttpModule],
+  providers: [GuildHttpController, GuildHttpService],
+})
 export class AppModule {}
 ```
   </Tab>
@@ -104,7 +117,8 @@ import { defineConfig } from '@spraxium/core';
 import { httpPlugin } from './config/http.config';
 
 export default defineConfig(() => ({
-  plugins: [httpPlugin], }));
+  plugins: [httpPlugin],
+}));
 ```
   </Tab>
 </CodeTabs>

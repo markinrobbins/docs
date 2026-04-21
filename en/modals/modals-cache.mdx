@@ -21,23 +21,39 @@ Apply *@ModalCache* at the class level on any *@ModalComponent*. The decorator a
 
 ```typescript filename="src/components/application.modal.ts"
 import {
-  ModalComponent, ModalInput, ModalValidate, ModalCache, minWords, emailFormat, } from '@spraxium/components';
+  ModalComponent,
+  ModalInput,
+  ModalValidate,
+  ModalCache,
+  minWords,
+  emailFormat,
+} from '@spraxium/components';
 
 @ModalComponent({ id: 'apply-modal', title: 'Staff Application' })
 @ModalCache({ ttl: 300 })
 export class ApplicationModal {
   @ModalInput({
-    label: 'Email Address', style: 'short', required: true, })
+    label: 'Email Address',
+    style: 'short',
+    required: true,
+  })
   @ModalValidate([emailFormat()])
   email!: string;
 
   @ModalInput({
-    label: 'Why do you want to join?', style: 'paragraph', required: true, minLength: 50, })
+    label: 'Why do you want to join?',
+    style: 'paragraph',
+    required: true,
+    minLength: 50,
+  })
   @ModalValidate([minWords(20)])
   motivation!: string;
 
   @ModalInput({
-    label: 'Relevant Experience', style: 'paragraph', required: true, })
+    label: 'Relevant Experience',
+    style: 'paragraph',
+    required: true,
+  })
   @ModalValidate([minWords(10)])
   experience!: string;
 }

@@ -143,7 +143,10 @@ import { Logger } from '@spraxium/core';
 const logger = new Logger('PaymentService');
 
 logger.log('payment', 'Cobro procesado', {
-  userId: '123456789', amount: 4999, currency: 'USD', });
+  userId: '123456789',
+  amount: 4999,
+  currency: 'USD',
+});
 ```
 
 Las claves de metadata quedan disponibles como placeholders `{{key}}` en templates de embed Discord. Si configuras un transport Discord para el nivel `payment`, puedes usar `{{userId}}`, `{{amount}}` y `{{currency}}` directamente en el título, descripción o campos del embed. Cualquier clave de metadata no referenciada en un template es ignorada silenciosamente por el transport.

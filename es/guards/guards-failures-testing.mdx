@@ -45,13 +45,15 @@ export class ModeratorGuard implements SpraxiumGuard {
     const member = ctx.getMember();
     if (!member || !('roles' in member)) {
       throw new PermissionDeniedException({
-        reason: 'No fue posible resolver tu membresía en el servidor.', });
+        reason: 'No fue posible resolver tu membresía en el servidor.',
+      });
     }
 
     const hasRole = member.roles.cache.some((r) => r.name === 'Moderator');
     if (!hasRole) {
       throw new PermissionDeniedException({
-        reason: 'Necesitas el role Moderator para usar este comando.', });
+        reason: 'Necesitas el role Moderator para usar este comando.',
+      });
     }
 
     return true;
@@ -73,8 +75,13 @@ import { PermissionDeniedLayout } from './layouts/permission-denied.layout';
 
 export default defineConfig({
   exceptions: {
-    logUnhandled: true, layouts: {
-      default: DefaultLayout, GuardDeniedException: AccessDeniedLayout, PermissionDeniedException: PermissionDeniedLayout, }, },
+    logUnhandled: true,
+    layouts: {
+      default: DefaultLayout,
+      GuardDeniedException: AccessDeniedLayout,
+      PermissionDeniedException: PermissionDeniedLayout,
+    },
+  },
 });
 ```
 
@@ -96,7 +103,10 @@ import { SpraxiumException } from '@spraxium/core';
 class PremiumRequiredException extends SpraxiumException {
   constructor(props: { requiredTier: string; currentTier: string }) {
     super({
-      code: 'PREMIUM_REQUIRED', message: 'Esta feature requiere el plan {{requiredTier}}.', props, });
+      code: 'PREMIUM_REQUIRED',
+      message: 'Esta feature requiere el plan {{requiredTier}}.',
+      props,
+    });
   }
 }
 
@@ -111,7 +121,9 @@ export class PremiumGuard implements SpraxiumGuard {
 
     if (!this.meetsRequirement(currentTier, this.requiredTier)) {
       throw new PremiumRequiredException({
-        requiredTier: this.requiredTier, currentTier: currentTier ?? 'free', });
+        requiredTier: this.requiredTier,
+        currentTier: currentTier ?? 'free',
+      });
     }
 
     return true;

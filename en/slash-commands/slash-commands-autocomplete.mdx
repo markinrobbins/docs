@@ -22,10 +22,16 @@ Autocomplete is enabled on the command definition side by setting `autocomplete:
 ```typescript filename="commands/search.command.ts"
 import { SlashCommand, SlashOption } from '@spraxium/common';
 
-@SlashCommand({ name: 'search', description: 'Search for an item in the database.' })
+@SlashCommand({
+  name: 'search',
+  description: 'Search for an item in the database.',
+})
 export class SearchCommand {
   @SlashOption.String('query', {
-    description: 'Search query', required: true, autocomplete: true, })
+    description: 'Search query',
+    required: true,
+    autocomplete: true,
+  })
   build() {}
 }
 ```
@@ -42,15 +48,20 @@ import { SearchCommand } from '../commands/search.command';
 @SlashAutocompleteHandler(SearchCommand, 'query')
 export class SearchAutocomplete {
   async handle(
-    @SlashFocused() query: string, @Ctx() interaction: AutocompleteInteraction, ): Promise<void> {
+    @SlashFocused() query: string,
+    @Ctx() interaction: AutocompleteInteraction,
+  ): Promise<void> {
     const results = await this.fetchSuggestions(query);
     await interaction.respond(
-      results.map((r) => ({ name: r.label, value: r.id })), );
+      results.map((r) => ({ name: r.label, value: r.id })),
+    );
   }
 
   private async fetchSuggestions(query: string) {
     return [
-      { label: 'Item One', id: 'item-1' }, { label: 'Item Two', id: 'item-2' }, ].filter((item) => item.label.toLowerCase().includes(query.toLowerCase()));
+      { label: 'Item One', id: 'item-1' },
+      { label: 'Item Two', id: 'item-2' },
+    ].filter((item) => item.label.toLowerCase().includes(query.toLowerCase()));
   }
 }
 ```
@@ -102,14 +113,22 @@ import type { AutocompleteInteraction } from 'discord.js';
 import { PingCommand } from '../commands/ping.command';
 
 const SERVICES = [
-  { name: 'Gateway', value: 'gateway' }, { name: 'REST API', value: 'rest-api' }, { name: 'Voice', value: 'voice' }, { name: 'CDN', value: 'cdn' }, { name: 'Database', value: 'database' }, ];
+  { name: 'Gateway', value: 'gateway' },
+  { name: 'REST API', value: 'rest-api' },
+  { name: 'Voice', value: 'voice' },
+  { name: 'CDN', value: 'cdn' },
+  { name: 'Database', value: 'database' },
+];
 
 @SlashAutocompleteHandler(PingCommand, 'service')
 export class PingServiceAutocomplete {
   async handle(
-    @SlashFocused() focused: string, @Ctx() interaction: AutocompleteInteraction, ): Promise<void> {
+    @SlashFocused() focused: string,
+    @Ctx() interaction: AutocompleteInteraction,
+  ): Promise<void> {
     const filtered = SERVICES.filter((s) =>
-      s.name.toLowerCase().includes(String(focused).toLowerCase()), );
+      s.name.toLowerCase().includes(String(focused).toLowerCase()),
+    );
     await interaction.respond(filtered.slice(0, 25));
   }
 }
@@ -127,11 +146,14 @@ export class TagSearchAutocomplete {
   constructor(private readonly tags: TagService) {}
 
   async handle(
-    @SlashFocused() focused: string, @Ctx() interaction: AutocompleteInteraction, ): Promise<void> {
+    @SlashFocused() focused: string,
+    @Ctx() interaction: AutocompleteInteraction,
+  ): Promise<void> {
     const guildId = interaction.guildId ?? '';
     const matches = await this.tags.search(guildId, String(focused), 25);
     await interaction.respond(
-      matches.map((tag) => ({ name: tag.name, value: tag.id })), );
+      matches.map((tag) => ({ name: tag.name, value: tag.id })),
+    );
   }
 }
 ```
@@ -153,11 +175,16 @@ export class SongSearchAutocomplete {
   constructor(private readonly music: MusicService) {}
 
   async handle(
-    @SlashFocused() focused: string, @Ctx() interaction: AutocompleteInteraction, ): Promise<void> {
+    @SlashFocused() focused: string,
+    @Ctx() interaction: AutocompleteInteraction,
+  ): Promise<void> {
     const results = await this.music.searchTracks(String(focused));
     await interaction.respond(
       results.slice(0, 25).map((track) => ({
-        name: `${track.artist} - ${track.title}`.slice(0, 100), value: track.uri, })), );
+        name: `${track.artist} - ${track.title}`.slice(0, 100),
+        value: track.uri,
+      })),
+    );
   }
 }
 ```
@@ -173,7 +200,9 @@ import { PingHandler } from './handlers/ping.handler';
 import { PingServiceAutocomplete } from './handlers/ping-service.autocomplete';
 
 @Module({
-  commands: [PingCommand], handlers: [PingHandler, PingServiceAutocomplete], })
+  commands: [PingCommand],
+  handlers: [PingHandler, PingServiceAutocomplete],
+})
 export class SlashModule {}
 ```
 

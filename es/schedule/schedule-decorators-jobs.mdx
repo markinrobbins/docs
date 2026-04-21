@@ -24,7 +24,9 @@ import { Cron, CronExpression } from '@spraxium/schedule';
 @Injectable()
 export class AnalyticsJobsService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
-    name: 'daily-stats', timezone: 'America/New_York', })
+    name: 'daily-stats',
+    timezone: 'America/New_York',
+  })
   async collectDailyStats(): Promise<void> {
     // Agregar estad\u00edsticas del d\u00eda y enviar al canal de anal\u00edticas
   }
@@ -39,7 +41,8 @@ import { Interval, IntervalExpression } from '@spraxium/schedule';
 @Injectable()
 export class HealthJobsService {
   @Interval(IntervalExpression.EVERY_30_SECONDS, {
-    name: 'health-check', })
+    name: 'health-check',
+  })
   async checkBotHealth(): Promise<void> {
     // Verificar latencia del websocket y uso de memoria
   }
@@ -65,7 +68,8 @@ import { Timeout, TimeoutExpression } from '@spraxium/schedule';
 @Injectable()
 export class WarmupJobsService {
   @Timeout(TimeoutExpression.AFTER_5_SECONDS, {
-    name: 'cache-warmup', })
+    name: 'cache-warmup',
+  })
   async warmupCaches(): Promise<void> {
     // Pre-cargar datos usados frecuentemente en cach\u00e9
   }
@@ -80,7 +84,8 @@ import { AfterOnline } from '@spraxium/schedule';
 @Injectable()
 export class StatusJobsService {
   @AfterOnline(3000, {
-    name: 'set-status', })
+    name: 'set-status',
+  })
   async setInitialStatus(): Promise<void> {
     // Establecer el estado del bot despu\u00e9s de conectar a Discord
   }

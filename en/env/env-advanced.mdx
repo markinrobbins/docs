@@ -22,7 +22,9 @@ import { EnvSchema, Env, IsPort, Validate } from '@spraxium/env';
 export class AppEnv {
   @Env('HTTP_PORT', { secret: false })
   @IsPort()
-  @Validate((value) => (value as number) >= 1024 ? true : 'Port must be 1024 or higher')
+  @Validate((value) =>
+    (value as number) >= 1024 ? true : 'Port must be 1024 or higher',
+  )
   HTTP_PORT!: number;
 }
 ```
@@ -120,7 +122,20 @@ This example shows a complete schema that combines inheritance, multiple validat
 
 ```typescript filename="src/app.env.ts"
 import {
-  EnvSchema, Env, SpraxiumBaseEnv, IsMongoUri, IsRedisUri, IsPort, IsBoolean, IsEnum, IsOptional, Secret, Default, Transform, Validate, } from '@spraxium/env';
+  EnvSchema,
+  Env,
+  SpraxiumBaseEnv,
+  IsMongoUri,
+  IsRedisUri,
+  IsPort,
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  Secret,
+  Default,
+  Transform,
+  Validate,
+} from '@spraxium/env';
 
 @EnvSchema()
 export class AppEnv extends SpraxiumBaseEnv {
@@ -152,7 +167,11 @@ export class AppEnv extends SpraxiumBaseEnv {
 
   @Env('CORS_ORIGINS', { default: 'http://localhost:3000', secret: false })
   @Transform((raw) => raw.split(',').map((s) => s.trim()))
-  @Validate((value) => Array.isArray(value) && value.length > 0 ? true : 'Need at least one origin')
+  @Validate((value) =>
+    Array.isArray(value) && value.length > 0
+      ? true
+      : 'Need at least one origin',
+  )
   CORS_ORIGINS!: string[];
 }
 ```

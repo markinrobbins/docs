@@ -29,16 +29,22 @@ import { SetupWizardCommand } from './setup-wizard.command';
 @SlashCommandHandler(SetupWizardCommand)
 export class SetupWizardCommandHandler {
   constructor(
-    private readonly context: ContextService, private readonly buttons: ButtonService, ) {}
+    private readonly context: ContextService,
+    private readonly buttons: ButtonService,
+  ) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
     const ctx = await this.context.create(
-      { step: 1, guildId: interaction.guildId, settings: {} }, { ttl: 600, restrictedTo: interaction.user.id }, );
+      { step: 1, guildId: interaction.guildId, settings: {} },
+      { ttl: 600, restrictedTo: interaction.user.id },
+    );
 
     const row = this.buttons.rowWithContext(ctx, NextStepButton);
 
     await interaction.reply({
-      content: 'Welcome to the setup wizard. Click Next to begin.', components: [row], });
+      content: 'Welcome to the setup wizard. Click Next to begin.',
+      components: [row],
+    });
   }
 }
 ```
@@ -108,10 +114,14 @@ interface WizardData {
 @ButtonHandler(NextStepButton)
 export class NextStepButtonHandler {
   async handle(
-    @Ctx() interaction: ButtonInteraction, @FlowContext() ctx: SpraxiumContext<WizardData>, ): Promise<void> {
+    @Ctx() interaction: ButtonInteraction,
+    @FlowContext() ctx: SpraxiumContext<WizardData>,
+  ): Promise<void> {
     const { step, settings } = ctx.data;
     await interaction.reply({
-      content: `You are on step ${step}. Current settings: ${JSON.stringify(settings)}`, ephemeral: true, });
+      content: `You are on step ${step}. Current settings: ${JSON.stringify(settings)}`,
+      ephemeral: true,
+    });
   }
 }
 ```
@@ -138,12 +148,18 @@ export class StepTwoButtonHandler {
   constructor(private readonly context: ContextService) {}
 
   async handle(
-    @Ctx() interaction: ButtonInteraction, @FlowContext() ctx: SpraxiumContext<WizardData>, ): Promise<void> {
+    @Ctx() interaction: ButtonInteraction,
+    @FlowContext() ctx: SpraxiumContext<WizardData>,
+  ): Promise<void> {
     await this.context.update<WizardData>(ctx.id, {
-      step: 2, settings: { ...ctx.data.settings, language: 'en' }, });
+      step: 2,
+      settings: { ...ctx.data.settings, language: 'en' },
+    });
 
     await interaction.reply({
-      content: 'Step 2 complete. Proceeding to step 3.', ephemeral: true, });
+      content: 'Step 2 complete. Proceeding to step 3.',
+      ephemeral: true,
+    });
   }
 }
 ```
@@ -164,7 +180,9 @@ export class FinishWizardHandler {
   constructor(private readonly context: ContextService) {}
 
   async handle(
-    @Ctx() interaction: ButtonInteraction, @FlowContext() ctx: SpraxiumContext<unknown>, ): Promise<void> {
+    @Ctx() interaction: ButtonInteraction,
+    @FlowContext() ctx: SpraxiumContext<unknown>,
+  ): Promise<void> {
     await this.context.delete(ctx.id);
     await interaction.reply({ content: 'Setup complete!', ephemeral: true });
   }
@@ -217,7 +235,10 @@ import { defineComponents } from '@spraxium/components';
 
 export const componentsPlugin = defineComponents({
   context: {
-    storage: 'redis', defaultTtl: 600, }, });
+    storage: 'redis',
+    defaultTtl: 600,
+  },
+});
 ```
 
 ## Referência da API do ContextService
@@ -279,16 +300,22 @@ import { VerificationCommand } from './verification.command';
 @SlashCommandHandler(VerificationCommand)
 export class VerificationCommandHandler {
   constructor(
-    private readonly context: ContextService, private readonly buttons: ButtonService, ) {}
+    private readonly context: ContextService,
+    private readonly buttons: ButtonService,
+  ) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
     const ctx = await this.context.create(
-      { userId: interaction.user.id }, { ttl: 300, restrictedTo: interaction.user.id }, );
+      { userId: interaction.user.id },
+      { ttl: 300, restrictedTo: interaction.user.id },
+    );
 
     const row = this.buttons.rowWithContext(ctx, VerifyButton);
 
     await interaction.reply({
-      content: 'Click the button to verify your identity.', components: [row], });
+      content: 'Click the button to verify your identity.',
+      components: [row],
+    });
   }
 }
 ```

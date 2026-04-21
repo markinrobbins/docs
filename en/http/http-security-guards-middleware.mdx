@@ -78,17 +78,42 @@ import { defineHttp } from '@spraxium/http';
 import { AppModule } from '../src/app.module';
 
 export const httpPlugin = defineHttp({
-  enabled: true, host: process.env.HTTP_HOST ?? '0.0.0.0', port: Number(process.env.HTTP_PORT ?? 3000), apiKey: process.env.HTTP_API_KEY ?? '', sharding: false, security: {
-    hidePoweredBy: true, headers: {
-      frameOptions: 'DENY', contentSecurityPolicy: "default-src 'none'", referrerPolicy: 'no-referrer', hstsMaxAge: 31_536_000, hstsIncludeSubDomains: true, }, cors: {
-      origins: ['https://admin.example.com'], methods: ['GET', 'POST', 'PATCH'], allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'], credentials: true, maxAge: 600, }, bodyLimit: { maxSize: 256_000 }, }, module: AppModule, });
+  enabled: true,
+  host: process.env.HTTP_HOST ?? '0.0.0.0',
+  port: Number(process.env.HTTP_PORT ?? 3000),
+  apiKey: process.env.HTTP_API_KEY ?? '',
+  sharding: false,
+  security: {
+    hidePoweredBy: true,
+    headers: {
+      frameOptions: 'DENY',
+      contentSecurityPolicy: "default-src 'none'",
+      referrerPolicy: 'no-referrer',
+      hstsMaxAge: 31_536_000,
+      hstsIncludeSubDomains: true,
+    },
+    cors: {
+      origins: ['https://admin.example.com'],
+      methods: ['GET', 'POST', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
+      credentials: true,
+      maxAge: 600,
+    },
+    bodyLimit: { maxSize: 256_000 },
+  },
+  module: AppModule,
+});
 ```
   </Tab>
   <Tab label="src/app.module.ts" language="typescript">
 ```typescript filename="src/app.module.ts"
 import { Module } from '@spraxium/common';
 import {
-  HttpClientModule, HttpModule, LoggerMiddleware, RateLimitMiddleware, } from '@spraxium/http';
+  HttpClientModule,
+  HttpModule,
+  LoggerMiddleware,
+  RateLimitMiddleware,
+} from '@spraxium/http';
 import { GuildHttpController } from './http/controllers/guild-http.controller';
 import { GuildHttpService } from './http/services/guild-http.service';
 
@@ -99,16 +124,28 @@ class GuildBurstLimitMiddleware extends RateLimitMiddleware {
 }
 
 @HttpClientModule({
-  services: [GuildHttpService], controllers: [GuildHttpController], middleware: [new LoggerMiddleware()], middlewareProviders: new Map([
-    [GuildBurstLimitMiddleware, new GuildBurstLimitMiddleware()], ]), })
+  services: [GuildHttpService],
+  controllers: [GuildHttpController],
+  middleware: [new LoggerMiddleware()],
+  middlewareProviders: new Map([
+    [GuildBurstLimitMiddleware, new GuildBurstLimitMiddleware()],
+  ]),
+})
 @Module({
-  imports: [HttpModule], providers: [GuildHttpController, GuildHttpService], })
+  imports: [HttpModule],
+  providers: [GuildHttpController, GuildHttpService],
+})
 export class AppModule {}
 ```
   </Tab>
   <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
 ```typescript filename="http/controllers/guild-http.controller.ts"
-import { HttpController, HttpGet, HttpParam, HttpUseMiddleware } from '@spraxium/http';
+import {
+  HttpController,
+  HttpGet,
+  HttpParam,
+  HttpUseMiddleware,
+} from '@spraxium/http';
 import { GuildBurstLimitMiddleware } from '../../app.module';
 
 @HttpController('/guilds')
@@ -146,7 +183,13 @@ Class-level *@HttpGuards* runs on every route in the controller. Method-level *@
   <Tab label="http/controllers/admin-http.controller.ts" language="typescript">
 ```typescript filename="http/controllers/admin-http.controller.ts"
 import {
-  HttpController, HttpGet, HttpPost, HttpGuards, HttpParam, HttpBody, } from '@spraxium/http';
+  HttpController,
+  HttpGet,
+  HttpPost,
+  HttpGuards,
+  HttpParam,
+  HttpBody,
+} from '@spraxium/http';
 import { AdminGuard } from '../guards/admin.guard';
 import { SuperAdminGuard } from '../guards/super-admin.guard';
 
@@ -190,9 +233,13 @@ import { AdminHttpController } from './http/controllers/admin-http.controller';
 import { AdminHttpService } from './http/services/admin-http.service';
 
 @HttpClientModule({
-  services: [AdminHttpService], controllers: [AdminHttpController], })
+  services: [AdminHttpService],
+  controllers: [AdminHttpController],
+})
 @Module({
-  imports: [HttpModule], providers: [AdminHttpController, AdminHttpService], })
+  imports: [HttpModule],
+  providers: [AdminHttpController, AdminHttpService],
+})
 export class AppModule {}
 ```
   </Tab>

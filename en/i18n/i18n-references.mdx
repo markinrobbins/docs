@@ -32,8 +32,14 @@ traversal at request time.
 import { defineI18n } from '@spraxium/i18n';
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'en-US', references: [
-    { name: 'slash', path: './locales/slash'    }, { name: 'ui', path: './locales/ui'       }, { name: 'errors', path: './locales/errors'   }, { name: 'embeds', path: './locales/embeds'   }, ], });
+  defaultLocale: 'en-US',
+  references: [
+    { name: 'slash', path: './locales/slash' },
+    { name: 'ui', path: './locales/ui' },
+    { name: 'errors', path: './locales/errors' },
+    { name: 'embeds', path: './locales/embeds' },
+  ],
+});
 ```
 
 There is no limit on the number of references. Each one loads independently and is merged into the
@@ -128,10 +134,14 @@ entries inside the reference directory are files or subdirectories.
 import { defineI18n } from '@spraxium/i18n';
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'en-US', references: [
+  defaultLocale: 'en-US',
+  references: [
     // Nested layout: many files per locale, organized by feature
     { name: 'slash', path: './locales/slash' }, // Flat layout: simple key-value pairs in a single file per locale
-    { name: 'errors', path: './locales/errors' }, { name: 'system', path: './locales/system' }, ], });
+    { name: 'errors', path: './locales/errors' },
+    { name: 'system', path: './locales/system' },
+  ],
+});
 ```
 
 ## Accessing keys across references
@@ -150,8 +160,8 @@ export class StatusHandler {
   constructor(private readonly i18n: I18nService) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const locale  = interaction.locale;
-    const userId  = interaction.user.id;
+    const locale = interaction.locale;
+    const userId = interaction.user.id;
     const guildId = interaction.guildId ?? undefined;
 
     // Keys from 'slash' reference
@@ -161,7 +171,12 @@ export class StatusHandler {
     const permError = this.i18n.t('errors.forbidden', locale);
 
     // Async resolution through user/guild preference chain
-    const footer = await this.i18n.tUser(userId, 'slash.status.embed.footer', {}, guildId);
+    const footer = await this.i18n.tUser(
+      userId,
+      'slash.status.embed.footer',
+      {},
+      guildId,
+    );
 
     await interaction.reply({ content: `${title}: ${footer}` });
   }
@@ -177,8 +192,13 @@ They use the reference name as their first segment, exactly as they would in a *
 import { SlashCommand } from '@spraxium/common';
 
 @SlashCommand({
-  name: 'settings', description: 'Manage bot settings', i18n: {
-    name: 'slash.settings.name', description: 'slash.settings.description', }, })
+  name: 'settings',
+  description: 'Manage bot settings',
+  i18n: {
+    name: 'slash.settings.name',
+    description: 'slash.settings.description',
+  },
+})
 export class SettingsCommand {}
 ```
 

@@ -30,7 +30,9 @@ export interface MyPluginConfig {
 import { definePlugin } from '@spraxium/core';
 import type { MyPluginConfig } from './interfaces/my-plugin-config.interface';
 
-export const defineMyPlugin = definePlugin<'my-plugin', MyPluginConfig>('my-plugin');
+export const defineMyPlugin = definePlugin<'my-plugin', MyPluginConfig>(
+  'my-plugin',
+);
 ```
   </Step>
   <Step title="Registrar en spraxium.config.ts">
@@ -43,7 +45,12 @@ import { defineMyPlugin } from '@acme/my-plugin';
 export default defineConfig({
   plugins: [
     defineMyPlugin({
-      enabled: true, apiUrl: 'https://api.example.com', timeout: 5000, }), ], });
+      enabled: true,
+      apiUrl: 'https://api.example.com',
+      timeout: 5000,
+    }),
+  ],
+});
 ```
   </Step>
   <Step title="Leer la configuración en runtime">

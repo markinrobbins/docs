@@ -23,7 +23,12 @@ O embed mais simples usa o decorator de classe *@Embed* com um schema estático.
 import { Embed } from '@spraxium/components';
 
 @Embed({
-  title: 'Welcome', description: 'Welcome to the server! Please read the rules.', color: 0x5865F2, footer: { text: 'Spraxium Bot' }, timestamp: true, })
+  title: 'Welcome',
+  description: 'Welcome to the server! Please read the rules.',
+  color: 0x5865f2,
+  footer: { text: 'Spraxium Bot' },
+  timestamp: true,
+})
 export class WelcomeEmbed {}
 ```
 
@@ -34,7 +39,14 @@ Para renderizar um embed estático, injete *EmbedService* e chame *build* com a 
 Para embeds que dependem de dados de runtime, use decorators no nível da propriedade. Cada decorator aceita um valor estático ou uma função fábrica que recebe o objeto de dados. Isso permite que você compute títulos, cores, campos e outras propriedades dinamicamente mantendo a declaração em um único lugar.
 
 ```typescript filename="src/components/embeds/user-profile.embed.ts"
-import { Embed, EmbedTitle, EmbedColor, EmbedField, EmbedThumbnail, EmbedFooter } from '@spraxium/components';
+import {
+  Embed,
+  EmbedTitle,
+  EmbedColor,
+  EmbedField,
+  EmbedThumbnail,
+  EmbedFooter,
+} from '@spraxium/components';
 
 interface ProfileData {
   username: string;
@@ -48,20 +60,29 @@ export class UserProfileEmbed {
   @EmbedTitle((data: ProfileData) => `Profile: ${data.username}`)
   title: string;
 
-  @EmbedColor((data: ProfileData) => data.isPremium ? 0xFFD700 : 0x5865F2)
+  @EmbedColor((data: ProfileData) => (data.isPremium ? 0xffd700 : 0x5865f2))
   color: number;
 
   @EmbedThumbnail((data: ProfileData) => data.avatarUrl)
   thumbnail: string;
 
-  @EmbedField({ name: 'Level', value: (data: ProfileData) => String(data.level), inline: true })
+  @EmbedField({
+    name: 'Level',
+    value: (data: ProfileData) => String(data.level),
+    inline: true,
+  })
   levelField: void;
 
   @EmbedField({
-    name: 'Status', value: (data: ProfileData) => data.isPremium ? '⭐ Premium' : 'Free', inline: true, })
+    name: 'Status',
+    value: (data: ProfileData) => (data.isPremium ? '⭐ Premium' : 'Free'),
+    inline: true,
+  })
   statusField: void;
 
-  @EmbedFooter((data: ProfileData) => ({ text: `Member since ${data.username}'s creation` }))
+  @EmbedFooter((data: ProfileData) => ({
+    text: `Member since ${data.username}'s creation`,
+  }))
   footer: void;
 }
 ```
@@ -69,7 +90,13 @@ export class UserProfileEmbed {
 O decorator *@EmbedDescription* aceita uma string estática ou uma função fábrica que pode retornar uma string ou um *DescriptionBuilder*. A função *desc()* cria um builder que encadeia métodos de formatação markdown, compondo descrições estruturadas sem concatenação de strings.
 
 ```typescript filename="src/components/embeds/account-summary.embed.ts"
-import { Embed, EmbedTitle, EmbedDescription, EmbedColor, desc } from '@spraxium/components';
+import {
+  Embed,
+  EmbedTitle,
+  EmbedDescription,
+  EmbedColor,
+  desc,
+} from '@spraxium/components';
 
 interface AccountData {
   username: string;
@@ -86,12 +113,14 @@ export class AccountSummaryEmbed {
     desc()
       .bold(`Saldo: ${data.balance} moedas`)
       .empty()
-      .when(data.isPremium, (b) => b.quote('\u2b50 Premium \u2014 recompensas 2\u00d7 ativas'))
-      .build()
+      .when(data.isPremium, (b) =>
+        b.quote('\u2b50 Premium \u2014 recompensas 2\u00d7 ativas'),
+      )
+      .build(),
   )
   description!: never;
 
-  @EmbedColor((data: AccountData) => (data.isPremium ? 0xFFD700 : 0x5865F2))
+  @EmbedColor((data: AccountData) => (data.isPremium ? 0xffd700 : 0x5865f2))
   color!: never;
 }
 ```
@@ -162,7 +191,12 @@ Cada decorator de propriedade mapeia para um campo específico do embed do Disco
 O decorator *@EmbedField* adiciona um campo ao embed. Cada campo tem um *name* (cabeçalho em negrito), um *value* (corpo do texto) e um flag *inline* opcional que controla se o campo aparece lado a lado com campos adjacentes. Assim como os decorators de propriedade, tanto *name* quanto *value* aceitam strings estáticas ou funções fábrica.
 
 ```typescript filename="src/components/embeds/stats.embed.ts"
-import { Embed, EmbedTitle, EmbedField, EmbedColor } from '@spraxium/components';
+import {
+  Embed,
+  EmbedTitle,
+  EmbedField,
+  EmbedColor,
+} from '@spraxium/components';
 
 interface StatsData {
   members: number;
@@ -175,16 +209,28 @@ export class ServerStatsEmbed {
   @EmbedTitle('Server Statistics')
   title: string;
 
-  @EmbedColor(0x57F287)
+  @EmbedColor(0x57f287)
   color: number;
 
-  @EmbedField({ name: 'Members', value: (d: StatsData) => String(d.members), inline: true })
+  @EmbedField({
+    name: 'Members',
+    value: (d: StatsData) => String(d.members),
+    inline: true,
+  })
   membersField: void;
 
-  @EmbedField({ name: 'Online', value: (d: StatsData) => String(d.online), inline: true })
+  @EmbedField({
+    name: 'Online',
+    value: (d: StatsData) => String(d.online),
+    inline: true,
+  })
   onlineField: void;
 
-  @EmbedField({ name: 'Messages', value: (d: StatsData) => String(d.messages), inline: true })
+  @EmbedField({
+    name: 'Messages',
+    value: (d: StatsData) => String(d.messages),
+    inline: true,
+  })
   messagesField: void;
 }
 ```
@@ -211,11 +257,17 @@ export class ModerationEmbed {
   reasonField: void;
 
   @EmbedWhen((d: ModerationData) => d.duration !== undefined)
-  @EmbedField({ name: 'Duration', value: (d: ModerationData) => `${d.duration} minutes` })
+  @EmbedField({
+    name: 'Duration',
+    value: (d: ModerationData) => `${d.duration} minutes`,
+  })
   durationField: void;
 
   @EmbedWhen((d: ModerationData) => d.appealUrl !== undefined)
-  @EmbedField({ name: 'Appeal', value: (d: ModerationData) => `[Click here](${d.appealUrl})` })
+  @EmbedField({
+    name: 'Appeal',
+    value: (d: ModerationData) => `[Click here](${d.appealUrl})`,
+  })
   appealField: void;
 }
 ```
@@ -279,7 +331,8 @@ import { Module } from '@spraxium/core';
 import { ProfileCommand } from './commands/profile.command';
 
 @Module({
-  commands: [ProfileCommand], })
+  commands: [ProfileCommand],
+})
 export class EmbedsModule {}
 ```
 

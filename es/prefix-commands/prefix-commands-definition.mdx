@@ -25,7 +25,12 @@ El prefix command más simple necesita una clase de comando con un schema de arg
 import { PrefixArg, PrefixCommand } from '@spraxium/common';
 
 @PrefixCommand({
-  name: 'roll', aliases: ['r', 'dice'], description: 'Lanza uno o más dados.', category: 'Diversión', usage: '!roll [caras] [cantidad]', cooldown: 3,
+  name: 'roll',
+  aliases: ['r', 'dice'],
+  description: 'Lanza uno o más dados.',
+  category: 'Diversión',
+  usage: '!roll [caras] [cantidad]',
+  cooldown: 3,
 })
 export class RollCommand {
   @PrefixArg.Integer('sides', { required: false, min: 2, max: 1000 })
@@ -43,13 +48,20 @@ import { RollCommand } from '../commands/roll.command';
 @PrefixCommandHandler(RollCommand)
 export class RollHandler {
   async handle(
-    @Ctx() message: Message, @PrefixArg('sides') sides: number | undefined, @PrefixArg('count') count: number | undefined, ): Promise<void> {
+    @Ctx() message: Message,
+    @PrefixArg('sides') sides: number | undefined,
+    @PrefixArg('count') count: number | undefined,
+  ): Promise<void> {
     const faces = sides ?? 6;
     const rolls = count ?? 1;
-    const results = Array.from({ length: rolls }, () =>
-      Math.floor(Math.random() * faces) + 1, );
+    const results = Array.from(
+      { length: rolls },
+      () => Math.floor(Math.random() * faces) + 1,
+    );
     const total = results.reduce((a, b) => a + b, 0);
-    await message.reply(`Rolled ${rolls}d${faces}: [${results.join(', ')}] = ${total}`);
+    await message.reply(
+      `Rolled ${rolls}d${faces}: [${results.join(', ')}] = ${total}`,
+    );
   }
 }
 ```
@@ -68,7 +80,11 @@ Para familias de comandos como `!mod warn`, `!mod kick` y `!mod ban`, usa *@Pref
 import { PrefixArg, PrefixCommand, PrefixSubcommand } from '@spraxium/common';
 
 @PrefixCommand({
-  name: 'mod', aliases: ['m'], description: 'Comandos de moderación.', category: 'Moderación', usage: '!mod <warn|kick|ban> <usuario> [motivo]',
+  name: 'mod',
+  aliases: ['m'],
+  description: 'Comandos de moderación.',
+  category: 'Moderación',
+  usage: '!mod <warn|kick|ban> <usuario> [motivo]',
 })
 export class ModCommand {
   @PrefixSubcommand({ name: 'warn', description: 'Advertir a un usuario' })
@@ -90,7 +106,12 @@ export class ModCommand {
   </Tab>
   <Tab label="Handler Warn" language="typescript">
 ```typescript filename="src/modules/moderation/handlers/mod-warn-command.handler.ts"
-import { Ctx, PrefixArg, PrefixCommandHandler, UseGuards } from '@spraxium/common';
+import {
+  Ctx,
+  PrefixArg,
+  PrefixCommandHandler,
+  UseGuards,
+} from '@spraxium/common';
 import type { Message } from 'discord.js';
 import { ModCommand } from '../commands/mod.command';
 import { ModeratorGuard } from '../guards/moderator.guard';
@@ -99,7 +120,10 @@ import { ModeratorGuard } from '../guards/moderator.guard';
 @PrefixCommandHandler(ModCommand, { subcommand: 'warn' })
 export class ModWarnHandler {
   async handle(
-    @Ctx() message: Message, @PrefixArg('target') userId: string, @PrefixArg('reason') reason: string | undefined, ): Promise<void> {
+    @Ctx() message: Message,
+    @PrefixArg('target') userId: string,
+    @PrefixArg('reason') reason: string | undefined,
+  ): Promise<void> {
     const text = reason ?? 'Sin motivo proporcionado';
     await message.reply(`Advertencia para <@${userId}>. Motivo: ${text}`);
   }
@@ -149,7 +173,8 @@ import { ModBanHandler } from './handlers/mod-ban.handler';
 import { RollHandler } from '../fun/handlers/roll.handler';
 
 @Module({
-  commands: [ModCommand, RollCommand], handlers: [ModWarnHandler, ModKickHandler, ModBanHandler, RollHandler],
+  commands: [ModCommand, RollCommand],
+  handlers: [ModWarnHandler, ModKickHandler, ModBanHandler, RollHandler],
 })
 export class ModerationModule {}
 ```

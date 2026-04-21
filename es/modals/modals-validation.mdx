@@ -21,22 +21,40 @@ El decorator *@ModalValidate* acepta un array de reglas de validación y se colo
 
 ```typescript filename="src/components/contact.modal.ts"
 import {
-  ModalComponent, ModalInput, ModalValidate, minWords, emailFormat, urlFormat, } from '@spraxium/components';
+  ModalComponent,
+  ModalInput,
+  ModalValidate,
+  minWords,
+  emailFormat,
+  urlFormat,
+} from '@spraxium/components';
 
 @ModalComponent({ id: 'contact-modal', title: 'Contact Us' })
 export class ContactModal {
   @ModalInput({
-    label: 'Email', style: 'short', required: true, placeholder: 'your@email.com', })
+    label: 'Email',
+    style: 'short',
+    required: true,
+    placeholder: 'your@email.com',
+  })
   @ModalValidate([emailFormat()])
   email!: string;
 
   @ModalInput({
-    label: 'Website', style: 'short', required: false, placeholder: 'https://your-website.com', })
+    label: 'Website',
+    style: 'short',
+    required: false,
+    placeholder: 'https://your-website.com',
+  })
   @ModalValidate([urlFormat()])
   website!: string;
 
   @ModalInput({
-    label: 'Message', style: 'paragraph', required: true, minLength: 20, })
+    label: 'Message',
+    style: 'paragraph',
+    required: true,
+    minLength: 20,
+  })
   @ModalValidate([minWords(5)])
   message!: string;
 }
@@ -89,29 +107,43 @@ Crea reglas personalizadas proporcionando un objeto con un método *validate*. E
 
 ```typescript filename="src/components/invite-code.modal.ts"
 import {
-  ModalComponent, ModalInput, ModalValidate, matchesPattern, } from '@spraxium/components';
+  ModalComponent,
+  ModalInput,
+  ModalValidate,
+  matchesPattern,
+} from '@spraxium/components';
 import type { ModalValidationRule } from '@spraxium/components';
 
 const noSpaces: ModalValidationRule = {
   validate(value: string) {
-    return value.includes(' ')
-      ? 'Invite codes cannot contain spaces.'
-      : true;
-  }, };
+    return value.includes(' ') ? 'Invite codes cannot contain spaces.' : true;
+  },
+};
 
 const isUppercase: ModalValidationRule = {
   validate(value: string) {
     return value === value.toUpperCase()
       ? true
       : 'Invite code must be all uppercase.';
-  }, };
+  },
+};
 
 @ModalComponent({ id: 'invite-modal', title: 'Enter Invite Code' })
 export class InviteCodeModal {
   @ModalInput({
-    label: 'Invite Code', style: 'short', required: true, placeholder: 'XXXX-XXXX-XXXX', })
+    label: 'Invite Code',
+    style: 'short',
+    required: true,
+    placeholder: 'XXXX-XXXX-XXXX',
+  })
   @ModalValidate([
-    noSpaces, isUppercase, matchesPattern(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/, 'Invalid invite code format. Expected: XXXX-XXXX-XXXX'), ])
+    noSpaces,
+    isUppercase,
+    matchesPattern(
+      /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/,
+      'Invalid invite code format. Expected: XXXX-XXXX-XXXX',
+    ),
+  ])
   code!: string;
 }
 ```
@@ -122,16 +154,30 @@ El decorator a nivel de clase *@ModalValidationConfig* personaliza el embed de e
 
 ```typescript filename="src/components/strict.modal.ts"
 import {
-  ModalComponent, ModalInput, ModalValidate, ModalValidationConfig, ModalCache, minWords, } from '@spraxium/components';
+  ModalComponent,
+  ModalInput,
+  ModalValidate,
+  ModalValidationConfig,
+  ModalCache,
+  minWords,
+} from '@spraxium/components';
 
 @ModalComponent({ id: 'strict-modal', title: 'Strict Input' })
 @ModalCache({ ttl: 180 })
 @ModalValidationConfig({
-  ephemeral: true, embed: (errors) => ({
-    color: 0xff4444, title: 'Validation Failed', footer: { text: 'Please fix the highlighted field and try again.' }, }), })
+  ephemeral: true,
+  embed: (errors) => ({
+    color: 0xff4444,
+    title: 'Validation Failed',
+    footer: { text: 'Please fix the highlighted field and try again.' },
+  }),
+})
 export class StrictModal {
   @ModalInput({
-    label: 'Essay', style: 'paragraph', required: true, })
+    label: 'Essay',
+    style: 'paragraph',
+    required: true,
+  })
   @ModalValidate([minWords(50)])
   essay!: string;
 }
@@ -173,7 +219,16 @@ La validación funciona de forma transparente con campos dinámicos y condiciona
 
 ```typescript filename="src/components/dynamic-validated.modal.ts"
 import {
-  ModalComponent, ModalDynamic, ModalInput, ModalWhen, ModalValidate, ModalCache, emailFormat, urlFormat, minWords, } from '@spraxium/components';
+  ModalComponent,
+  ModalDynamic,
+  ModalInput,
+  ModalWhen,
+  ModalValidate,
+  ModalCache,
+  emailFormat,
+  urlFormat,
+  minWords,
+} from '@spraxium/components';
 
 interface FormData {
   includeContact: boolean;
@@ -184,23 +239,35 @@ interface FormData {
 @ModalCache({ ttl: 300 })
 export class DynamicValidatedModal {
   @ModalInput({
-    label: 'Full Name', style: 'short', required: true, })
+    label: 'Full Name',
+    style: 'short',
+    required: true,
+  })
   name!: string;
 
   @ModalWhen<FormData>((data) => data?.includeContact === true)
   @ModalInput({
-    label: 'Contact Email', style: 'short', required: true, })
+    label: 'Contact Email',
+    style: 'short',
+    required: true,
+  })
   @ModalValidate([emailFormat()])
   email!: string;
 
   @ModalWhen<FormData>((data) => data?.includeContact === true)
   @ModalInput({
-    label: 'Website', style: 'short', required: false, })
+    label: 'Website',
+    style: 'short',
+    required: false,
+  })
   @ModalValidate([urlFormat()])
   website!: string;
 
   @ModalInput({
-    label: 'Message', style: 'paragraph', required: true, })
+    label: 'Message',
+    style: 'paragraph',
+    required: true,
+  })
   @ModalValidate([minWords(10)])
   message!: string;
 }

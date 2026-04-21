@@ -152,11 +152,16 @@ import { RollCommand } from '../commands/roll.command';
 @PrefixCommandHandler(RollCommand)
 export class RollHandler {
   async handle(
-    @Ctx() message: Message, @PrefixArg('sides') sides: number | undefined, @PrefixArg('count') count: number | undefined, ): Promise<void> {
+    @Ctx() message: Message,
+    @PrefixArg('sides') sides: number | undefined,
+    @PrefixArg('count') count: number | undefined,
+  ): Promise<void> {
     const faces = sides ?? 6;
     const rolls = count ?? 1;
-    const results = Array.from({ length: rolls }, () =>
-      Math.floor(Math.random() * faces) + 1, );
+    const results = Array.from(
+      { length: rolls },
+      () => Math.floor(Math.random() * faces) + 1,
+    );
     await message.reply(`Rolled ${rolls}d${faces}: [${results.join(', ')}]`);
   }
 }

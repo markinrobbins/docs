@@ -158,10 +158,12 @@ export class InventarioHandler {
   constructor(private readonly i18n: I18nService) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const total  = await contarItens(interaction.user.id);
+    const total = await contarItens(interaction.user.id);
     const locale = interaction.locale;
 
-    const mensagem = this.i18n.tp('commands.itens', locale, total, { count: total });
+    const mensagem = this.i18n.tp('commands.itens', locale, total, {
+      count: total,
+    });
     await interaction.reply(mensagem);
   }
 }
@@ -179,12 +181,17 @@ export class InventarioHandler {
   constructor(private readonly i18n: I18nService) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const userId  = interaction.user.id;
+    const userId = interaction.user.id;
     const guildId = interaction.guildId ?? undefined;
-    const total   = await contarItens(userId);
+    const total = await contarItens(userId);
 
     const mensagem = await this.i18n.tpUser(
-      userId, 'commands.itens', total, { count: total }, guildId, );
+      userId,
+      'commands.itens',
+      total,
+      { count: total },
+      guildId,
+    );
 
     await interaction.reply(mensagem);
   }
@@ -199,14 +206,20 @@ export class InventarioHandler {
 import { defineI18n } from '@spraxium/i18n';
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'pt-BR', references: [{ name: 'commands', path: './locales/commands' }], pluralRules: {
-    'pt-BR': (count) => count === 1 ? 'one' : 'other', 'ru': (count) => {
-      const mod10  = count % 10;
+  defaultLocale: 'pt-BR',
+  references: [{ name: 'commands', path: './locales/commands' }],
+  pluralRules: {
+    'pt-BR': (count) => (count === 1 ? 'one' : 'other'),
+    ru: (count) => {
+      const mod10 = count % 10;
       const mod100 = count % 100;
       if (mod10 === 1 && mod100 !== 11) return 'one';
-      if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'few';
+      if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20))
+        return 'few';
       return 'many';
-    }, }, });
+    },
+  },
+});
 ```
 
 ## A variável `{{count}}`

@@ -49,12 +49,26 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 import { PermissionFlagsBits } from 'discord.js';
 
 @SlashCommand({
-  name: 'ban', description: 'Ban a member from the server.', defaultMemberPermissions: PermissionFlagsBits.BanMembers, })
+  name: 'ban',
+  description: 'Ban a member from the server.',
+  defaultMemberPermissions: PermissionFlagsBits.BanMembers,
+})
 export class BanCommand {
-  @SlashOption.User('target', { description: 'The member to ban', required: true })
-  @SlashOption.String('reason', { description: 'Reason for the ban', required: false, maxLength: 512 })
+  @SlashOption.User('target', {
+    description: 'The member to ban',
+    required: true,
+  })
+  @SlashOption.String('reason', {
+    description: 'Reason for the ban',
+    required: false,
+    maxLength: 512,
+  })
   @SlashOption.Integer('days', {
-    description: 'Number of days of messages to delete', required: false, min: 0, max: 7, })
+    description: 'Number of days of messages to delete',
+    required: false,
+    min: 0,
+    max: 7,
+  })
   build() {}
 }
 ```
@@ -146,10 +160,17 @@ The *@SlashOption.String* decorator supports four additional configuration prope
 ```typescript filename="commands/echo.command.ts"
 import { SlashCommand, SlashOption } from '@spraxium/common';
 
-@SlashCommand({ name: 'echo', description: 'Repeat a message back to the channel.' })
+@SlashCommand({
+  name: 'echo',
+  description: 'Repeat a message back to the channel.',
+})
 export class EchoCommand {
   @SlashOption.String('message', {
-    description: 'Text to echo', required: true, minLength: 1, maxLength: 2000, })
+    description: 'Text to echo',
+    required: true,
+    minLength: 1,
+    maxLength: 2000,
+  })
   build() {}
 }
 ```
@@ -173,8 +194,14 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 @SlashCommand({ name: 'roll', description: 'Roll a dice.' })
 export class RollCommand {
   @SlashOption.Integer('sides', {
-    description: 'Number of sides on the dice', required: true, choices: [
-      { name: '6-sided', value: 6 }, { name: '12-sided', value: 12 }, { name: '20-sided', value: 20 }, ], })
+    description: 'Number of sides on the dice',
+    required: true,
+    choices: [
+      { name: '6-sided', value: 6 },
+      { name: '12-sided', value: 12 },
+      { name: '20-sided', value: 20 },
+    ],
+  })
   build() {}
 }
 ```
@@ -186,7 +213,11 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 @SlashCommand({ name: 'volume', description: 'Set the playback volume.' })
 export class VolumeCommand {
   @SlashOption.Number('level', {
-    description: 'Volume level (0.0 to 2.0)', required: true, min: 0, max: 2, })
+    description: 'Volume level (0.0 to 2.0)',
+    required: true,
+    min: 0,
+    max: 2,
+  })
   build() {}
 }
 ```
@@ -201,12 +232,21 @@ The *@SlashOption.Channel* decorator accepts a *channelTypes* array that restric
 import { SlashCommand, SlashOption } from '@spraxium/common';
 import { ChannelType } from 'discord.js';
 
-@SlashCommand({ name: 'setup', description: 'Configure the bot for this server.' })
+@SlashCommand({
+  name: 'setup',
+  description: 'Configure the bot for this server.',
+})
 export class SetupCommand {
   @SlashOption.Channel('log-channel', {
-    description: 'Channel for bot logs', required: true, channelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement], })
+    description: 'Channel for bot logs',
+    required: true,
+    channelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement],
+  })
   @SlashOption.Channel('voice-channel', {
-    description: 'Default voice channel', required: false, channelTypes: [ChannelType.GuildVoice, ChannelType.GuildStageVoice], })
+    description: 'Default voice channel',
+    required: false,
+    channelTypes: [ChannelType.GuildVoice, ChannelType.GuildStageVoice],
+  })
   build() {}
 }
 ```
@@ -281,13 +321,26 @@ Both the *@SlashCommand* decorator and every *@SlashOption* decorator accept an 
 import { SlashCommand, SlashOption } from '@spraxium/common';
 
 @SlashCommand({
-  name: 'locale', description: 'Change your preferred language.', i18n: {
-    name: 'commands.locale.name', description: 'commands.locale.description', }, })
+  name: 'locale',
+  description: 'Change your preferred language.',
+  i18n: {
+    name: 'commands.locale.name',
+    description: 'commands.locale.description',
+  },
+})
 export class LocaleCommand {
   @SlashOption.String('language', {
-    description: 'The language to use.', required: true, i18n: {
-      name: 'commands.locale.options.language.name', description: 'commands.locale.options.language.description', }, choices: [
-      { name: 'English (US)', value: 'en-US' }, { name: 'Português (Brasil)', value: 'pt-BR' }, ], })
+    description: 'The language to use.',
+    required: true,
+    i18n: {
+      name: 'commands.locale.options.language.name',
+      description: 'commands.locale.options.language.description',
+    },
+    choices: [
+      { name: 'English (US)', value: 'en-US' },
+      { name: 'Português (Brasil)', value: 'pt-BR' },
+    ],
+  })
   build() {}
 }
 ```

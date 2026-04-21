@@ -24,8 +24,14 @@ import { defineComponents } from '@spraxium/components';
 
 export const componentsPlugin = defineComponents({
   context: {
-    storage: 'memory', defaultTtl: 300, }, errorMessages: {
-    expired: 'This interaction has expired.', restricted: 'You are not allowed to use this component.', }, });
+    storage: 'memory',
+    defaultTtl: 300,
+  },
+  errorMessages: {
+    expired: 'This interaction has expired.',
+    restricted: 'You are not allowed to use this component.',
+  },
+});
 ```
 
 The *context.storage* field selects the persistence backend for flow contexts. Four adapters are available: `'memory'` for development, `'filesystem'` for single-instance bots, `'redis'` for multi-instance deployments, and `'sqlite'` for lightweight persistence. The *defaultTtl* sets the expiration in seconds for contexts that do not specify their own TTL.
@@ -79,7 +85,10 @@ The component class carries a decorator like *@Button*, *@StringSelect*, or *@Mo
 import { Button } from '@spraxium/components';
 
 @Button({
-  customId: 'confirm_action', label: 'Confirm', style: 'success', })
+  customId: 'confirm_action',
+  label: 'Confirm',
+  style: 'success',
+})
 export class ConfirmButton {}
 ```
   </Tab>
@@ -108,7 +117,8 @@ import { Module } from '@spraxium/common';
 import { ConfirmButtonHandler } from './components/confirm-btn.handler';
 
 @Module({
-  handlers: [ConfirmButtonHandler], })
+  handlers: [ConfirmButtonHandler],
+})
 export class SettingsModule {}
 ```
 
@@ -225,14 +235,18 @@ import { SettingsCommand } from './settings.command';
 @SlashCommandHandler(SettingsCommand)
 export class SettingsCommandHandler {
   constructor(
-    private readonly buttons: ButtonService, private readonly context: ContextService, ) {}
+    private readonly buttons: ButtonService,
+    private readonly context: ContextService,
+  ) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
     const ctx = await this.context.create({ guildId: interaction.guildId });
     const row = this.buttons.rowWithContext(ctx, ConfirmButton, CancelButton);
 
     await interaction.reply({
-      content: 'Are you sure you want to reset settings?', components: [row], });
+      content: 'Are you sure you want to reset settings?',
+      components: [row],
+    });
   }
 }
 ```

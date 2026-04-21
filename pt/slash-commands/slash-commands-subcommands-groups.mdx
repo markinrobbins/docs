@@ -29,11 +29,17 @@ import { SlashCommand, SlashOption, SlashSubcommand } from '@spraxium/common';
 
 @SlashCommand({ name: 'user', description: 'User utilities.' })
 export class UserCommand {
-  @SlashOption.User('target', { description: 'The user to look up', required: true })
+  @SlashOption.User('target', {
+    description: 'The user to look up',
+    required: true,
+  })
   @SlashSubcommand({ name: 'info', description: 'Show user info' })
   info() {}
 
-  @SlashOption.User('target', { description: 'The user to get the avatar of', required: false })
+  @SlashOption.User('target', {
+    description: 'The user to get the avatar of',
+    required: false,
+  })
   @SlashSubcommand({ name: 'avatar', description: 'Show user avatar' })
   avatar() {}
 }
@@ -50,11 +56,17 @@ import { SlashCommand, SlashOption, SlashSubcommand } from '@spraxium/common';
 
 @SlashCommand({ name: 'user', description: 'User utilities.' })
 export class UserCommand {
-  @SlashOption.User('target', { description: 'The user to look up', required: true })
+  @SlashOption.User('target', {
+    description: 'The user to look up',
+    required: true,
+  })
   @SlashSubcommand({ name: 'info', description: 'Show user info' })
   info() {}
 
-  @SlashOption.User('target', { description: 'The user to get the avatar of', required: false })
+  @SlashOption.User('target', {
+    description: 'The user to get the avatar of',
+    required: false,
+  })
   @SlashSubcommand({ name: 'avatar', description: 'Show user avatar' })
   avatar() {}
 }
@@ -69,7 +81,9 @@ import { UserCommand } from '../commands/user.command';
 @SlashCommandHandler(UserCommand, { sub: 'info' })
 export class UserInfoHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('target') target: User, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('target') target: User,
+  ): Promise<void> {
     await interaction.reply(`User: ${target.tag}, ID: ${target.id}`);
   }
 }
@@ -84,7 +98,9 @@ import { UserCommand } from '../commands/user.command';
 @SlashCommandHandler(UserCommand, { sub: 'avatar' })
 export class UserAvatarHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('target') target: User | null, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('target') target: User | null,
+  ): Promise<void> {
     const user = target ?? interaction.user;
     await interaction.reply(user.displayAvatarURL({ size: 512 }));
   }
@@ -101,45 +117,87 @@ A classe de grupo serve como um namespace para subcomandos. No seletor do Discor
 
 ```typescript filename="commands/config.command.ts"
 import {
-  SlashCommand, SlashOption, SlashSubcommand, SlashSubcommandGroup, SlashSubcommandGroups, } from '@spraxium/common';
+  SlashCommand,
+  SlashOption,
+  SlashSubcommand,
+  SlashSubcommandGroup,
+  SlashSubcommandGroups,
+} from '@spraxium/common';
 import { ChannelType } from 'discord.js';
 
 @SlashSubcommandGroup({
-  name: 'moderation', description: 'Moderation settings', })
+  name: 'moderation',
+  description: 'Moderation settings',
+})
 export class ModerationGroup {
-  @SlashOption.Boolean('enabled', { description: 'Enable or disable automod', required: true })
-  @SlashOption.String('filter', { description: 'Filter profile to apply', required: false })
-  @SlashSubcommand({ name: 'automod', description: 'Configure automod filters' })
+  @SlashOption.Boolean('enabled', {
+    description: 'Enable or disable automod',
+    required: true,
+  })
+  @SlashOption.String('filter', {
+    description: 'Filter profile to apply',
+    required: false,
+  })
+  @SlashSubcommand({
+    name: 'automod',
+    description: 'Configure automod filters',
+  })
   automod() {}
 
   @SlashOption.Channel('channel', {
-    description: 'Channel to send moderation logs to', required: true, channelTypes: [ChannelType.GuildText], })
-  @SlashSubcommand({ name: 'logging', description: 'Configure moderation logging channel' })
+    description: 'Channel to send moderation logs to',
+    required: true,
+    channelTypes: [ChannelType.GuildText],
+  })
+  @SlashSubcommand({
+    name: 'logging',
+    description: 'Configure moderation logging channel',
+  })
   logging() {}
 }
 
 @SlashSubcommandGroup({
-  name: 'welcome', description: 'Welcome system settings', })
+  name: 'welcome',
+  description: 'Welcome system settings',
+})
 export class WelcomeGroup {
   @SlashOption.Channel('channel', {
-    description: 'Channel to send welcome messages to', required: true, channelTypes: [ChannelType.GuildText], })
+    description: 'Channel to send welcome messages to',
+    required: true,
+    channelTypes: [ChannelType.GuildText],
+  })
   @SlashSubcommand({ name: 'channel', description: 'Set the welcome channel' })
   setChannel() {}
 
   @SlashOption.String('template', {
-    description: 'Welcome message template', required: true, maxLength: 2000, })
-  @SlashSubcommand({ name: 'message', description: 'Set the welcome message template' })
+    description: 'Welcome message template',
+    required: true,
+    maxLength: 2000,
+  })
+  @SlashSubcommand({
+    name: 'message',
+    description: 'Set the welcome message template',
+  })
   message() {}
 }
 
 @SlashSubcommandGroups([ModerationGroup, WelcomeGroup])
 @SlashCommand({
-  name: 'config', description: 'Server configuration commands.', defaultMemberPermissions: 0x20n, })
+  name: 'config',
+  description: 'Server configuration commands.',
+  defaultMemberPermissions: 0x20n,
+})
 export class ConfigCommand {
-  @SlashSubcommand({ name: 'view', description: 'View the current server configuration' })
+  @SlashSubcommand({
+    name: 'view',
+    description: 'View the current server configuration',
+  })
   view() {}
 
-  @SlashSubcommand({ name: 'reset', description: 'Reset configuration to defaults' })
+  @SlashSubcommand({
+    name: 'reset',
+    description: 'Reset configuration to defaults',
+  })
   reset() {}
 }
 ```
@@ -168,7 +226,9 @@ export class ConfigViewHandler {
       .setColor(0x5865f2)
       .setTitle('Server Configuration')
       .addFields(
-        { name: 'Prefix', value: '`!`', inline: true }, { name: 'Language', value: 'en-US', inline: true }, );
+        { name: 'Prefix', value: '`!`', inline: true },
+        { name: 'Language', value: 'en-US', inline: true },
+      );
 
     await interaction.reply({ embeds: [embed] });
   }
@@ -184,7 +244,10 @@ import { ConfigCommand } from '../commands/config.command';
 @SlashCommandHandler(ConfigCommand, { sub: 'automod', group: 'moderation' })
 export class ConfigAutomodHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('enabled') enabled: boolean, @SlashOpt('filter') filter: string | null, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('enabled') enabled: boolean,
+    @SlashOpt('filter') filter: string | null,
+  ): Promise<void> {
     const state = enabled ? 'enabled' : 'disabled';
     const filterText = filter ? ` (filter: ${filter})` : '';
     await interaction.reply(`Automod has been **${state}**${filterText}.`);
@@ -209,8 +272,16 @@ import { ConfigWelcomeChannelHandler } from './handlers/config-welcome-channel.h
 import { ConfigWelcomeMessageHandler } from './handlers/config-welcome-message.handler';
 
 @Module({
-  commands: [ConfigCommand], handlers: [
-    ConfigViewHandler, ConfigResetHandler, ConfigAutomodHandler, ConfigLoggingHandler, ConfigWelcomeChannelHandler, ConfigWelcomeMessageHandler, ], })
+  commands: [ConfigCommand],
+  handlers: [
+    ConfigViewHandler,
+    ConfigResetHandler,
+    ConfigAutomodHandler,
+    ConfigLoggingHandler,
+    ConfigWelcomeChannelHandler,
+    ConfigWelcomeMessageHandler,
+  ],
+})
 export class SlashModule {}
 ```
 

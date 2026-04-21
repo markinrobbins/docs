@@ -65,7 +65,16 @@ La fuente body merece atención especial. *ParamResolver* parsea JSON del body d
   <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
 ```typescript filename="http/controllers/guild-http.controller.ts"
 import {
-  HttpBody, HttpController, HttpCtx, HttpGet, HttpHeader, HttpStatus, HttpParam, HttpPatch, HttpQuery, } from '@spraxium/http';
+  HttpBody,
+  HttpController,
+  HttpCtx,
+  HttpGet,
+  HttpHeader,
+  HttpStatus,
+  HttpParam,
+  HttpPatch,
+  HttpQuery,
+} from '@spraxium/http';
 import type { Context } from 'hono';
 import { NotFoundError } from '@spraxium/http';
 import { GuildHttpService } from '../services/guild-http.service';
@@ -77,17 +86,26 @@ export class GuildHttpController {
 
   @HttpGet('/:guildId')
   async getGuild(
-    @HttpParam('guildId') guildId: string, @HttpQuery('includeMembers') includeMembers?: string, @HttpHeader('x-request-id') requestId?: string, ) {
+    @HttpParam('guildId') guildId: string,
+    @HttpQuery('includeMembers') includeMembers?: string,
+    @HttpHeader('x-request-id') requestId?: string,
+  ) {
     const guild = await this.service.getGuildSummary(guildId);
     if (!guild) throw new NotFoundError('Guild not found');
     return {
-      ok: true, ...guild, includeMembers: includeMembers === 'true', requestId, };
+      ok: true,
+      ...guild,
+      includeMembers: includeMembers === 'true',
+      requestId,
+    };
   }
 
   @HttpPatch('/:guildId/config')
   @HttpStatus(200)
   async updateGuildConfig(
-    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
+    @HttpParam('guildId') guildId: string,
+    @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+  ) {
     return this.service.updateConfig(guildId, body);
   }
 
@@ -123,9 +141,13 @@ import { GuildHttpController } from './http/controllers/guild-http.controller';
 import { GuildHttpService } from './http/services/guild-http.service';
 
 @HttpClientModule({
-  controllers: [GuildHttpController], services: [GuildHttpService], })
+  controllers: [GuildHttpController],
+  services: [GuildHttpService],
+})
 @Module({
-  imports: [HttpModule], providers: [GuildHttpController, GuildHttpService], })
+  imports: [HttpModule],
+  providers: [GuildHttpController, GuildHttpService],
+})
 export class AppModule {}
 ```
   </Tab>

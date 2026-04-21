@@ -25,7 +25,12 @@ Here are two classes that show the two-class pattern. The first is a command def
 import { PrefixCommand } from '@spraxium/common';
 
 @PrefixCommand({
-  name: 'ping', aliases: ['p'], description: 'Check bot latency.', category: 'Fun', usage: '!ping', cooldown: 3,
+  name: 'ping',
+  aliases: ['p'],
+  description: 'Check bot latency.',
+  category: 'Fun',
+  usage: '!ping',
+  cooldown: 3,
 })
 export class PingCommand {
   build() {}
@@ -61,7 +66,8 @@ import { PingCommand } from './commands/ping.command';
 import { PingHandler } from './handlers/ping-command.handler';
 
 @Module({
-  commands: [PingCommand], handlers: [PingHandler],
+  commands: [PingCommand],
+  handlers: [PingHandler],
 })
 export class FunModule {}
 ```

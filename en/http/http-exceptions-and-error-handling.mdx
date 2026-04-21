@@ -85,9 +85,19 @@ Clients receive a predictable shape where `details` is always an array, even for
   <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
 ```typescript filename="http/controllers/guild-http.controller.ts"
 import {
-  HttpBody, HttpController, HttpGet, HttpParam, HttpPatch, HttpStatus, } from '@spraxium/http';
+  HttpBody,
+  HttpController,
+  HttpGet,
+  HttpParam,
+  HttpPatch,
+  HttpStatus,
+} from '@spraxium/http';
 import {
-  NotFoundError, ForbiddenError, ConflictError, ServiceUnavailableError, } from '@spraxium/http';
+  NotFoundError,
+  ForbiddenError,
+  ConflictError,
+  ServiceUnavailableError,
+} from '@spraxium/http';
 import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
 
 @HttpController('/guilds')
@@ -110,7 +120,9 @@ export class GuildHttpController {
   @HttpPatch('/:guildId/config')
   @HttpStatus(200)
   async updateConfig(
-    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
+    @HttpParam('guildId') guildId: string,
+    @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+  ) {
     const guild = await this.findGuild(guildId);
     if (!guild) throw new NotFoundError('Guild not found');
 
@@ -153,9 +165,12 @@ import { HttpClientModule, HttpModule } from '@spraxium/http';
 import { GuildHttpController } from './http/controllers/guild-http.controller';
 
 @HttpClientModule({
-  controllers: [GuildHttpController], })
+  controllers: [GuildHttpController],
+})
 @Module({
-  imports: [HttpModule], providers: [GuildHttpController], })
+  imports: [HttpModule],
+  providers: [GuildHttpController],
+})
 export class AppModule {}
 ```
   </Tab>
@@ -249,7 +264,9 @@ import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
 export class GuildHttpController {
   @HttpPatch('/:guildId/config')
   async updateConfig(
-    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
+    @HttpParam('guildId') guildId: string,
+    @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+  ) {
     const guild = await this.fetchGuild(guildId);
     if (!guild) throw new BridgeUnavailableError();
     if (guild.locked) throw new GuildLockedError(guildId);

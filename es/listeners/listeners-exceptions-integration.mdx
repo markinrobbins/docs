@@ -128,7 +128,7 @@ export class MemberJoinListener {
       await this.welcome.assignDefaultRoles(member);
     } catch (error) {
       this.logger.error(
-        `Failed to process member join for ${member.user.username}: ${error}`
+        `Failed to process member join for ${member.user.username}: ${error}`,
       );
     }
   }

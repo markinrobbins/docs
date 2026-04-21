@@ -21,7 +21,9 @@ The framework automatically discovers and loads the schedule config during boots
 import { defineSchedule } from '@spraxium/schedule';
 
 export default defineSchedule({
-  timezone: 'America/Sao_Paulo', defaultLockTtlMs: 30_000, disableAll: false,
+  timezone: 'America/Sao_Paulo',
+  defaultLockTtlMs: 30_000,
+  disableAll: false,
 });
 ```
   </Tab>
@@ -116,7 +118,13 @@ A single service can have methods decorated with different job types. This is us
 
 ```typescript filename="src/modules/tasks/services/maintenance.service.ts"
 import { Injectable } from '@spraxium/common';
-import { Cron, CronExpression, Interval, IntervalExpression, AfterOnline } from '@spraxium/schedule';
+import {
+  Cron,
+  CronExpression,
+  Interval,
+  IntervalExpression,
+  AfterOnline,
+} from '@spraxium/schedule';
 
 @Injectable()
 export class MaintenanceService {
@@ -148,7 +156,9 @@ import { Cron, CronExpression } from '@spraxium/schedule';
 @Injectable()
 export class AnalyticsService {
   @Cron(CronExpression.EVERY_HOUR, {
-    name: 'hourly-analytics', disabled: process.env.ENABLE_ANALYTICS !== 'true', })
+    name: 'hourly-analytics',
+    disabled: process.env.ENABLE_ANALYTICS !== 'true',
+  })
   async collectAnalytics(): Promise<void> {
     // Collect and aggregate usage analytics
   }

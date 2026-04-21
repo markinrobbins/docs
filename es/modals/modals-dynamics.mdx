@@ -31,7 +31,10 @@ interface ConfigData {
 @ModalDynamic<ConfigData>()
 export class ConfigModal {
   @ModalInput({
-    label: 'Server Name', style: 'short', required: true, })
+    label: 'Server Name',
+    style: 'short',
+    required: true,
+  })
   serverName!: string;
 }
 ```
@@ -44,7 +47,13 @@ El predicado recibe los datos pasados a *ModalService.build*. Si no se proporcio
 
 ```typescript filename="src/components/config-modal.modal.ts"
 import {
-  ModalComponent, ModalDynamic, ModalInput, ModalWhen, ModalSelect, ModalChoice, } from '@spraxium/components';
+  ModalComponent,
+  ModalDynamic,
+  ModalInput,
+  ModalWhen,
+  ModalSelect,
+  ModalChoice,
+} from '@spraxium/components';
 
 interface ConfigData {
   featureFlags: string[];
@@ -55,12 +64,19 @@ interface ConfigData {
 @ModalDynamic<ConfigData>()
 export class ConfigModal {
   @ModalInput({
-    label: 'Server Name', style: 'short', required: true, })
+    label: 'Server Name',
+    style: 'short',
+    required: true,
+  })
   serverName!: string;
 
   @ModalWhen<ConfigData>((data) => data?.userRole === 'admin')
   @ModalInput({
-    label: 'Admin Secret Key', style: 'short', required: true, placeholder: 'Enter the admin secret key', })
+    label: 'Admin Secret Key',
+    style: 'short',
+    required: true,
+    placeholder: 'Enter the admin secret key',
+  })
   adminKey!: string;
 
   @ModalWhen<ConfigData>((data) => data?.featureFlags.includes('moderation'))
@@ -80,7 +96,11 @@ Usa los helpers del namespace *Modal.field* para construir definiciones de campo
 
 ```typescript filename="src/components/survey.modal.ts"
 import {
-  ModalComponent, ModalDynamic, ModalDynamicFields, ModalInput, } from '@spraxium/components';
+  ModalComponent,
+  ModalDynamic,
+  ModalDynamicFields,
+  ModalInput,
+} from '@spraxium/components';
 import { Modal } from '@spraxium/components';
 import type { ModalFieldDef } from '@spraxium/components';
 
@@ -92,14 +112,23 @@ interface SurveyData {
 @ModalDynamic<SurveyData>()
 export class SurveyModal {
   @ModalInput({
-    label: 'Your Name', style: 'short', required: true, })
+    label: 'Your Name',
+    style: 'short',
+    required: true,
+  })
   name!: string;
 
   @ModalDynamicFields()
   generateQuestions(data: SurveyData): ModalFieldDef[] {
     return data.questions.slice(0, 4).map((q) =>
       Modal.field.text({
-        id: q.id, label: q.label, style: 'paragraph', required: true, maxLength: 1000, }), );
+        id: q.id,
+        label: q.label,
+        style: 'paragraph',
+        required: true,
+        maxLength: 1000,
+      }),
+    );
   }
 }
 ```
@@ -125,14 +154,17 @@ export class SurveyCommandHandler {
     const questions = await this.loadQuestions(interaction.guildId);
 
     const modal = this.modals.build(SurveyModal, {
-      questions: questions.map((q) => ({ id: q.id, label: q.text })), });
+      questions: questions.map((q) => ({ id: q.id, label: q.text })),
+    });
 
     await interaction.showModal(modal);
   }
 
   private async loadQuestions(guildId: string) {
     return [
-      { id: 'q1', text: 'How would you rate the server?' }, { id: 'q2', text: 'What could be improved?' }, ];
+      { id: 'q1', text: 'How would you rate the server?' },
+      { id: 'q2', text: 'What could be improved?' },
+    ];
   }
 }
 ```
@@ -154,7 +186,9 @@ export class ConfigureCommandHandler {
     const featureFlags = await this.getFlags(interaction.guildId);
 
     const modal = this.modals.build(ConfigModal, {
-      userRole: member.permissions.has('Administrator') ? 'admin' : 'member', featureFlags, });
+      userRole: member.permissions.has('Administrator') ? 'admin' : 'member',
+      featureFlags,
+    });
 
     await interaction.showModal(modal);
   }
@@ -173,7 +207,14 @@ Las tres fuentes de campos se componen en un solo modal. El *ModalSchemaBuilder*
 
 ```typescript filename="src/components/application.modal.ts"
 import {
-  ModalComponent, ModalDynamic, ModalDynamicFields, ModalInput, ModalWhen, ModalSelect, ModalChoice, } from '@spraxium/components';
+  ModalComponent,
+  ModalDynamic,
+  ModalDynamicFields,
+  ModalInput,
+  ModalWhen,
+  ModalSelect,
+  ModalChoice,
+} from '@spraxium/components';
 import { Modal } from '@spraxium/components';
 import type { ModalFieldDef } from '@spraxium/components';
 
@@ -186,12 +227,19 @@ interface ApplicationData {
 @ModalDynamic<ApplicationData>()
 export class ApplicationModal {
   @ModalInput({
-    label: 'Your Name', style: 'short', required: true, })
+    label: 'Your Name',
+    style: 'short',
+    required: true,
+  })
   name!: string;
 
   @ModalWhen<ApplicationData>((data) => data?.requiresPortfolio === true)
   @ModalInput({
-    label: 'Portfolio URL', style: 'short', required: true, placeholder: 'https://your-portfolio.com', })
+    label: 'Portfolio URL',
+    style: 'short',
+    required: true,
+    placeholder: 'https://your-portfolio.com',
+  })
   portfolio!: string;
 
   @ModalDynamicFields()
@@ -201,13 +249,23 @@ export class ApplicationModal {
     if (data.position === 'developer') {
       fields.push(
         Modal.field.text({
-          id: 'languages', label: 'Programming Languages', style: 'short', required: true, }), );
+          id: 'languages',
+          label: 'Programming Languages',
+          style: 'short',
+          required: true,
+        }),
+      );
     }
 
     if (data.position === 'moderator') {
       fields.push(
         Modal.field.text({
-          id: 'experience', label: 'Moderation Experience', style: 'paragraph', required: true, }), );
+          id: 'experience',
+          label: 'Moderation Experience',
+          style: 'paragraph',
+          required: true,
+        }),
+      );
     }
 
     return fields;

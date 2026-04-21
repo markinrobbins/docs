@@ -61,12 +61,26 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 import { PermissionFlagsBits } from 'discord.js';
 
 @SlashCommand({
-  name: 'ban', description: 'Ban a member from the server.', defaultMemberPermissions: PermissionFlagsBits.BanMembers, })
+  name: 'ban',
+  description: 'Ban a member from the server.',
+  defaultMemberPermissions: PermissionFlagsBits.BanMembers,
+})
 export class BanCommand {
-  @SlashOption.User('target', { description: 'The member to ban', required: true })
-  @SlashOption.String('reason', { description: 'Reason for the ban', required: false, maxLength: 512 })
+  @SlashOption.User('target', {
+    description: 'The member to ban',
+    required: true,
+  })
+  @SlashOption.String('reason', {
+    description: 'Reason for the ban',
+    required: false,
+    maxLength: 512,
+  })
   @SlashOption.Integer('days', {
-    description: 'Number of days of messages to delete', required: false, min: 0, max: 7, })
+    description: 'Number of days of messages to delete',
+    required: false,
+    min: 0,
+    max: 7,
+  })
   build() {}
 }
 ```
@@ -130,7 +144,12 @@ Apply guards to handler classes using the *@UseGuards* decorator. You can pass o
 <CodeTabs defaultIndex={0}>
   <Tab label="Class-level guard" language="typescript">
 ```typescript filename="handlers/ban.handler.ts"
-import { Ctx, SlashCommandHandler, SlashOpt, UseGuards } from '@spraxium/common';
+import {
+  Ctx,
+  SlashCommandHandler,
+  SlashOpt,
+  UseGuards,
+} from '@spraxium/common';
 import type { ChatInputCommandInteraction, User } from 'discord.js';
 import { ModeratorGuard } from '../../guards/moderator.guard';
 import { BanCommand } from '../commands/ban.command';
@@ -139,7 +158,11 @@ import { BanCommand } from '../commands/ban.command';
 @SlashCommandHandler(BanCommand)
 export class BanHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('target') target: User, @SlashOpt('reason') reason: string | null, @SlashOpt('days') days: number | null, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('target') target: User,
+    @SlashOpt('reason') reason: string | null,
+    @SlashOpt('days') days: number | null,
+  ): Promise<void> {
     const reasonText = reason ?? 'No reason provided';
     await interaction.reply(`${target} has been banned. Reason: ${reasonText}`);
   }
@@ -170,7 +193,11 @@ export class NukeHandler {
 Some guards accept configuration options that change their behavior per handler. The framework supports passing typed options to guards using the *withOptions* helper. Guard option fields are declared with the *@GuardOption* decorator on the guard class, specifying default values and whether the option is required.
 
 ```typescript filename="guards/cooldown.guard.ts"
-import { GuardOption, type ExecutionContext, type SpraxiumGuard } from '@spraxium/common';
+import {
+  GuardOption,
+  type ExecutionContext,
+  type SpraxiumGuard,
+} from '@spraxium/common';
 import type { ChatInputCommandInteraction } from 'discord.js';
 
 export class CooldownGuard implements SpraxiumGuard {
@@ -207,7 +234,10 @@ import { defineConfig } from '@spraxium/core';
 
 export default defineConfig({
   exceptions: {
-    logUnhandled: true, layouts: [], }, });
+    logUnhandled: true,
+    layouts: [],
+  },
+});
 ```
 
 When *logUnhandled* is `true` (the default), any thrown value that is not a *SpraxiumException* subclass is logged with its message and stack trace before being wrapped in an *InternalException*. Setting it to `false` suppresses the console output but still sends the error reply to Discord.
@@ -223,17 +253,31 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 import { PermissionFlagsBits } from 'discord.js';
 
 @SlashCommand({
-  name: 'ban', description: 'Ban a member from the server.', defaultMemberPermissions: PermissionFlagsBits.BanMembers, })
+  name: 'ban',
+  description: 'Ban a member from the server.',
+  defaultMemberPermissions: PermissionFlagsBits.BanMembers,
+})
 export class BanCommand {
-  @SlashOption.User('target', { description: 'The member to ban', required: true })
-  @SlashOption.String('reason', { description: 'Reason for the ban', required: false })
+  @SlashOption.User('target', {
+    description: 'The member to ban',
+    required: true,
+  })
+  @SlashOption.String('reason', {
+    description: 'Reason for the ban',
+    required: false,
+  })
   build() {}
 }
 ```
   </Tab>
   <Tab label="handlers/ban.handler.ts" language="typescript">
 ```typescript filename="handlers/ban.handler.ts"
-import { Ctx, SlashCommandHandler, SlashOpt, UseGuards } from '@spraxium/common';
+import {
+  Ctx,
+  SlashCommandHandler,
+  SlashOpt,
+  UseGuards,
+} from '@spraxium/common';
 import type { ChatInputCommandInteraction, User } from 'discord.js';
 import { ModeratorGuard } from '../../guards/moderator.guard';
 import { BanCommand } from '../commands/ban.command';
@@ -242,15 +286,26 @@ import { BanCommand } from '../commands/ban.command';
 @SlashCommandHandler(BanCommand)
 export class BanHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('target') target: User, @SlashOpt('reason') reason: string | null, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('target') target: User,
+    @SlashOpt('reason') reason: string | null,
+  ): Promise<void> {
     if (!interaction.guild) {
-      await interaction.reply({ content: 'This command can only be used in a server.', flags: 'Ephemeral' });
+      await interaction.reply({
+        content: 'This command can only be used in a server.',
+        flags: 'Ephemeral',
+      });
       return;
     }
 
-    const member = await interaction.guild.members.fetch(target.id).catch(() => null);
+    const member = await interaction.guild.members
+      .fetch(target.id)
+      .catch(() => null);
     if (!member) {
-      await interaction.reply({ content: `Could not find member ${target}.`, flags: 'Ephemeral' });
+      await interaction.reply({
+        content: `Could not find member ${target}.`,
+        flags: 'Ephemeral',
+      });
       return;
     }
 

@@ -55,15 +55,24 @@ Para proyectos grandes, es útil extraer la configuración del schedule a un arc
 <CodeTabs>
   <Tab label="Archivo de configuración" language="typescript">
 ```typescript filename="config/schedule.config.ts"
-import { defineSchedule, MemoryDriver, RedisScheduleDriver } from '@spraxium/schedule';
+import {
+  defineSchedule,
+  MemoryDriver,
+  RedisScheduleDriver,
+} from '@spraxium/schedule';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
 export default defineSchedule({
   driver: isProduction
     ? new RedisScheduleDriver({
-        host: process.env.REDIS_HOST ?? 'localhost', port: Number(process.env.REDIS_PORT ?? 6379), })
-    : new MemoryDriver(), timezone: 'America/Sao_Paulo', defaultLockTtlMs: 30_000, disableAll: process.env.DISABLE_JOBS === 'true',
+        host: process.env.REDIS_HOST ?? 'localhost',
+        port: Number(process.env.REDIS_PORT ?? 6379),
+      })
+    : new MemoryDriver(),
+  timezone: 'America/Sao_Paulo',
+  defaultLockTtlMs: 30_000,
+  disableAll: process.env.DISABLE_JOBS === 'true',
 });
 ```
   </Tab>
@@ -73,8 +82,7 @@ import { defineConfig } from '@spraxium/core';
 import schedule from './config/schedule.config';
 
 export default defineConfig({
-  plugins: [
-    schedule, ],
+  plugins: [schedule],
 });
 ```
   </Tab>
@@ -109,24 +117,34 @@ Cuando un servicio tiene múltiples jobs, puedes controlarlos independientemente
 
 ```typescript filename="src/modules/moderation/services/moderation-jobs.service.ts"
 import { Injectable } from '@spraxium/common';
-import { AfterOnline, Cron, CronExpression, Interval, IntervalExpression } from '@spraxium/schedule';
+import {
+  AfterOnline,
+  Cron,
+  CronExpression,
+  Interval,
+  IntervalExpression,
+} from '@spraxium/schedule';
 
 @Injectable()
 export class ModerationJobsService {
   @Cron(CronExpression.EVERY_DAY_AT_3AM, {
-    name: 'moderation:cleanup', timezone: 'America/New_York', })
+    name: 'moderation:cleanup',
+    timezone: 'America/New_York',
+  })
   async cleanupExpiredBans(): Promise<void> {
     // Eliminar bans expirados de la base de datos
   }
 
   @Interval(IntervalExpression.EVERY_10_SECONDS, {
-    name: 'moderation:spam-check', })
+    name: 'moderation:spam-check',
+  })
   async checkSpamQueues(): Promise<void> {
     // Procesar mensajes en cola para detecci\u00f3n de spam
   }
 
   @AfterOnline(5000, {
-    name: 'moderation:load-config', })
+    name: 'moderation:load-config',
+  })
   async loadModerationConfig(): Promise<void> {
     // Cargar configuraci\u00f3n de moderaci\u00f3n al estar online
   }
@@ -148,7 +166,9 @@ import { Cron, CronExpression } from '@spraxium/schedule';
 @Injectable()
 export class AnalyticsJobsService {
   @Cron(CronExpression.EVERY_HOUR, {
-    name: 'analytics:hourly', disabled: process.env.DISABLE_ANALYTICS === 'true', })
+    name: 'analytics:hourly',
+    disabled: process.env.DISABLE_ANALYTICS === 'true',
+  })
   async hourlyReport(): Promise<void> {
     // Generar reporte por hora
   }

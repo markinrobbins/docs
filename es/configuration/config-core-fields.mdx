@@ -105,8 +105,15 @@ El bloque *logger* controla la política de salida del logger integrado del fram
 import type { SpraxiumLoggerConfig } from '@spraxium/core';
 
 export const loggerConfig: SpraxiumLoggerConfig = {
-  maskTokens: true, commandLogging: true, discord: {
-    type: 'channel', webhookUrl: process.env.LOGGER_WEBHOOK!, levels: ['error', 'warn'], channelId: '1462519588775395429', }, };
+  maskTokens: true,
+  commandLogging: true,
+  discord: {
+    type: 'channel',
+    webhookUrl: process.env.LOGGER_WEBHOOK!,
+    levels: ['error', 'warn'],
+    channelId: '1462519588775395429',
+  },
+};
 ```
 
 ## plugins

@@ -42,7 +42,9 @@ import { PermissionGuard, RoleGuard } from '@spraxium/core';
 import { MinRolesGuard } from '../guards/min-roles.guard';
 
 @UseGuards(
-  withOptions(RoleGuard, { roles: ['Moderator'] }), withOptions(PermissionGuard, { permissions: ['BanMembers'] }), withOptions(MinRolesGuard, { minRoles: 3 }),
+  withOptions(RoleGuard, { roles: ['Moderator'] }),
+  withOptions(PermissionGuard, { permissions: ['BanMembers'] }),
+  withOptions(MinRolesGuard, { minRoles: 3 }),
 )
 export class ModerationHandler {
   async handle() {
@@ -135,9 +137,7 @@ await app.listen();
 import { UseGuards, withOptions } from '@spraxium/common';
 import { GuildOnly, PermissionGuard, RoleGuard } from '@spraxium/core';
 
-@UseGuards(
-  GuildOnly, withOptions(RoleGuard, { roles: ['Moderator', 'Admin'] }),
-)
+@UseGuards(GuildOnly, withOptions(RoleGuard, { roles: ['Moderator', 'Admin'] }))
 export class ModerationHandler {
   @UseGuards(withOptions(PermissionGuard, { permissions: ['BanMembers'] }))
   async handleBan() {
@@ -203,9 +203,7 @@ import { UseGuards, withOptions } from '@spraxium/common';
 import { GuildOnly } from '@spraxium/core';
 import { MinAccountAgeGuard } from '../guards/min-account-age.guard';
 
-@UseGuards(
-  GuildOnly, withOptions(MinAccountAgeGuard, { minDays: 30 }),
-)
+@UseGuards(GuildOnly, withOptions(MinAccountAgeGuard, { minDays: 30 }))
 export class GiveawayHandler {
   async handle() {
     // solo cuentas humanas con más de 30 dias pueden participar

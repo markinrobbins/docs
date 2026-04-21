@@ -66,10 +66,29 @@ String selects are the most flexible type because you control the option list en
 import { StringSelect, SelectOption } from '@spraxium/components';
 
 @StringSelect({
-  customId: 'language_picker', placeholder: 'Choose a language', minValues: 1, maxValues: 1, })
-@SelectOption({ label: 'English', value: 'en', description: 'English (US)', emoji: '🇺🇸' })
-@SelectOption({ label: 'Português', value: 'pt', description: 'Portuguese (BR)', emoji: '🇧🇷' })
-@SelectOption({ label: 'Español', value: 'es', description: 'Spanish', emoji: '🇪🇸' })
+  customId: 'language_picker',
+  placeholder: 'Choose a language',
+  minValues: 1,
+  maxValues: 1,
+})
+@SelectOption({
+  label: 'English',
+  value: 'en',
+  description: 'English (US)',
+  emoji: '🇺🇸',
+})
+@SelectOption({
+  label: 'Português',
+  value: 'pt',
+  description: 'Portuguese (BR)',
+  emoji: '🇧🇷',
+})
+@SelectOption({
+  label: 'Español',
+  value: 'es',
+  description: 'Spanish',
+  emoji: '🇪🇸',
+})
 export class LanguageSelect {}
 ```
   </Tab>
@@ -82,9 +101,14 @@ import { LanguageSelect } from './language-select.component';
 @StringSelectHandler(LanguageSelect)
 export class LanguageSelectHandler {
   async handle(
-    @Ctx() interaction: StringSelectMenuInteraction, @SelectedValues() values: string[], ): Promise<void> {
+    @Ctx() interaction: StringSelectMenuInteraction,
+    @SelectedValues() values: string[],
+  ): Promise<void> {
     const language = values[0];
-    await interaction.reply({ content: `Language set to ${language}.`, ephemeral: true });
+    await interaction.reply({
+      content: `Language set to ${language}.`,
+      ephemeral: true,
+    });
   }
 }
 ```
@@ -152,9 +176,14 @@ When the option list depends on runtime data, use the *dynamicOptions* callback 
 import { StringSelect } from '@spraxium/components';
 
 @StringSelect({
-  customId: 'category_picker', placeholder: 'Select a category', dynamicOptions: (data: { categories: Array<{ name: string; id: string }> }) =>
+  customId: 'category_picker',
+  placeholder: 'Select a category',
+  dynamicOptions: (data: { categories: Array<{ name: string; id: string }> }) =>
     data.categories.map((cat) => ({
-      label: cat.name, value: cat.id, })), })
+      label: cat.name,
+      value: cat.id,
+    })),
+})
 export class CategorySelect {}
 ```
 
@@ -174,7 +203,10 @@ User, role, mentionable, and channel selects are simpler because Discord populat
 import { UserSelect } from '@spraxium/components';
 
 @UserSelect({
-  customId: 'target_user', placeholder: 'Select a user', maxValues: 3, })
+  customId: 'target_user',
+  placeholder: 'Select a user',
+  maxValues: 3,
+})
 export class TargetUserSelect {}
 ```
   </Tab>
@@ -183,7 +215,11 @@ export class TargetUserSelect {}
 import { RoleSelect } from '@spraxium/components';
 
 @RoleSelect({
-  customId: 'assign_role', placeholder: 'Choose roles to assign', minValues: 1, maxValues: 5, })
+  customId: 'assign_role',
+  placeholder: 'Choose roles to assign',
+  minValues: 1,
+  maxValues: 5,
+})
 export class AssignRoleSelect {}
 ```
   </Tab>
@@ -193,7 +229,10 @@ import { ChannelSelect } from '@spraxium/components';
 import { ChannelType } from 'discord.js';
 
 @ChannelSelect({
-  customId: 'log_channel', placeholder: 'Select a log channel', channelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement], })
+  customId: 'log_channel',
+  placeholder: 'Select a log channel',
+  channelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement],
+})
 export class LogChannelSelect {}
 ```
   </Tab>
@@ -211,10 +250,15 @@ import { AssignRoleSelect } from './role-select.component';
 @RoleSelectHandler(AssignRoleSelect)
 export class AssignRoleSelectHandler {
   async handle(
-    @Ctx() interaction: RoleSelectMenuInteraction, @Selected() selected: RoleSelectMenuInteraction, ): Promise<void> {
+    @Ctx() interaction: RoleSelectMenuInteraction,
+    @Selected() selected: RoleSelectMenuInteraction,
+  ): Promise<void> {
     const roles = selected.roles;
     const names = roles.map((r) => r.name).join(', ');
-    await interaction.reply({ content: `Assigning roles: ${names}`, ephemeral: true });
+    await interaction.reply({
+      content: `Assigning roles: ${names}`,
+      ephemeral: true,
+    });
   }
 }
 ```
@@ -233,7 +277,9 @@ import { CategoryCommand } from './category.command';
 @SlashCommandHandler(CategoryCommand)
 export class CategoryCommandHandler {
   constructor(
-    private readonly selects: SelectService, private readonly context: ContextService, ) {}
+    private readonly selects: SelectService,
+    private readonly context: ContextService,
+  ) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
     const categories = await this.fetchCategories(interaction.guildId!);
@@ -241,12 +287,17 @@ export class CategoryCommandHandler {
     const row = await this.selects.build(CategorySelect, categories, ctx);
 
     await interaction.reply({
-      content: 'Choose a category:', components: [row], });
+      content: 'Choose a category:',
+      components: [row],
+    });
   }
 
   private async fetchCategories(guildId: string) {
     return [
-      { name: 'General', id: 'general' }, { name: 'Support', id: 'support' }, { name: 'Feedback', id: 'feedback' }, ];
+      { name: 'General', id: 'general' },
+      { name: 'Support', id: 'support' },
+      { name: 'Feedback', id: 'feedback' },
+    ];
   }
 }
 ```
@@ -263,7 +314,9 @@ const row = Selects.string('quick_pick')
   .minValues(1)
   .maxValues(1)
   .options([
-    { label: 'Option A', value: 'a' }, { label: 'Option B', value: 'b' }, ])
+    { label: 'Option A', value: 'a' },
+    { label: 'Option B', value: 'b' },
+  ])
   .buildRow();
 ```
 
@@ -279,8 +332,8 @@ import { LanguageSelectHandler } from './components/language-select.handler';
 import { TargetUserSelectHandler } from './components/user-select.handler';
 
 @Module({
-  handlers: [
-    LanguageSelectHandler, TargetUserSelectHandler, ], })
+  handlers: [LanguageSelectHandler, TargetUserSelectHandler],
+})
 export class SettingsModule {}
 ```
 

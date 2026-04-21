@@ -63,8 +63,12 @@ export default defineSchedule({
 import { defineSchedule, RedisScheduleDriver } from '@spraxium/schedule';
 
 export default defineSchedule({
-  timezone: 'UTC', defaultLockTtlMs: 30_000, driver: new RedisScheduleDriver({
-    host: process.env.REDIS_HOST ?? 'localhost', port: Number(process.env.REDIS_PORT ?? 6379), }),
+  timezone: 'UTC',
+  defaultLockTtlMs: 30_000,
+  driver: new RedisScheduleDriver({
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: Number(process.env.REDIS_PORT ?? 6379),
+  }),
 });
 ```
   </Tab>
@@ -133,7 +137,10 @@ export class ScheduleAdminHandler {
   constructor(private readonly scheduleService: ScheduleService) {}
 
   async handle(
-    @Ctx() message: Message, @PrefixArg('action') action: string, @PrefixArg('jobName') jobName: string, ): Promise<void> {
+    @Ctx() message: Message,
+    @PrefixArg('action') action: string,
+    @PrefixArg('jobName') jobName: string,
+  ): Promise<void> {
     const job = this.scheduleService.get(jobName);
     if (!job) {
       await message.reply(`Job \`${jobName}\` not found.`);

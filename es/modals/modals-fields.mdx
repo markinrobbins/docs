@@ -102,15 +102,32 @@ import { ModalComponent, ModalInput } from '@spraxium/components';
 @ModalComponent({ id: 'report-modal', title: 'Submit Report' })
 export class ReportModal {
   @ModalInput({
-    label: 'Title', placeholder: 'A short title for the report', required: true, minLength: 5, maxLength: 100, style: 'short', })
+    label: 'Title',
+    placeholder: 'A short title for the report',
+    required: true,
+    minLength: 5,
+    maxLength: 100,
+    style: 'short',
+  })
   title!: string;
 
   @ModalInput({
-    label: 'Description', placeholder: 'Describe the issue in detail...', required: true, minLength: 20, maxLength: 4000, style: 'paragraph', })
+    label: 'Description',
+    placeholder: 'Describe the issue in detail...',
+    required: true,
+    minLength: 20,
+    maxLength: 4000,
+    style: 'paragraph',
+  })
   description!: string;
 
   @ModalInput({
-    label: 'Reproduction Steps', placeholder: 'Optional steps to reproduce', required: false, style: 'paragraph', value: '1. \n2. \n3. ', })
+    label: 'Reproduction Steps',
+    placeholder: 'Optional steps to reproduce',
+    required: false,
+    style: 'paragraph',
+    value: '1. \n2. \n3. ',
+  })
   steps!: string;
 }
 ```
@@ -125,14 +142,32 @@ import { ModalComponent, ModalSelect, ModalChoice } from '@spraxium/components';
 @ModalComponent({ id: 'ticket-modal', title: 'Create Ticket' })
 export class TicketModal {
   @ModalSelect({
-    label: 'Category', placeholder: 'Select a ticket category', required: true, })
-  @ModalChoice({ label: 'Bug Report', value: 'bug', description: 'Something is broken' })
-  @ModalChoice({ label: 'Feature Request', value: 'feature', description: 'Suggest an improvement' })
-  @ModalChoice({ label: 'General Question', value: 'question', description: 'Ask a question' })
+    label: 'Category',
+    placeholder: 'Select a ticket category',
+    required: true,
+  })
+  @ModalChoice({
+    label: 'Bug Report',
+    value: 'bug',
+    description: 'Something is broken',
+  })
+  @ModalChoice({
+    label: 'Feature Request',
+    value: 'feature',
+    description: 'Suggest an improvement',
+  })
+  @ModalChoice({
+    label: 'General Question',
+    value: 'question',
+    description: 'Ask a question',
+  })
   category!: string;
 
   @ModalInput({
-    label: 'Details', style: 'paragraph', required: true, })
+    label: 'Details',
+    style: 'paragraph',
+    required: true,
+  })
   details!: string;
 }
 ```
@@ -149,7 +184,10 @@ import { ModalComponent, ModalUserSelect } from '@spraxium/components';
 @ModalComponent({ id: 'assign-modal', title: 'Assign User' })
 export class AssignModal {
   @ModalUserSelect({
-    label: 'Assignee', placeholder: 'Pick a team member', required: true, })
+    label: 'Assignee',
+    placeholder: 'Pick a team member',
+    required: true,
+  })
   assignee!: string;
 }
 ```
@@ -162,7 +200,11 @@ import { ChannelType } from 'discord.js';
 @ModalComponent({ id: 'move-modal', title: 'Move to Channel' })
 export class MoveChannelModal {
   @ModalChannelSelect({
-    label: 'Target Channel', placeholder: 'Select a text channel', required: true, channelTypes: [ChannelType.GuildText], })
+    label: 'Target Channel',
+    placeholder: 'Select a text channel',
+    required: true,
+    channelTypes: [ChannelType.GuildText],
+  })
   channel!: string;
 }
 ```
@@ -174,7 +216,10 @@ import { ModalComponent, ModalRoleSelect } from '@spraxium/components';
 @ModalComponent({ id: 'role-modal', title: 'Assign Role' })
 export class RoleAssignModal {
   @ModalRoleSelect({
-    label: 'Role', placeholder: 'Pick a role to assign', required: true, })
+    label: 'Role',
+    placeholder: 'Pick a role to assign',
+    required: true,
+  })
   role!: string;
 }
 ```
@@ -188,7 +233,11 @@ Los grupos de radio presentan opciones mutuamente excluyentes donde el usuario d
 <CodeTabs>
 <Tab label="Grupo de radio">
 ```typescript filename="src/components/priority.modal.ts"
-import { ModalComponent, ModalRadioGroup, ModalOption } from '@spraxium/components';
+import {
+  ModalComponent,
+  ModalRadioGroup,
+  ModalOption,
+} from '@spraxium/components';
 
 @ModalComponent({ id: 'priority-modal', title: 'Set Priority' })
 export class PriorityModal {
@@ -203,12 +252,19 @@ export class PriorityModal {
 </Tab>
 <Tab label="Grupo de checkbox">
 ```typescript filename="src/components/notifications.modal.ts"
-import { ModalComponent, ModalCheckboxGroup, ModalOption } from '@spraxium/components';
+import {
+  ModalComponent,
+  ModalCheckboxGroup,
+  ModalOption,
+} from '@spraxium/components';
 
 @ModalComponent({ id: 'notif-modal', title: 'Notification Settings' })
 export class NotificationsModal {
   @ModalCheckboxGroup({
-    label: 'Notification Types', minValues: 1, maxValues: 3, })
+    label: 'Notification Types',
+    minValues: 1,
+    maxValues: 3,
+  })
   @ModalOption({ label: 'Mentions', value: 'mentions' })
   @ModalOption({ label: 'Direct Messages', value: 'dms' })
   @ModalOption({ label: 'Server Events', value: 'events' })
@@ -218,12 +274,18 @@ export class NotificationsModal {
 </Tab>
 <Tab label="Checkbox individual">
 ```typescript filename="src/components/consent.modal.ts"
-import { ModalComponent, ModalCheckbox, ModalInput } from '@spraxium/components';
+import {
+  ModalComponent,
+  ModalCheckbox,
+  ModalInput,
+} from '@spraxium/components';
 
 @ModalComponent({ id: 'consent-modal', title: 'Terms and Conditions' })
 export class ConsentModal {
   @ModalCheckbox({
-    label: 'I agree to the terms and conditions', required: true, })
+    label: 'I agree to the terms and conditions',
+    required: true,
+  })
   agreed!: string;
 
   @ModalInput({ label: 'Signature', style: 'short', required: true })
@@ -239,18 +301,30 @@ El decorator *@ModalFileUpload* agrega un campo de adjunto al modal. El decorato
 
 ```typescript filename="src/components/upload-evidence.modal.ts"
 import {
-  ModalComponent, ModalTextDisplay, ModalFileUpload, ModalInput, } from '@spraxium/components';
+  ModalComponent,
+  ModalTextDisplay,
+  ModalFileUpload,
+  ModalInput,
+} from '@spraxium/components';
 
 @ModalTextDisplay({
-  content: 'Please upload a screenshot or log file as evidence. Accepted formats: PNG, JPG, TXT.', })
+  content:
+    'Please upload a screenshot or log file as evidence. Accepted formats: PNG, JPG, TXT.',
+})
 @ModalComponent({ id: 'evidence-modal', title: 'Upload Evidence' })
 export class UploadEvidenceModal {
   @ModalFileUpload({
-    label: 'Evidence File', required: true, })
+    label: 'Evidence File',
+    required: true,
+  })
   file!: string;
 
   @ModalInput({
-    label: 'Additional Notes', style: 'paragraph', required: false, placeholder: 'Any extra context about the evidence...', })
+    label: 'Additional Notes',
+    style: 'paragraph',
+    required: false,
+    placeholder: 'Any extra context about the evidence...',
+  })
   notes!: string;
 }
 ```
@@ -341,12 +415,21 @@ import { Modal } from '@spraxium/components';
 
 export function createReasonField(required = true) {
   return Modal.field.text({
-    id: 'reason', label: 'Reason', placeholder: 'Provide a reason...', style: 'paragraph', required, minLength: 10, });
+    id: 'reason',
+    label: 'Reason',
+    placeholder: 'Provide a reason...',
+    style: 'paragraph',
+    required,
+    minLength: 10,
+  });
 }
 
 export function createPriorityChoices() {
   return [
-    Modal.choice({ label: 'Low', value: 'low' }), Modal.choice({ label: 'Medium', value: 'medium' }), Modal.choice({ label: 'High', value: 'high' }), ];
+    Modal.choice({ label: 'Low', value: 'low' }),
+    Modal.choice({ label: 'Medium', value: 'medium' }),
+    Modal.choice({ label: 'High', value: 'high' }),
+  ];
 }
 ```
 

@@ -70,7 +70,12 @@ A abordagem recomendada e extrair a config do Signal para um arquivo dedicado de
 import { defineSignal } from '@spraxium/signal';
 
 export const signalPlugin = defineSignal({
-  channelId: process.env.SIGNAL_CHANNEL_ID!, allowedWebhookIds: [process.env.SIGNAL_WEBHOOK_ID!], hmacSecret: process.env.SIGNAL_HMAC_SECRET!, deleteAfterProcessing: true, debug: false, });
+  channelId: process.env.SIGNAL_CHANNEL_ID!,
+  allowedWebhookIds: [process.env.SIGNAL_WEBHOOK_ID!],
+  hmacSecret: process.env.SIGNAL_HMAC_SECRET!,
+  deleteAfterProcessing: true,
+  debug: false,
+});
 ```
   </Tab>
   <Tab label="spraxium.config.ts" language="typescript">
@@ -79,7 +84,8 @@ import { defineConfig } from '@spraxium/core';
 import { signalPlugin } from './config/signal.config';
 
 export default defineConfig(() => ({
-  plugins: [signalPlugin], }));
+  plugins: [signalPlugin],
+}));
 ```
   </Tab>
 </CodeTabs>
@@ -97,7 +103,10 @@ import type { SignalEnvelope } from '@spraxium/signal';
 @SignalListener()
 export class GuildConfigSignal {
   @OnSignal('config.update')
-  async onConfigUpdate(payload: unknown, envelope: SignalEnvelope): Promise<void> {
+  async onConfigUpdate(
+    payload: unknown,
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     // Logica de dominio ancorada em envelope.guildId
   }
 }
@@ -137,13 +146,17 @@ import type { SignalEnvelope } from '@spraxium/signal';
 import { z } from 'zod';
 
 const ConfigUpdateSchema = z.object({
-  prefix: z.string().min(1).max(5), language: z.enum(['en', 'pt', 'es']).optional(), });
+  prefix: z.string().min(1).max(5),
+  language: z.enum(['en', 'pt', 'es']).optional(),
+});
 
 @SignalListener()
 export class GuildConfigSignal {
   @OnSignal('config.update', { schema: ConfigUpdateSchema })
   async onConfigUpdate(
-    payload: z.infer<typeof ConfigUpdateSchema>, envelope: SignalEnvelope, ): Promise<void> {
+    payload: z.infer<typeof ConfigUpdateSchema>,
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     // payload esta validado e tipado, envelope fornece contexto de guild
   }
 }
@@ -173,7 +186,9 @@ import { GuildConfigSignal } from './listeners/guild-config.signal';
 import { BillingSignal } from './listeners/billing.signal';
 
 @Module({
-  imports: [SignalModule], providers: [GuildConfigSignal, BillingSignal], })
+  imports: [SignalModule],
+  providers: [GuildConfigSignal, BillingSignal],
+})
 export class AppSignalModule {}
 ```
   </Tab>
@@ -184,13 +199,18 @@ import type { SignalEnvelope } from '@spraxium/signal';
 import { z } from 'zod';
 
 const BillingSchema = z.object({
-  action: z.enum(['activated', 'cancelled', 'upgraded']), planId: z.string(), userId: z.string(), });
+  action: z.enum(['activated', 'cancelled', 'upgraded']),
+  planId: z.string(),
+  userId: z.string(),
+});
 
 @SignalListener()
 export class BillingSignal {
   @OnSignal('billing.status.changed', { schema: BillingSchema })
   async onBillingChange(
-    payload: z.infer<typeof BillingSchema>, envelope: SignalEnvelope, ): Promise<void> {
+    payload: z.infer<typeof BillingSchema>,
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     // Aplica mudancas de cargo baseadas no status de billing
   }
 }
@@ -232,7 +252,10 @@ export class GuildConfigSignal {
   constructor(private readonly guildSettings: GuildSettingsService) {}
 
   @OnSignal('config.update')
-  async onConfigUpdate(payload: { prefix: string }, envelope: SignalEnvelope): Promise<void> {
+  async onConfigUpdate(
+    payload: { prefix: string },
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     await this.guildSettings.updatePrefix(envelope.guildId, payload.prefix);
   }
 }

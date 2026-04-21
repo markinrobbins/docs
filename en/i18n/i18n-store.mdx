@@ -44,7 +44,9 @@ import { db } from './database/connection';
 async function main(): Promise<void> {
   I18nStoreRegistry.set(new DrizzleLocaleStore(db));
 
-  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN! });
+  const app = await SpraxiumFactory.create({
+    token: process.env.DISCORD_TOKEN!,
+  });
 
   app.intents(IntentPreset.Standard);
 
@@ -92,7 +94,10 @@ export class DrizzleLocaleStore implements I18nStore {
     await this.db
       .insert(localePreferences)
       .values({ userId, locale })
-      .onConflictDoUpdate({ target: localePreferences.userId, set: { locale } });
+      .onConflictDoUpdate({
+        target: localePreferences.userId,
+        set: { locale },
+      });
   }
 
   async getGuild(guildId: string): Promise<string | undefined> {
@@ -108,7 +113,10 @@ export class DrizzleLocaleStore implements I18nStore {
     await this.db
       .insert(guildLocalePreferences)
       .values({ guildId, locale })
-      .onConflictDoUpdate({ target: guildLocalePreferences.guildId, set: { locale } });
+      .onConflictDoUpdate({
+        target: guildLocalePreferences.guildId,
+        set: { locale },
+      });
   }
 }
 ```
@@ -127,23 +135,33 @@ export class PrismaLocaleStore implements I18nStore {
   }
 
   async getUser(userId: string): Promise<string | undefined> {
-    const record = await this.prisma.userLocale.findUnique({ where: { userId } });
+    const record = await this.prisma.userLocale.findUnique({
+      where: { userId },
+    });
     return record?.locale ?? undefined;
   }
 
   async setUser(userId: string, locale: string): Promise<void> {
     await this.prisma.userLocale.upsert({
-      where: { userId }, create: { userId, locale }, update: { locale }, });
+      where: { userId },
+      create: { userId, locale },
+      update: { locale },
+    });
   }
 
   async getGuild(guildId: string): Promise<string | undefined> {
-    const record = await this.prisma.guildLocale.findUnique({ where: { guildId } });
+    const record = await this.prisma.guildLocale.findUnique({
+      where: { guildId },
+    });
     return record?.locale ?? undefined;
   }
 
   async setGuild(guildId: string, locale: string): Promise<void> {
     await this.prisma.guildLocale.upsert({
-      where: { guildId }, create: { guildId, locale }, update: { locale }, });
+      where: { guildId },
+      create: { guildId, locale },
+      update: { locale },
+    });
   }
 }
 ```
@@ -174,7 +192,7 @@ export class TypeORMLocaleStore implements I18nStore {
 
   async init(): Promise<void> {
     await this.dataSource.synchronize();
-    this.users  = this.dataSource.getRepository(UserLocale);
+    this.users = this.dataSource.getRepository(UserLocale);
     this.guilds = this.dataSource.getRepository(GuildLocale);
   }
 
@@ -268,7 +286,10 @@ export class LocaleHandler {
     await this.i18n.setUserLocale(userId, locale);
 
     const confirmation = await this.i18n.tUser(
-      userId, 'commands.locale.changed', { locale }, );
+      userId,
+      'commands.locale.changed',
+      { locale },
+    );
 
     await interaction.reply({ content: confirmation, ephemeral: true });
   }
@@ -317,7 +338,11 @@ import { I18nStoreRegistry } from '@spraxium/i18n';
 import { vi } from 'vitest';
 
 const mockStore = {
-  init: vi.fn().mockResolvedValue(undefined), getUser: vi.fn().mockResolvedValue('pt-BR'), setUser: vi.fn().mockResolvedValue(undefined), getGuild: vi.fn().mockResolvedValue(undefined), setGuild: vi.fn().mockResolvedValue(undefined),
+  init: vi.fn().mockResolvedValue(undefined),
+  getUser: vi.fn().mockResolvedValue('pt-BR'),
+  setUser: vi.fn().mockResolvedValue(undefined),
+  getGuild: vi.fn().mockResolvedValue(undefined),
+  setGuild: vi.fn().mockResolvedValue(undefined),
 };
 
 beforeEach(() => {

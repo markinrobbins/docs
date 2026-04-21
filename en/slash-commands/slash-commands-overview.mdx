@@ -32,10 +32,15 @@ This separation yields three practical benefits. First, the schema class becomes
 import { SlashCommand, SlashOption } from '@spraxium/common';
 
 @SlashCommand({
-  name: 'ping', description: 'Check bot latency or ping a specific service.', })
+  name: 'ping',
+  description: 'Check bot latency or ping a specific service.',
+})
 export class PingCommand {
   @SlashOption.String('service', {
-    description: 'Service to check latency for', required: false, autocomplete: true, })
+    description: 'Service to check latency for',
+    required: false,
+    autocomplete: true,
+  })
   build() {}
 }
 ```
@@ -49,7 +54,9 @@ import { PingCommand } from '../commands/ping.command';
 @SlashCommandHandler(PingCommand)
 export class PingHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('service') service: string | null, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('service') service: string | null,
+  ): Promise<void> {
     const ws = interaction.client.ws.ping;
     if (service) {
       await interaction.reply(`Service: ${service}, Latency: ${ws}ms`);
@@ -75,7 +82,9 @@ import { PingServiceAutocomplete } from './handlers/ping-service.autocomplete';
 import { BanHandler } from './handlers/ban.handler';
 
 @Module({
-  commands: [PingCommand, BanCommand], handlers: [PingHandler, PingServiceAutocomplete, BanHandler], })
+  commands: [PingCommand, BanCommand],
+  handlers: [PingHandler, PingServiceAutocomplete, BanHandler],
+})
 export class SlashModule {}
 ```
 

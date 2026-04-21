@@ -143,7 +143,10 @@ import { Logger } from '@spraxium/core';
 const logger = new Logger('PaymentService');
 
 logger.log('payment', 'Charge processed', {
-  userId: '123456789', amount: 4999, currency: 'USD', });
+  userId: '123456789',
+  amount: 4999,
+  currency: 'USD',
+});
 ```
 
 The metadata keys become available as `{{key}}` placeholders in Discord embed templates. If you configure a Discord transport for the `payment` level, you can use `{{userId}}`, `{{amount}}`, and `{{currency}}` directly in the embed title, description, or fields. Any metadata key not referenced in a template is silently ignored by the transport.

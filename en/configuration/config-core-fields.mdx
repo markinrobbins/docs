@@ -105,8 +105,15 @@ The *logger* block controls output policy for the built-in logger. It does not a
 import type { SpraxiumLoggerConfig } from '@spraxium/core';
 
 export const loggerConfig: SpraxiumLoggerConfig = {
-  maskTokens: true, commandLogging: true, discord: {
-    type: 'channel', webhookUrl: process.env.LOGGER_WEBHOOK!, levels: ['error', 'warn'], channelId: '1462519588775395429', }, };
+  maskTokens: true,
+  commandLogging: true,
+  discord: {
+    type: 'channel',
+    webhookUrl: process.env.LOGGER_WEBHOOK!,
+    levels: ['error', 'warn'],
+    channelId: '1462519588775395429',
+  },
+};
 ```
 
 ## plugins

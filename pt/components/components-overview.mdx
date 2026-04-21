@@ -24,8 +24,14 @@ import { defineComponents } from '@spraxium/components';
 
 export const componentsPlugin = defineComponents({
   context: {
-    storage: 'memory', defaultTtl: 300, }, errorMessages: {
-    expired: 'This interaction has expired.', restricted: 'You are not allowed to use this component.', }, });
+    storage: 'memory',
+    defaultTtl: 300,
+  },
+  errorMessages: {
+    expired: 'This interaction has expired.',
+    restricted: 'You are not allowed to use this component.',
+  },
+});
 ```
 
 O campo *context.storage* seleciona o backend de persistência para flow contexts. Quatro adaptadores estão disponíveis: `'memory'` para desenvolvimento, `'filesystem'` para bots de instância única, `'redis'` para implantações multi-instância e `'sqlite'` para persistência leve. O campo *defaultTtl* define a expiração em segundos para contextos que não especificam seu próprio TTL.
@@ -79,7 +85,10 @@ Essa separação significa que a mesma definição de componente pode ter handle
 import { Button } from '@spraxium/components';
 
 @Button({
-  customId: 'confirm-action', label: 'Confirm', style: 'success', })
+  customId: 'confirm-action',
+  label: 'Confirm',
+  style: 'success',
+})
 export class ConfirmButton {}
 ```
 </Tab>
@@ -108,7 +117,8 @@ import { Module } from '@spraxium/core';
 import { ConfirmButtonHandler } from './confirm.handler';
 
 @Module({
-  handlers: [ConfirmButtonHandler], })
+  handlers: [ConfirmButtonHandler],
+})
 export class ConfirmModule {}
 ```
 

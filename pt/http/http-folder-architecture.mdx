@@ -79,7 +79,14 @@ Entender o que cada diretório controla previne vazamentos de responsabilidade e
 <CodeTabs defaultIndex={0}>
   <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
 ```typescript filename="http/controllers/guild-http.controller.ts"
-import { HttpController, HttpGet, HttpParam, HttpPatch, HttpBody, HttpStatus } from '@spraxium/http';
+import {
+  HttpController,
+  HttpGet,
+  HttpParam,
+  HttpPatch,
+  HttpBody,
+  HttpStatus,
+} from '@spraxium/http';
 import { NotFoundError } from '@spraxium/http';
 import { GuildHttpService } from '../services/guild-http.service';
 import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
@@ -98,7 +105,9 @@ export class GuildHttpController {
   @HttpPatch('/:guildId/config')
   @HttpStatus(200)
   async updateConfig(
-    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
+    @HttpParam('guildId') guildId: string,
+    @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+  ) {
     return this.service.updateConfig(guildId, body);
   }
 }
@@ -117,7 +126,11 @@ export class GuildHttpService {
   async getGuildSummary(guildId: string) {
     const guild = await this.bridge.getGuild(guildId);
     if (!guild) return null;
-    return { guildId: guild.id, name: guild.name, memberCount: guild.memberCount };
+    return {
+      guildId: guild.id,
+      name: guild.name,
+      memberCount: guild.memberCount,
+    };
   }
 
   async updateConfig(guildId: string, dto: UpdateGuildConfigDto) {

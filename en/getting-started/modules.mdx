@@ -65,7 +65,8 @@ import { AnalyticsModule } from '@spraxium/analytics';
 import { ModuleNameModule } from './modules/module-name/module-name.module';
 
 @Module({
-  imports: [AnalyticsModule, ModuleNameModule], })
+  imports: [AnalyticsModule, ModuleNameModule],
+})
 export class AppModule {}
 ```
 
@@ -106,7 +107,9 @@ import { AnalyticsService } from './analytics.service';
 
 @Global()
 @Module({
-  providers: [AnalyticsService], exports: [AnalyticsService], })
+  providers: [AnalyticsService],
+  exports: [AnalyticsService],
+})
 export class AnalyticsModule {}
 ```
 

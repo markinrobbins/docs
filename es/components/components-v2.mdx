@@ -53,7 +53,12 @@ Los nombres de las propiedades en la clase de schema no importan en runtime. Sol
   <Tab label="Schema">
 ```typescript filename="src/schemas/user-profile.container.ts"
 import {
-  V2Container, V2Separator, V2Section, V2Text, desc, } from '@spraxium/components';
+  V2Container,
+  V2Separator,
+  V2Section,
+  V2Text,
+  desc,
+} from '@spraxium/components';
 
 export interface UserProfileData {
   username: string;
@@ -74,14 +79,23 @@ export class UserProfileContainer {
   @V2Section({
     text: (data: UserProfileData) =>
       [
-        `**ID:** \`${data.userId}\``, `**Se unió:** <t:${Math.floor(data.joinedAt / 1000)}:R>`, `**Bio:** ${data.bio}`, ].join('\n'), thumbnail: {
-      url: (data: UserProfileData) => data.avatarUrl, description: 'Avatar del usuario', }, })
+        `**ID:** \`${data.userId}\``,
+        `**Se unió:** <t:${Math.floor(data.joinedAt / 1000)}:R>`,
+        `**Bio:** ${data.bio}`,
+      ].join('\n'),
+    thumbnail: {
+      url: (data: UserProfileData) => data.avatarUrl,
+      description: 'Avatar del usuario',
+    },
+  })
   stats!: never;
 
   @V2Separator({ divider: false })
   spacer!: never;
 
-  @V2Text((data: UserProfileData) => desc().subtext(`Perfil de ${data.username}`))
+  @V2Text((data: UserProfileData) =>
+    desc().subtext(`Perfil de ${data.username}`),
+  )
   footer!: never;
 }
 ```
@@ -92,7 +106,10 @@ import { Ctx, SlashCommandHandler } from '@spraxium/common';
 import { V2Service } from '@spraxium/components';
 import { MessageFlags, type ChatInputCommandInteraction } from 'discord.js';
 import { ProfileCommand } from '../commands/profile.command';
-import { UserProfileContainer, type UserProfileData } from '../schemas/user-profile.container';
+import {
+  UserProfileContainer,
+  type UserProfileData,
+} from '../schemas/user-profile.container';
 
 @SlashCommandHandler(ProfileCommand)
 export class ProfileHandler {
@@ -102,12 +119,19 @@ export class ProfileHandler {
     const user = interaction.user;
 
     const data: UserProfileData = {
-      username: user.username, userId: user.id, joinedAt: user.createdTimestamp, avatarUrl: user.displayAvatarURL({ size: 128 }), bio: 'Sin bio configurada.', };
+      username: user.username,
+      userId: user.id,
+      joinedAt: user.createdTimestamp,
+      avatarUrl: user.displayAvatarURL({ size: 128 }),
+      bio: 'Sin bio configurada.',
+    };
 
     const payload = this.v2.buildReply(UserProfileContainer, data);
 
     await interaction.reply({
-      ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
+      ...payload,
+      flags: payload.flags | MessageFlags.Ephemeral,
+    });
   }
 }
 ```
@@ -139,14 +163,21 @@ export class GreetHandler {
       .sep()
       .section(
         [
-          `**ID:** \`${user.id}\``, `**Antigüedad de la cuenta:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>`, ].join('\n'), this.v2.thumbnail(user.displayAvatarURL({ size: 128 }), {
-          description: `Avatar de ${user.username}`, }), )
+          `**ID:** \`${user.id}\``,
+          `**Antigüedad de la cuenta:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>`,
+        ].join('\n'),
+        this.v2.thumbnail(user.displayAvatarURL({ size: 128 }), {
+          description: `Avatar de ${user.username}`,
+        }),
+      )
       .sep({ divider: false })
       .text(desc().subtext('Desarrollado con Spraxium V2'))
       .toReply();
 
     await interaction.reply({
-      ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
+      ...payload,
+      flags: payload.flags | MessageFlags.Ephemeral,
+    });
   }
 }
 ```
@@ -267,7 +298,14 @@ Un patrón común es generar una o más líneas de texto por entrada de datos e 
 
 ```typescript filename="src/schemas/leaderboard.container.ts"
 import {
-  V2Container, V2Dynamic, V2Separator, V2Text, desc, v2sep, v2text, } from '@spraxium/components';
+  V2Container,
+  V2Dynamic,
+  V2Separator,
+  V2Text,
+  desc,
+  v2sep,
+  v2text,
+} from '@spraxium/components';
 
 export interface LeaderboardEntry {
   username: string;
@@ -298,7 +336,11 @@ export class LeaderboardContainer {
     return data.entries.flatMap((entry, index) => {
       const medal = MEDALS[index] ?? `**${entry.rank}.**`;
       return [
-        v2text(`${medal} **${entry.username}**, ${entry.score.toLocaleString()} pts`), ...(index < data.entries.length - 1 ? [v2sep({ divider: false })] : []), ];
+        v2text(
+          `${medal} **${entry.username}**, ${entry.score.toLocaleString()} pts`,
+        ),
+        ...(index < data.entries.length - 1 ? [v2sep({ divider: false })] : []),
+      ];
     });
   })
   entries!: never;
@@ -306,7 +348,9 @@ export class LeaderboardContainer {
   @V2Separator({ divider: false })
   footer!: never;
 
-  @V2Text((data: LeaderboardData) => desc().subtext(`${data.entries.length} jugadores clasificados`))
+  @V2Text((data: LeaderboardData) =>
+    desc().subtext(`${data.entries.length} jugadores clasificados`),
+  )
   summary!: never;
 }
 ```
@@ -322,7 +366,9 @@ export class LeaderboardHandler {
     const entries: Array<LeaderboardEntry> = await fetchTopPlayers(10);
 
     const payload = this.v2.buildReply(LeaderboardContainer, {
-      title: 'Top Jugadores de la Semana', entries, });
+      title: 'Top Jugadores de la Semana',
+      entries,
+    });
 
     await interaction.reply(payload);
   }
@@ -337,7 +383,12 @@ export class LeaderboardHandler {
 
 ```typescript filename="src/schemas/member-card.container.ts"
 import {
-  V2Container, V2Separator, V2Text, V2When, desc, } from '@spraxium/components';
+  V2Container,
+  V2Separator,
+  V2Text,
+  V2When,
+  desc,
+} from '@spraxium/components';
 
 export interface MemberCardData {
   username: string;
@@ -359,7 +410,9 @@ export class MemberCardContainer {
   adminBadge!: never;
 
   @V2When((data: MemberCardData) => data.boostLevel > 0)
-  @V2Text((data: MemberCardData) => `⭐ **Server Booster**, Nivel ${data.boostLevel}`)
+  @V2Text(
+    (data: MemberCardData) => `⭐ **Server Booster**, Nivel ${data.boostLevel}`,
+  )
   boostBadge!: never;
 
   @V2Text((data: MemberCardData) => data.bio)
@@ -377,12 +430,29 @@ Cuando `isAdmin` es `false`, la fila del emblema de administrador no se renderiz
   <Tab label="Action row de botones">
 ```typescript filename="src/schemas/confirm-panel.container.ts"
 import {
-  Button, LinkButton, V2Container, V2Row, V2Separator, V2Text, desc, } from '@spraxium/components';
+  Button,
+  LinkButton,
+  V2Container,
+  V2Row,
+  V2Separator,
+  V2Text,
+  desc,
+} from '@spraxium/components';
 
-@Button({ customId: 'panel_confirm', label: 'Confirm', style: 'success', emoji: '✅' })
+@Button({
+  customId: 'panel_confirm',
+  label: 'Confirm',
+  style: 'success',
+  emoji: '✅',
+})
 export class ConfirmButton {}
 
-@Button({ customId: 'panel_cancel', label: 'Cancel', style: 'danger', emoji: '✖' })
+@Button({
+  customId: 'panel_cancel',
+  label: 'Cancel',
+  style: 'danger',
+  emoji: '✖',
+})
 export class CancelButton {}
 
 @V2Container({ accentColor: 0xed4245 })
@@ -403,10 +473,19 @@ export class ConfirmPanelContainer {
   </Tab>
   <Tab label="Botón accesorio en sección">
 ```typescript filename="src/schemas/resource-card.container.ts"
-import { LinkButton, V2Container, V2Section, V2Text, desc } from '@spraxium/components';
+import {
+  LinkButton,
+  V2Container,
+  V2Section,
+  V2Text,
+  desc,
+} from '@spraxium/components';
 
 @LinkButton({
-  label: 'Ver Docs', url: 'https://spraxium.dev/guide', emoji: '📖', })
+  label: 'Ver Docs',
+  url: 'https://spraxium.dev/guide',
+  emoji: '📖',
+})
 export class DocsLinkButton {}
 
 export interface ResourceCardData {
@@ -420,7 +499,9 @@ export class ResourceCardContainer {
   title!: never;
 
   @V2Section({
-    text: (data: ResourceCardData) => data.description, button: DocsLinkButton, })
+    text: (data: ResourceCardData) => data.description,
+    button: DocsLinkButton,
+  })
   body!: never;
 }
 ```
@@ -503,7 +584,9 @@ Tanto *buildReply* como el método fluido *.toReply()* retornan un objeto `{ com
 const payload = this.v2.buildReply(MyContainer, data);
 
 await interaction.reply({
-  ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
+  ...payload,
+  flags: payload.flags | MessageFlags.Ephemeral,
+});
 ```
 
 Si necesitas actualizar un mensaje V2 existente, usa *interaction.editReply()* o pasa el payload a *message.edit()* directamente. La flag es necesaria tanto en el envío inicial como en las ediciones posteriores, ya que Discord identifica un mensaje como V2 por la presencia de esa flag.
