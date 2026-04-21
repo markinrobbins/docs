@@ -1,7 +1,7 @@
 ---
-title: "Drivers e Opera\u00e7\u00f5es"
+title: "Drivers e Operações"
 description: |
-  O m\u00f3dulo de schedule suporta drivers plug\u00e1veis para ambientes single-process e distribu\u00eddos.
+  O módulo de schedule suporta drivers plugáveis para ambientes single-process e distribuídos.
   Aprenda a usar o MemoryDriver, RedisScheduleDriver e a API do ScheduleService em runtime.
 order: 3
 category: Schedule
@@ -9,13 +9,13 @@ category: Schedule
 
 ## Por que drivers importam
 
-Em um bot single-process, cada job agendado executa exatamente uma vez porque h\u00e1 apenas uma inst\u00e2ncia do scheduler. Quando voc\u00ea escala para m\u00faltiplos shards ou processos, o mesmo job cron pode disparar simultaneamente em cada inst\u00e2ncia, causando execu\u00e7\u00f5es duplicadas. O sistema de drivers resolve isso introduzindo um mecanismo de lock que garante que apenas uma inst\u00e2ncia adquire o direito de executar um dado job a cada disparo.
+Em um bot single-process, cada job agendado executa exatamente uma vez porque há apenas uma instância do scheduler. Quando você escala para múltiplos shards ou processos, o mesmo job cron pode disparar simultaneamente em cada instância, causando execuções duplicadas. O sistema de drivers resolve isso introduzindo um mecanismo de lock que garante que apenas uma instância adquire o direito de executar um dado job a cada disparo.
 
-Drivers s\u00e3o plug\u00e1veis. Voc\u00ea configura o driver uma vez no config de schedule e o framework cuida do resto de forma transparente. Seus m\u00e9todos de job n\u00e3o precisam saber qual driver est\u00e1 ativo. Isso significa que voc\u00ea pode desenvolver localmente com o *MemoryDriver* e trocar para o *RedisScheduleDriver* em produ\u00e7\u00e3o sem alterar nenhum c\u00f3digo de servi\u00e7o.
+Drivers são plugáveis. Você configura o driver uma vez no config de schedule e o framework cuida do resto de forma transparente. Seus métodos de job não precisam saber qual driver está ativo. Isso significa que você pode desenvolver localmente com o *MemoryDriver* e trocar para o *RedisScheduleDriver* em produção sem alterar nenhum código de serviço.
 
-O modelo de locking \u00e9 otimista. Quando um job dispara, o driver tenta adquirir um lock usando o nome do job como chave. Se o lock \u00e9 adquirido, o job executa. Se outro processo j\u00e1 det\u00e9m o lock, o job \u00e9 silenciosamente ignorado naquela inst\u00e2ncia. O lock possui um TTL configur\u00e1vel que \u00e9 liberado automaticamente ap\u00f3s a janela de execu\u00e7\u00e3o esperada.
+O modelo de locking é otimista. Quando um job dispara, o driver tenta adquirir um lock usando o nome do job como chave. Se o lock é adquirido, o job executa. Se outro processo já detém o lock, o job é silenciosamente ignorado naquela instância. O lock possui um TTL configurável que é liberado automaticamente após a janela de execução esperada.
 
-## Drivers dispon\u00edveis
+## Drivers disponíveis
 
 <Table>
   <TableHead>
@@ -37,19 +37,19 @@ O modelo de locking \u00e9 otimista. Quando um job dispara, o driver tenta adqui
       <TableCell>*RedisScheduleDriver*</TableCell>
       <TableCell>`@spraxium/schedule`</TableCell>
       <TableCell>Redis `SET NX` + Lua release</TableCell>
-      <TableCell>Produ\u00e7\u00e3o multi-shard e multi-processo</TableCell>
+      <TableCell>Produção multi-shard e multi-processo</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Configurando drivers
 
-O *MemoryDriver* padr\u00e3o n\u00e3o requer configura\u00e7\u00e3o. Ele sempre adquire o lock, ent\u00e3o cada job executa sempre que dispara. Esse \u00e9 o comportamento correto para bots single-process.
+O *MemoryDriver* padrão não requer configuração. Ele sempre adquire o lock, então cada job executa sempre que dispara. Esse é o comportamento correto para bots single-process.
 
-Para ambientes distribu\u00eddos, troque para o *RedisScheduleDriver* passando as opções de conex\u00e3o Redis e TTL de lock opcional. O driver usa `SET key NX EX ttl` para adquirir locks atomicamente e um script Lua para liber\u00e1-los com seguran\u00e7a sem race conditions.
+Para ambientes distribuídos, troque para o *RedisScheduleDriver* passando as opções de conexão Redis e TTL de lock opcional. O driver usa `SET key NX EX ttl` para adquirir locks atomicamente e um script Lua para liberá-los com segurança sem race conditions.
 
 <CodeTabs>
-  <Tab label="Mem\u00f3ria (padr\u00e3o)" language="typescript">
+  <Tab label="Memória (padrão)" language="typescript">
 ```typescript filename="config/schedule.config.ts"
 import { defineSchedule } from '@spraxium/schedule';
 
@@ -72,16 +72,16 @@ export default defineSchedule({
 
 ## API do ScheduleService
 
-O *ScheduleService* \u00e9 um provider injet\u00e1vel que oferece controle total em runtime sobre jobs registrados. Injete-o em qualquer servi\u00e7o, command handler ou controller para pausar, retomar, destruir ou acionar manualmente jobs por nome. O servi\u00e7o \u00e9 exportado do *ScheduleModule* global, ent\u00e3o est\u00e1 dispon\u00edvel em todos os m\u00f3dulos sem imports expl\u00edcitos.
+O *ScheduleService* é um provider injetável que oferece controle total em runtime sobre jobs registrados. Injete-o em qualquer serviço, command handler ou controller para pausar, retomar, destruir ou acionar manualmente jobs por nome. O serviço é exportado do *ScheduleModule* global, então está disponível em todos os módulos sem imports explícitos.
 
-Todo m\u00e9todo recebe o *name* do job conforme definido nas op\u00e7\u00f5es do decorator. Se voc\u00ea n\u00e3o definiu um nome expl\u00edcito, o framework usa um nome gerado baseado na classe e no m\u00e9todo. Nomes expl\u00edcitos s\u00e3o fortemente recomendados para qualquer job que voc\u00ea planeja gerenciar em runtime.
+Todo método recebe o *name* do job conforme definido nas opções do decorator. Se você não definiu um nome explícito, o framework usa um nome gerado baseado na classe e no método. Nomes explícitos são fortemente recomendados para qualquer job que você planeja gerenciar em runtime.
 
 <Table>
   <TableHead>
     <TableRow>
-      <TableCell header>M\u00e9todo</TableCell>
+      <TableCell header>Método</TableCell>
       <TableCell header>Retorno</TableCell>
-      <TableCell header>Descri\u00e7\u00e3o</TableCell>
+      <TableCell header>Descrição</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
@@ -120,7 +120,7 @@ Todo m\u00e9todo recebe o *name* do job conforme definido nas op\u00e7\u00f5es d
 
 ## Usando ScheduleService em um comando
 
-Um caso de uso pr\u00e1tico para o *ScheduleService* \u00e9 construir comandos admin que permitem donos de servidor ou administradores do bot controlar tarefas em segundo plano sem reiniciar o bot. O exemplo abaixo mostra um handler de prefix command que pausa ou retoma um job por nome. O mesmo padr\u00e3o funciona com slash commands ou endpoints de dashboard.
+Um caso de uso prático para o *ScheduleService* é construir comandos admin que permitem donos de servidor ou administradores do bot controlar tarefas em segundo plano sem reiniciar o bot. O exemplo abaixo mostra um handler de prefix command que pausa ou retoma um job por nome. O mesmo padrão funciona com slash commands ou endpoints de dashboard.
 
 ```typescript filename="src/modules/admin/handlers/schedule-admin.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';

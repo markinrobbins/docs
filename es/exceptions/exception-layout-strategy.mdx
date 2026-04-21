@@ -96,7 +96,7 @@ Usa el decorator cuando la propia clase de exception debería llevar un layout p
 
 ## Cuando mapear en configuración
 
-Mapea en *spraxium.config.ts* cuando la política de layout esta orientada por decisiones de producto como branding, tono de lenguaje o estrategia específica por entorno. Este es generalmente el mejor default para gobernanza a nivel de aplicación porque centraliza toda la lógica de presentaciÃ³n de error en un lugar, facilitando la gestión de cambios ya que puedes intercambiar la política de layout sin modificar ninguna clase de exception de dominio.
+Mapea en *spraxium.config.ts* cuando la política de layout esta orientada por decisiones de producto como branding, tono de lenguaje o estrategia específica por entorno. Este es generalmente el mejor default para gobernanza a nivel de aplicación porque centraliza toda la lógica de presentación de error en un lugar, facilitando la gestión de cambios ya que puedes intercambiar la política de layout sin modificar ninguna clase de exception de dominio.
 
 <Table variant="striped">
   <TableHead>
@@ -122,7 +122,7 @@ Mapea en *spraxium.config.ts* cuando la política de layout esta orientada por d
 
 ## Cuando usar override por instancia
 
-Usa el override por instancia solo para casos contextuales donde la misma clase de exception necesita renderizar de forma diferente dependiendo de condiciones de runtime. Ejemplos típicos incluyen comunicaciÃ³n temporal de incidentes, migraciones activas o experimentos de feature-flag donde la respuesta de error necesita cambiar sin modificar definiciones de clase o archivos de configuración. Como este nivel tiene la mayor prioridad en la cadena de resolución, tratalo como un camino de excepciÃ³n intencional y documenta por que existe para evitar crear comportamiento implícito que es dificil de rastrear al depurar.
+Usa el override por instancia solo para casos contextuales donde la misma clase de exception necesita renderizar de forma diferente dependiendo de condiciones de runtime. Ejemplos típicos incluyen comunicación temporal de incidentes, migraciones activas o experimentos de feature-flag donde la respuesta de error necesita cambiar sin modificar definiciones de clase o archivos de configuración. Como este nivel tiene la mayor prioridad en la cadena de resolución, tratalo como un camino de excepción intencional y documenta por que existe para evitar crear comportamiento implícito que es dificil de rastrear al depurar.
 
 ## Ejemplo completo con embed personalizado
 

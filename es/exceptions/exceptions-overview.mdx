@@ -11,7 +11,7 @@ category: Exceptions
 
 En Spraxium, las exceptions no sirven solo para interrumpir el flujo de control cuando algo sale mal. Son el mecanismo que transforma tanto fallas técnicas como de dominio en comportamiento predecible para el usuario y señales operacionales utiles que ayudan a tu equipo a entender que paso y por que. Sin una capa de exceptions estructurada, cada handler termina inventando su propio estilo de respuesta de error, lo que lleva a UX inconsistente, logs ruidosos y resolución de incidentes más lenta en toda la aplicación.
 
-A medida que el bot crece, las fallas dejan de ser casos extremos y pasan a ser parte de la experiencia normal del producto. Los usuarios encontraran negaciones de permisos, lÃ­mites de cooldown, argumentos invÃ¡lidos y recursos no disponibles de forma regular. Una capa dedicada de exceptions asegura que todos estos escenarios produzcan respuestas consistentes, significativas y fáciles de mantener conforme el bot evoluciona con el tiempo.
+A medida que el bot crece, las fallas dejan de ser casos extremos y pasan a ser parte de la experiencia normal del producto. Los usuarios encontraran negaciones de permisos, límites de cooldown, argumentos inválidos y recursos no disponibles de forma regular. Una capa dedicada de exceptions asegura que todos estos escenarios produzcan respuestas consistentes, significativas y fáciles de mantener conforme el bot evoluciona con el tiempo.
 
 ## La clase base SpraxiumException
 
@@ -94,7 +94,7 @@ El framework incluye quince clases de exception que cubren los escenarios más c
 
 <DropdownGroup>
 <Dropdown title="ArgumentException: INVALID_ARGUMENT">
-  Reporta un argumento invÃ¡lido con los valores esperado versus recibido. Esta exception se lanza por el pipeline de parseo de argumentos cuando un argumento de comando falla en la coerción de tipo o validación de restricción. El objeto *props* acepta campos *expected* y *received* para interpolación de placeholders.
+  Reporta un argumento inválido con los valores esperado versus recibido. Esta exception se lanza por el pipeline de parseo de argumentos cuando un argumento de comando falla en la coerción de tipo o validación de restricción. El objeto *props* acepta campos *expected* y *received* para interpolación de placeholders.
 </Dropdown>
 
 <Dropdown title="CommandNotFoundException: COMMAND_NOT_FOUND">
@@ -114,7 +114,7 @@ El framework incluye quince clases de exception que cubren los escenarios más c
 </Dropdown>
 
 <Dropdown title="GuardDeniedException: GUARD_DENIED">
-  Señala que un guard bloqueó la ejecuciÃ³n del comando con una razón opcional. Esta es la exception genérica de negación usada cuando un guard retorna `false` y ninguna exception más específica aplica. El objeto *props* acepta un campo *reason* describiendo por que se denegó el acceso.
+  Señala que un guard bloqueó la ejecución del comando con una razón opcional. Esta es la exception genérica de negación usada cuando un guard retorna `false` y ninguna exception más específica aplica. El objeto *props* acepta un campo *reason* describiendo por que se denegó el acceso.
 </Dropdown>
 
 <Dropdown title="GuildOnlyException: GUILD_ONLY">
@@ -150,13 +150,13 @@ El framework incluye quince clases de exception que cubren los escenarios más c
 </Dropdown>
 
 <Dropdown title="ValidationException: VALIDATION">
-  Reporta un valor de campo invÃ¡lido con el nombre del campo y un mensaje de razón. Usa esta exception para fallas de validación de dominio que ocurren fuera del pipeline de parseo de argumentos. El objeto *props* acepta campos *field* y *reason* para reporte preciso de errores.
+  Reporta un valor de campo inválido con el nombre del campo y un mensaje de razón. Usa esta exception para fallas de validación de dominio que ocurren fuera del pipeline de parseo de argumentos. El objeto *props* acepta campos *field* y *reason* para reporte preciso de errores.
 </Dropdown>
 </DropdownGroup>
 
 ### Usando exceptions built-in
 
-Las exceptions built-in se importan desde *@spraxium/core* y se lanzan con un objeto de props opcional que adjunta contexto al error. El pipeline resuelve el layout basado en el mapeo de configuración, renderiza la respuesta al usuario y registra la falla si la política de logging lo requiere, todo automÃ¡ticamente y sin código adicional en el punto de lanzamiento.
+Las exceptions built-in se importan desde *@spraxium/core* y se lanzan con un objeto de props opcional que adjunta contexto al error. El pipeline resuelve el layout basado en el mapeo de configuración, renderiza la respuesta al usuario y registra la falla si la política de logging lo requiere, todo automáticamente y sin código adicional en el punto de lanzamiento.
 
 ```typescript filename="shop.command.ts"
 import {
@@ -177,7 +177,7 @@ throw new MaintenanceException({
 
 ## Error como contrato, no como accidente
 
-Tratar una exception como contrato significa que cada falla relevante tiene intención explícita detras de ella, en lugar de ser una solución improvisada o una respuesta genérica. En vez de retornar mensajes de error vagos, defines clases de exception y layouts que representan escenarios concretos como permisos insuficientes, violaciones de cooldown, argumentos invÃ¡lidos o recursos no disponibles. Este enfoque crea un vocabulario estable en todo el equipo donde los ingenieros pueden leer código e inmediatamente entender que falló, por que falló y como el usuario debería ser informado.
+Tratar una exception como contrato significa que cada falla relevante tiene intención explícita detras de ella, en lugar de ser una solución improvisada o una respuesta genérica. En vez de retornar mensajes de error vagos, defines clases de exception y layouts que representan escenarios concretos como permisos insuficientes, violaciones de cooldown, argumentos inválidos o recursos no disponibles. Este enfoque crea un vocabulario estable en todo el equipo donde los ingenieros pueden leer código e inmediatamente entender que falló, por que falló y como el usuario debería ser informado.
 
 El objetivo práctico es predictibilidad en todo tu bot. El mismo tipo de falla siempre debería producir la misma clase de exception, el mismo formato de respuesta y la misma señal operacional sin importar donde en el código se origina el error. Cuando ese contrato se mantiene de forma consistente, la depuración se vuelve más rápida, la experiencia del usuario permanece coherente y el equipo puede razonar sobre fallas sin leer cada handler individualmente para entender el comportamiento de error.
 

@@ -2,16 +2,16 @@
 title: Drivers y Operaciones
 description: |
   Comprende los drivers de schedule para bloqueo distribuido y el API de ScheduleService.
-  Cubre MemoryDriver, RedisScheduleDriver y m\u00e9todos de control de jobs en runtime.
+  Cubre MemoryDriver, RedisScheduleDriver y métodos de control de jobs en runtime.
 order: 3
 category: Schedule
 ---
 
 ## Drivers de bloqueo
 
-Cuando ejecutas m\u00faltiples instancias de tu bot (por ejemplo, detr\u00e1s de un balanceador de carga o en shards separados), cada instancia intentar\u00e1 ejecutar cada job planificado. Sin un mecanismo de bloqueo, el mismo job se ejecutar\u00eda m\u00faltiples veces simult\u00e1neamente. Los drivers de schedule resuelven esto adquiriendo un bloqueo temporal antes de cada ejecuci\u00f3n de job, solo la instancia que adquiere el bloqueo ejecuta el job.
+Cuando ejecutas múltiples instancias de tu bot (por ejemplo, detrás de un balanceador de carga o en shards separados), cada instancia intentará ejecutar cada job planificado. Sin un mecanismo de bloqueo, el mismo job se ejecutaría múltiples veces simultáneamente. Los drivers de schedule resuelven esto adquiriendo un bloqueo temporal antes de cada ejecución de job, solo la instancia que adquiere el bloqueo ejecuta el job.
 
-El framework incluye dos drivers. El *MemoryDriver* es el predeterminado y simplemente adquiere siempre el bloqueo, lo que significa que no hay protecci\u00f3n contra ejecuciones duplicadas. Es adecuado para despliegues de instancia \u00fanica donde la ejecuci\u00f3n duplicada no es posible. El *RedisScheduleDriver* usa Redis SET NX con TTL para bloqueo distribuido y scripts Lua para liberaci\u00f3n at\u00f3mica.
+El framework incluye dos drivers. El *MemoryDriver* es el predeterminado y simplemente adquiere siempre el bloqueo, lo que significa que no hay protección contra ejecuciones duplicadas. Es adecuado para despliegues de instancia única donde la ejecución duplicada no es posible. El *RedisScheduleDriver* usa Redis SET NX con TTL para bloqueo distribuido y scripts Lua para liberación atómica.
 
 <Table>
   <TableHead>
@@ -24,20 +24,20 @@ El framework incluye dos drivers. El *MemoryDriver* es el predeterminado y simpl
   <TableBody>
     <TableRow>
       <TableCell>*MemoryDriver*</TableCell>
-      <TableCell>Instancia \u00fanica, desarrollo</TableCell>
+      <TableCell>Instancia única, desarrollo</TableCell>
       <TableCell>Nada</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*RedisScheduleDriver*</TableCell>
-      <TableCell>Multi-instancia, producci\u00f3n</TableCell>
-      <TableCell>Conexi\u00f3n a Redis</TableCell>
+      <TableCell>Multi-instancia, producción</TableCell>
+      <TableCell>Conexión a Redis</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Configuraci\u00f3n de drivers
+## Configuración de drivers
 
-El driver se configura en el archivo de configuraci\u00f3n del schedule. El *MemoryDriver* no necesita par\u00e1metros, funciona inmediatamente. El *RedisScheduleDriver* necesita las opciones de conexión a Redis que proporcionas desde tu capa de infraestructura. Ambos drivers implementan la misma interfaz, as\u00ed que cambiar de uno a otro solo requiere modificar una l\u00ednea de configuraci\u00f3n.
+El driver se configura en el archivo de configuración del schedule. El *MemoryDriver* no necesita parámetros, funciona inmediatamente. El *RedisScheduleDriver* necesita las opciones de conexión a Redis que proporcionas desde tu capa de infraestructura. Ambos drivers implementan la misma interfaz, así que cambiar de uno a otro solo requiere modificar una línea de configuración.
 
 <CodeTabs>
   <Tab label="Memory (predeterminado)" language="typescript">
@@ -49,7 +49,7 @@ export default defineSchedule({
 });
 ```
   </Tab>
-  <Tab label="Redis (producci\u00f3n)" language="typescript">
+  <Tab label="Redis (producción)" language="typescript">
 ```typescript filename="config/schedule.config.ts"
 import { defineSchedule, RedisScheduleDriver } from '@spraxium/schedule';
 
@@ -63,14 +63,14 @@ export default defineSchedule({
 
 ## API de ScheduleService
 
-El *ScheduleService* es la fachada p\u00fablica para el control de jobs en runtime. Puedes inyectarlo en cualquier servicio o handler para pausar, reanudar, destruir o ejecutar manualmente jobs planificados. Todos los m\u00e9todos usan el nombre del job como identificador, que corresponde al campo *name* en las opciones del decorator o al nombre del m\u00e9todo si no se especific\u00f3 un nombre.
+El *ScheduleService* es la fachada pública para el control de jobs en runtime. Puedes inyectarlo en cualquier servicio o handler para pausar, reanudar, destruir o ejecutar manualmente jobs planificados. Todos los métodos usan el nombre del job como identificador, que corresponde al campo *name* en las opciones del decorator o al nombre del método si no se especificó un nombre.
 
 <Table>
   <TableHead>
     <TableRow>
-      <TableCell header>M\u00e9todo</TableCell>
+      <TableCell header>Método</TableCell>
       <TableCell header>Retorna</TableCell>
-      <TableCell header>Descripci\u00f3n</TableCell>
+      <TableCell header>Descripción</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
@@ -92,7 +92,7 @@ El *ScheduleService* es la fachada p\u00fablica para el control de jobs en runti
     <TableRow>
       <TableCell>*get(name)*</TableCell>
       <TableCell>*JobStatus* o `null`</TableCell>
-      <TableCell>Retorna la definici\u00f3n y estado del job</TableCell>
+      <TableCell>Retorna la definición y estado del job</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*getAll()*</TableCell>
@@ -107,9 +107,9 @@ El *ScheduleService* es la fachada p\u00fablica para el control de jobs en runti
   </TableBody>
 </Table>
 
-## Comando de administraci\u00f3n de ejemplo
+## Comando de administración de ejemplo
 
-Un caso de uso com\u00fan es exponer el control de jobs a trav\u00e9s de un prefix command o slash command para que los administradores del bot puedan gestionar jobs planificados sin reiniciar el bot. El siguiente ejemplo muestra un handler de prefix command que pausa, reanuda o dispara un job por nombre.
+Un caso de uso común es exponer el control de jobs a través de un prefix command o slash command para que los administradores del bot puedan gestionar jobs planificados sin reiniciar el bot. El siguiente ejemplo muestra un handler de prefix command que pausa, reanuda o dispara un job por nombre.
 
 ```typescript filename="src/modules/admin/handlers/schedule-admin.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';

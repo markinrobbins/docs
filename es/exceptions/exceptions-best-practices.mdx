@@ -28,11 +28,11 @@ export class InsufficientBalanceException extends SpraxiumException {
 }
 ```
 
-La interfaz *props* tipada es importante porque le da a los layouts y al logging acceso a datos estructurados en vez de un string opaco. Cualquier clave en el objeto *props* puede ser interpolada en el *message* usando sintaxis de llaves dobles, y los layouts reciben el objeto *props* completo para que puedan construir embeds ricos, formatear nÃºmeros o mostrar orientación contextual al usuario.
+La interfaz *props* tipada es importante porque le da a los layouts y al logging acceso a datos estructurados en vez de un string opaco. Cualquier clave en el objeto *props* puede ser interpolada en el *message* usando sintaxis de llaves dobles, y los layouts reciben el objeto *props* completo para que puedan construir embeds ricos, formatear números o mostrar orientación contextual al usuario.
 
 ### Lanzando la exception personalizada
 
-Usa la exception personalizada dentro de services, guards o handlers exactamente como cualquier exception built-in. El pipeline resuelve el layout, registra si está configurado y envía la respuesta automÃ¡ticamente sin ningun código extra en el punto de lanzamiento.
+Usa la exception personalizada dentro de services, guards o handlers exactamente como cualquier exception built-in. El pipeline resuelve el layout, registra si está configurado y envía la respuesta automáticamente sin ningun código extra en el punto de lanzamiento.
 
 ```typescript filename="shop.service.ts"
 import { InsufficientBalanceException } from './exceptions/insufficient-balance.exception';
@@ -45,7 +45,7 @@ if (user.balance < item.price) {
 
 ### Vinculando un layout con @WithLayout
 
-Si la exception debe venir con una presentaciÃ³n visual por defecto, vincula un layout usando el decorator `@WithLayout` de *@spraxium/common*. El layout recibe la instancia de la exception con acceso completo a las *props* y el contexto de ejecuciÃ³n, y retorna un payload de respuesta de Discord con embeds, componentes y flags ephemeral.
+Si la exception debe venir con una presentación visual por defecto, vincula un layout usando el decorator `@WithLayout` de *@spraxium/common*. El layout recibe la instancia de la exception con acceso completo a las *props* y el contexto de ejecución, y retorna un payload de respuesta de Discord con embeds, componentes y flags ephemeral.
 
 ```typescript filename="insufficient-balance.exception.ts"
 import { WithLayout } from '@spraxium/common';
@@ -73,7 +73,7 @@ export class InsufficientBalanceException extends SpraxiumException {
 
 ### Controlando respuesta y comportamiento de logging
 
-Cada exception personalizada puede sobreescribir si el pipeline envía una respuesta en Discord y si registra el error en logs. La flag *shouldReply* por defecto es true, lo cual es correcto para fallas orientadas al usuario, y *shouldLog* por defecto es false porque la mayorÃ­a de las exceptions de dominio son comportamiento esperado en vez de incidentes. Sobreescribe esos valores por defecto cuando la exception represente una operación silenciosa o un error interno que debería aparecer en los logs operacionales.
+Cada exception personalizada puede sobreescribir si el pipeline envía una respuesta en Discord y si registra el error en logs. La flag *shouldReply* por defecto es true, lo cual es correcto para fallas orientadas al usuario, y *shouldLog* por defecto es false porque la mayoría de las exceptions de dominio son comportamiento esperado en vez de incidentes. Sobreescribe esos valores por defecto cuando la exception represente una operación silenciosa o un error interno que debería aparecer en los logs operacionales.
 
 ```typescript filename="silent-audit.exception.ts"
 export class SilentAuditException extends SpraxiumException {
@@ -130,7 +130,7 @@ Lanzar exceptions genéricas para cada escenario puede parecer más rápido al p
 
 <Steps>
   <Step title="Modelar clases por política de negocio">
-    Crea clases de exception alineadas con reglas reales de producto y escenarios orientados al usuario en lugar de layout de archivos o detalles temporales de implementaciÃ³n. Cada clase debería representar una categoría de falla significativa que el equipo pueda referenciar consistentemente en code reviews, dashboards de monitoreo e informes de incidentes.
+    Crea clases de exception alineadas con reglas reales de producto y escenarios orientados al usuario en lugar de layout de archivos o detalles temporales de implementación. Cada clase debería representar una categoría de falla significativa que el equipo pueda referenciar consistentemente en code reviews, dashboards de monitoreo e informes de incidentes.
   </Step>
   <Step title="Mapear layouts en el config central">
     Manten el comportamiento orientado al usuario estable para cualquier command o listener que pueda emitir la misma familia de falla. Centralizar mapeos de layout en *spraxium.config.ts* asegura que la misma clase de exception siempre renderice de la misma forma, sin importar que modulo la lance.
